@@ -1,0 +1,46 @@
+﻿[dotenv@17.2.3] injecting env (10) from .env -- tip: ÔÜÖ´©Å  enable debug logging with { debug: true }
+­ƒº¬ === TEST 5 MENSAJES ===
+
+­ƒæñ Lead: Consultorio Dr. Garc├¡a
+
+­ƒÄ» [ADVANCED] Cat: salud | Generados: 5
+­ƒôØ Mensajes generados:
+   1´©ÅÔâú Saludo: "Hola Consultorio, ┬┐c├│mo est├ís? Vi tu local Consultorio Dr. G..."
+   2´©ÅÔâú Nexte: "Trabajamos con +200 negocios en Argentina y 5 pa├¡ses m├ís...."
+   3´©ÅÔâú Promo: "­ƒöÑ Ofertas limitadas 2025:
+ÔÇó Web profesional $20k + dominio
+..."
+   4´©ÅÔâú Servicios: "­ƒÆ╝ En Nexte ofrecemos:
+ÔÇó Web profesional responsive
+ÔÇó SEO t├®..."
+   5´©ÅÔâú CTA: "ÔÅ░ ┬┐Cu├índo pod├®s hablar? Yo tengo disponibilidad hoy hasta las 19hs."
+
+­ƒô¿ MENSAJES COMPLETOS:
+
+============================================================
+MENSAJE 1/5:
+Hola Consultorio, ┬┐c├│mo est├ís? Vi tu local Consultorio Dr. Garc├¡a en internet. Una web te permite mostrar especialidades y equipo.
+============================================================
+MENSAJE 2/5:
+Trabajamos con +200 negocios en Argentina y 5 pa├¡ses m├ís.
+============================================================
+MENSAJE 3/5:
+­ƒöÑ Ofertas limitadas 2025:
+ÔÇó Web profesional $20k + dominio
+ÔÇó Medici├│n completa lista $75k
+ÔÇó CM 3 meses $75k/mes c/u
+============================================================
+MENSAJE 4/5:
+­ƒÆ╝ En Nexte ofrecemos:
+ÔÇó Web profesional responsive
+ÔÇó SEO t├®cnico y contenidos
+ÔÇó Campa├▒as Google Ads
+ÔÇó Campa├▒as Facebook/Instagram
+ÔÇó Dise├▒o de marca
+ÔÇó Desarrollo de software
+============================================================
+MENSAJE 5/5:
+ÔÅ░ ┬┐Cu├índo pod├®s hablar? Yo tengo disponibilidad hoy hasta las 19hs.
+
+============================================================
+Ô£à Total: 5 mensajes generados

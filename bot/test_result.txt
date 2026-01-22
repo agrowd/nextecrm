@@ -1,0 +1,151 @@
+﻿[dotenv@17.2.3] injecting env (10) from .env -- tip: ­ƒæÑ sync secrets across teammates & machines: https://dotenvx.com/ops
+­ƒº¬ === TEST DE GENERACI├ôN DE MENSAJES ===
+
+­ƒôï Lead de prueba: NC Kinesiolog├¡a Deportiva - Noelia C├íceres
+­ƒñû Generando 4 mensajes con Gemini 2.5-flash...
+
+­ƒñû [GEMINI] Generando 4 mensajes de enganche para NC Kinesiolog├¡a Deportiva - Noelia C├íceres
+­ƒöä Intentando fallback HTTP...
+node : Error SDK Gemini 
+mensaje 1: 
+[GoogleGenerativeAI Error]: 
+Error fetching from https://
+generativelanguage.googleapi
+s.com/v1beta/models/gemini-2
+.5-flash:generateContent: 
+[429 Too Many Requests] You 
+exceeded your current 
+quota, please check your 
+plan and billing details. 
+For more information on 
+this error, head to: https:/
+/ai.google.dev/gemini-api/do
+cs/rate-limits. To monitor 
+your current usage, head 
+to: 
+https://ai.dev/rate-limit. 
+En línea: 1 Carácter: 1
++ node 
+test_message_length.js 2>&1 
+| Out-File -Encoding utf8 
+test_resul ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~
+    + CategoryInfo          
+    : NotSpecified: (Error  
+   SDK Gemin...ev/rate-li   
+ mit. :String) [], Remot    
+eException
+    + FullyQualifiedErrorId 
+    : NativeCommandError
+ 
+* Quota exceeded for 
+metric: generativelanguage.g
+oogleapis.com/generate_conte
+nt_free_tier_requests, 
+limit: 20, model: 
+gemini-2.5-flash
+Please retry in 
+19.201537029s. [{"@type":"ty
+pe.googleapis.com/google.rpc
+.Help","links":[{"descriptio
+n":"Learn more about Gemini 
+API quotas","url":"https://a
+i.google.dev/gemini-api/docs
+/rate-limits"}]},{"@type":"t
+ype.googleapis.com/google.rp
+c.QuotaFailure","violations"
+:[{"quotaMetric":"generative
+language.googleapis.com/gene
+rate_content_free_tier_reque
+sts","quotaId":"GenerateRequ
+estsPerDayPerProjectPerModel
+-FreeTier","quotaDimensions"
+:{"location":"global","model
+":"gemini-2.5-flash"},"quota
+Value":"20"}]},{"@type":"typ
+e.googleapis.com/google.rpc.
+RetryInfo","retryDelay":"19s
+"}]
+Error Gemini mensaje 2: 
+[GoogleGenerativeAI Error]: 
+Error fetching from https://
+generativelanguage.googleapi
+s.com/v1beta/models/gemini-2
+.5-flash:generateContent: 
+[429 Too Many Requests] You 
+exceeded your current 
+quota, please check your 
+plan and billing details. 
+For more information on 
+this error, head to: https:/
+/ai.google.dev/gemini-api/do
+cs/rate-limits. To monitor 
+your current usage, head 
+to: 
+https://ai.dev/rate-limit. 
+* Quota exceeded for 
+metric: generativelanguage.g
+oogleapis.com/generate_conte
+nt_free_tier_requests, 
+limit: 20, model: 
+gemini-2.5-flash
+Please retry in 
+19.236278635s. [{"@type":"ty
+pe.googleapis.com/google.rpc
+.Help","links":[{"descriptio
+n":"Learn more about Gemini 
+API quotas","url":"https://a
+i.google.dev/gemini-api/docs
+/rate-limits"}]},{"@type":"t
+ype.googleapis.com/google.rp
+c.QuotaFailure","violations"
+:[{"quotaMetric":"generative
+language.googleapis.com/gene
+rate_content_free_tier_reque
+sts","quotaId":"GenerateRequ
+estsPerDayPerProjectPerModel
+-FreeTier","quotaDimensions"
+:{"location":"global","model
+":"gemini-2.5-flash"},"quota
+Value":"20"}]},{"@type":"typ
+e.googleapis.com/google.rpc.
+RetryInfo","retryDelay":"19s
+"}]
+Ô£à [GEMINI] Secuencia de enganche generada: 4 mensajes totales
+­ƒôè Tokens usados: ~0
+
+Ô£à === MENSAJES GENERADOS ===
+
+­ƒôØ MENSAJE 1:
+   Palabras: 20
+   Caracteres: 119
+   Contenido: "Vi NC Kinesiolog├¡a Deportiva - Noelia C├íceres en Maps. Sin web = 100% dependiente de Google. Te muestro c├│mo cambiarlo."
+
+   Ô£à Mensaje parece completo
+---
+
+­ƒôØ MENSAJE 2:
+   Palabras: 16
+   Caracteres: 101
+   Contenido: "Desde 2015 ayudamos a negocios en 5 pa├¡ses a digitalizar sus operaciones con estrategia y tecnolog├¡a."
+
+   Ô£à Mensaje parece completo
+---
+
+­ƒôØ MENSAJE 3:
+   Palabras: 29
+   Caracteres: 162
+   Contenido: "Dise├▒o Web Profesional + SEO T├®cnico b├ísico. Incluye dominio y hosting. Hoy, si no est├ís en Google con una web r├ípida y optimizada, perdes el 80% de los clientes."
+
+   Ô£à Mensaje parece completo
+---
+
+­ƒôØ MENSAJE 4:
+   Palabras: 18
+   Caracteres: 112
+   Contenido: "Cubrimos todo: SEO T├®cnico, Analytics, y Google/Meta Ads. ┬┐Charlamos 5 min para ver qu├® necesita tu negocio hoy?"
+
+   Ô£à Mensaje parece completo
+---
+

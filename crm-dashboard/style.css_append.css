@@ -1,0 +1,118 @@
+/* MESSAGE EDITOR & ACCORDION */
+.messages-editor-container {
+    padding: 20px 0;
+}
+
+.accordion-item {
+    background-color: var(--sidebar-light);
+    border: 1px solid var(--divider);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+
+.accordion-header {
+    padding: 15px 20px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--sidebar-dark);
+    transition: background 0.3s;
+}
+
+.accordion-header:hover {
+    background-color: #2a3942;
+}
+
+.accordion-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.accordion-content {
+    display: none;
+    padding: 20px;
+    border-top: 1px solid var(--divider);
+}
+
+.accordion-item.active .accordion-content {
+    display: block;
+}
+
+.accordion-item.active .accordion-header {
+    background-color: #2a3942;
+}
+
+.variant-card {
+    background-color: #1a252b;
+    border: 1px solid var(--divider);
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.variant-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.variant-title {
+    font-size: 13px;
+    color: #8696a0;
+    font-weight: 600;
+}
+
+.variant-editor {
+    width: 100%;
+    background-color: #202c33;
+    border: 1px solid #2f3b43;
+    color: white;
+    padding: 10px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    resize: vertical;
+    min-height: 80px;
+    outline: none;
+}
+
+.variant-editor:focus {
+    border-color: var(--accent);
+}
+
+.variant-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.save-variant-btn {
+    background-color: var(--accent);
+    color: white;
+    border: none;
+    padding: 6px 15px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.save-variant-btn:hover {
+    opacity: 0.9;
+}
+
+.save-variant-btn.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}

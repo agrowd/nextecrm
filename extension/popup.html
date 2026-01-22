@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>GMaps Leads Scraper</title>
+  <style>
+    * { box-sizing:border-box;font-family:system-ui,Arial,sans-serif }
+    body { margin:0;background:#f4f6f8;color:#222 }
+    .wrap { width:360px;padding:16px }
+    h1 { margin:0 0 12px;font-size:1.15rem;font-weight:600 }
+    label { display:block;margin:8px 0 4px;font-size:.9rem;font-weight:600 }
+    input { width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px }
+    button { width:100%;padding:10px;margin-top:12px;border:0;border-radius:4px;background:#1976d2;color:#fff;font-weight:700;cursor:pointer }
+    button[disabled] { opacity:.5;cursor:not-allowed }
+    #stopBtn { background:#e74c3c;display:none }
+    #logArea { margin-top:14px;height:160px;padding:8px;background:#111;color:#ddd;font-size:.8rem;border-radius:4px;overflow-y:auto;white-space:pre-line }
+    .card { background:#fff;border-radius:8px;padding:10px;border:1px solid #e0e0e0 }
+    .row { display:flex;align-items:center;gap:8px }
+    .dot { width:10px;height:10px;border-radius:50%;background:#e74c3c;flex:0 0 10px }
+    .dot.ok { background:#2ecc71 }
+    .status-text { font-size:.85rem;color:#555 }
+    .refresh { margin-left:auto;width:36px;height:32px;padding:0;border-radius:6px;background:#2ecc71;color:#fff;font-weight:700 }
+    .subtle { background:#4caf50 }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>GMaps Leads Scraper</h1>
+    <div class="card">
+      <div class="row">
+        <div id="backendDot" class="dot"></div>
+        <div>
+          <div><strong>Backend</strong></div>
+          <div id="backendStatus" class="status-text">Desconectado</div>
+        </div>
+        <button id="backendRefresh" class="refresh" title="Refrescar">R</button>
+      </div>
+    </div>
+    <label>URL del Backend:</label>
+    <input id="backendUrl" placeholder="http://127.0.0.1:3001" />
+    <button id="saveBackendBtn" class="subtle">Guardar URL</button>
+    <label>Rubros (coma):</label>
+    <input id="keywords" placeholder="panadería, peluquería" />
+    <label>Ubicaciones (coma):</label>
+    <input id="locations" placeholder="palermo, belgrano" />
+    <button id="startBtn">Iniciar scraping</button>
+    <button id="stopBtn">Detener scraping</button>
+    <div id="logArea"></div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

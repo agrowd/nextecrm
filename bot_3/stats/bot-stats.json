@@ -1,0 +1,31 @@
+{
+  "totalLeads": 0,
+  "totalMessagesSent": 0,
+  "totalValidLeads": 0,
+  "totalInvalidLeads": 0,
+  "verificationSessions": 0,
+  "successfulSessions": 0,
+  "failedSessions": 0,
+  "timeoutSessions": 0,
+  "messagesByType": {
+    "verification": 0,
+    "sequence": 0,
+    "autoResponse": 0
+  },
+  "humanResponses": 0,
+  "autoResponses": 0,
+  "noResponses": 0,
+  "cacheHits": 0,
+  "cacheMisses": 0,
+  "averageResponseTime": 0,
+  "totalResponseTime": 0,
+  "responseCount": 0,
+  "successRate": 0,
+  "messageEfficiency": 0,
+  "cacheEfficiency": 0,
+  "leadHistory": [],
+  "messageHistory": [],
+  "responseHistory": [],
+  "sessionStart": 1769105691380,
+  "lastUpdate": 1769105691380
+}

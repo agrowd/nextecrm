@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' *; img-src 'self' data: *; style-src 'self' 'unsafe-inline' *; font-src 'self' *; script-src 'self' 'unsafe-inline' *;">
+    <title>Nexte CRM</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        .rotating {
+            animation: rotation 2s infinite linear;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        @keyframes rotation {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(359deg);
+            }
+        }
+
+        .action-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .gen-btn {
+            background-color: #00a884;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .gen-btn:hover {
+            background-color: #008f72;
+        }
+
+        .gen-btn .material-icons {
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-wrapper">
+        <!-- 1. MAIN NAVIGATION (Sidebar) -->
+        <nav class="main-nav">
+            <div class="nav-logo" style="display: flex; justify-content: center; padding: 15px 0;">
+                <img src="assets/logo.png" alt="Nexte Logo" style="width: 45px; height: 45px; object-fit: contain;">
+            </div>
+
+            <ul class="nav-items">
+                <li class="nav-item active" data-view="dashboard" title="Dashboard">
+                    <span class="material-icons">dashboard</span>
+                </li>
+                <li class="nav-item" data-view="chats" title="Chats">
+                    <span class="material-icons">chat</span>
+                    <span class="nav-badge hidden" id="globalUnreadCount">0</span>
+                </li>
+                <li class="nav-item" data-view="leads" title="Base de Leads">
+                    <span class="material-icons">people</span>
+                </li>
+                <li class="nav-item" data-view="stats" title="Estadísticas de Scraping">
+                    <span class="material-icons">query_stats</span>
+                </li>
+                <li class="nav-item" data-view="console" title="Consola de Bots">
+                    <span class="material-icons">terminal</span>
+                </li>
+                <li class="nav-item" data-view="settings" title="Configuración de Flota">
+                    <span class="material-icons">settings_suggest</span>
+                </li>
+                <li class="nav-item" data-view="connection" title="Conexión de Bots">
+                    <span class="material-icons">qr_code_2</span>
+                </li>
+                <li class="nav-item" data-view="messages" title="Editar Mensajes">
+                    <span class="material-icons">edit_note</span>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- 2. CONTENT AREA -->
+        <main class="content-area">
+
+            <!-- VISTA 1: DASHBOARD -->
+            <section id="view-dashboard" class="view-section active">
+                <header class="section-header">
+                    <h1>Resumen General</h1>
+                    <button class="refresh-btn" id="refreshStats"><span class="material-icons">refresh</span></button>
+                </header>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #00a884;"><span
+                                class="material-icons">contact_phone</span></div>
+                        <div class="stat-info">
+                            <h3>Contactados</h3>
+                            <p class="stat-value" id="statContacted">-</p>
+                            <span class="stat-sub">Leads procesados</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #25d366;"><span class="material-icons">thumb_up</span>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Interesados</h3>
+                            <p class="stat-value" id="statInterested">-</p>
+                            <span class="stat-sub">Respuestas positivas</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #7e57c2;"><span class="material-icons">send</span>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Msj Enviados</h3>
+                            <p class="stat-value" id="statMessages">-</p>
+                            <span class="stat-sub">Total histórico</span>
+                        </div>
+                    </div>
+                    <div class="stat-card" id="scraperStatusCard" style="border-color: #444;">
+                        <div class="stat-icon" style="background: #333;"><span
+                                class="material-icons">travel_explore</span></div>
+                        <div class="stat-info">
+                            <h3 id="activeScraperLabel">Scraper: Inactivo</h3>
+                            <p class="stat-value" id="scraperCount" style="font-size: 16px;">0 activos</p>
+                            <span class="stat-sub" id="scraperLastKeyword">Búsqueda libre</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- REALTIME STATS - Grandes y prominentes -->
+                <div class="realtime-stats"
+                    style="margin-top: 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
+                    <div class="realtime-stat-card"
+                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 2px solid #00a884; border-radius: 16px; padding: 25px; text-align: center;">
+                        <div style="font-size: 48px; font-weight: 700; color: #00a884; font-family: 'Consolas', monospace;"
+                            id="rtLeadsQueue">-</div>
+                        <div style="font-size: 14px; color: #8696a0; margin-top: 10px;">Leads en Cola</div>
+                        <div style="font-size: 11px; color: #666; margin-top: 5px;">Pendientes + En proceso</div>
+                    </div>
+                    <div class="realtime-stat-card"
+                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 2px solid #7e57c2; border-radius: 16px; padding: 25px; text-align: center;">
+                        <div style="font-size: 48px; font-weight: 700; color: #7e57c2; font-family: 'Consolas', monospace;"
+                            id="rtMessagesToday">-</div>
+                        <div style="font-size: 14px; color: #8696a0; margin-top: 10px;">Mensajes Hoy</div>
+                        <div style="font-size: 11px; color: #25d366; margin-top: 5px;"><span id="rtDelivered">0</span> ✓
+                            entregados | <span id="rtFailed" style="color:#f44336;">0</span> ✗ fallidos</div>
+                    </div>
+                    <div class="realtime-stat-card"
+                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 2px solid #25d366; border-radius: 16px; padding: 25px; text-align: center;">
+                        <div style="font-size: 48px; font-weight: 700; color: #25d366; font-family: 'Consolas', monospace;"
+                            id="rtContactados">-</div>
+                        <div style="font-size: 14px; color: #8696a0; margin-top: 10px;">Contactados Hoy</div>
+                        <div style="font-size: 11px; color: #f44336; margin-top: 5px;"><span id="rtLeadsFailed">0</span>
+                            no llegaron</div>
+                    </div>
+                    <div class="realtime-stat-card"
+                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 2px solid #ff9800; border-radius: 16px; padding: 25px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: 700; color: #ff9800; font-family: 'Consolas', monospace;"
+                            id="rtLastMessage">--:--</div>
+                        <div style="font-size: 14px; color: #8696a0; margin-top: 10px;">Último Mensaje</div>
+                        <div style="font-size: 11px; color: #666; margin-top: 5px;" id="rtLastMessageInfo">Esperando...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PER-BOT DAILY STATS -->
+                <div class="per-bot-stats"
+                    style="margin-top: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                    <div class="bot-daily-card" id="bot1DailyCard"
+                        style="background: #111b21; border: 1px solid #00a88440; border-radius: 10px; padding: 15px; display: flex; align-items: center; gap: 15px;">
+                        <div
+                            style="width: 40px; height: 40px; background: #00a88420; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                            <span style="color: #00a884; font-weight: 700;">B1</span>
+                        </div>
+                        <div>
+                            <div style="font-size: 24px; font-weight: 700; color: #fff;" id="bot1Today">0</div>
+                            <div style="font-size: 11px; color: #8696a0;">mensajes hoy</div>
+                        </div>
+                    </div>
+                    <div class="bot-daily-card" id="bot2DailyCard"
+                        style="background: #111b21; border: 1px solid #7e57c240; border-radius: 10px; padding: 15px; display: flex; align-items: center; gap: 15px;">
+                        <div
+                            style="width: 40px; height: 40px; background: #7e57c220; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                            <span style="color: #7e57c2; font-weight: 700;">B2</span>
+                        </div>
+                        <div>
+                            <div style="font-size: 24px; font-weight: 700; color: #fff;" id="bot2Today">0</div>
+                            <div style="font-size: 11px; color: #8696a0;">mensajes hoy</div>
+                        </div>
+                    </div>
+                    <div class="bot-daily-card" id="bot3DailyCard"
+                        style="background: #111b21; border: 1px solid #ff980040; border-radius: 10px; padding: 15px; display: flex; align-items: center; gap: 15px;">
+                        <div
+                            style="width: 40px; height: 40px; background: #ff980020; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                            <span style="color: #ff9800; font-weight: 700;">B3</span>
+                        </div>
+                        <div>
+                            <div style="font-size: 24px; font-weight: 700; color: #fff;" id="bot3Today">0</div>
+                            <div style="font-size: 11px; color: #8696a0;">mensajes hoy</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-content" style="margin-top: 20px;">
+                    <div class="dashboard-panel">
+                        <h2>Actividad Reciente</h2>
+                        <ul class="activity-list" id="activityList">
+                            <li style="text-align:center; color:#888;">Cargando actividad...</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- BOT STATISTICS PANEL -->
+                <div class="bot-stats-section" style="margin-top: 30px;">
+                    <!-- Time Remaining Counter -->
+                    <div class="time-counter-card"
+                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 1px solid #2f3b43; border-radius: 16px; padding: 30px; margin-bottom: 25px; text-align: center;">
+                        <h2
+                            style="color: #8696a0; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 15px;">
+                            <span class="material-icons"
+                                style="vertical-align: middle; font-size: 18px;">schedule</span>
+                            Tiempo Estimado Restante
+                        </h2>
+                        <div id="timeCounterDisplay"
+                            style="font-size: 64px; font-weight: 700; color: #00a884; font-family: 'Consolas', monospace; text-shadow: 0 0 30px rgba(0, 168, 132, 0.5);">
+                            --:--:--
+                        </div>
+                        <div
+                            style="margin-top: 15px; display: flex; justify-content: center; gap: 30px; color: #8696a0; font-size: 13px;">
+                            <span><span id="pendingLeadsCount">-</span> leads pendientes</span>
+                            <span><span id="activeBotsCount">-</span> bots activos</span>
+                            <span><span id="queuedLeadsCount">-</span> en cola</span>
+                        </div>
+                    </div>
+
+                    <!-- Bot Stats Grid -->
+                    <h3 style="color: #e9edef; margin-bottom: 15px; font-size: 16px;">
+                        <span class="material-icons" style="vertical-align: middle; margin-right: 8px;">smart_toy</span>
+                        Mensajes por Bot
+                    </h3>
+                    <div class="bot-stats-grid" id="botStatsGrid"
+                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                        <!-- Bot cards will be rendered here -->
+                        <div style="color: #8696a0; text-align: center; padding: 20px;">Cargando estadísticas...</div>
+                    </div>
+
+                    <!-- Rejections Section -->
+                    <div class="rejections-section"
+                        style="background: #111b21; border: 1px solid #2f3b43; border-radius: 12px; padding: 20px;">
+                        <h3
+                            style="color: #e9edef; margin-bottom: 15px; font-size: 16px; display: flex; align-items: center; justify-content: space-between;">
+                            <span>
+                                <span class="material-icons"
+                                    style="vertical-align: middle; margin-right: 8px; color: #ef5350;">block</span>
+                                Leads Rechazados
+                            </span>
+                            <span id="totalRejections"
+                                style="background: #ef5350; color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px;">-</span>
+                        </h3>
+                        <div class="rejection-stats-grid"
+                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
+                            <div class="rejection-stat-item"
+                                style="background: #1a2e38; padding: 15px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: 700; color: #ff9800;" id="rejPhoneBounced">-
+                                </div>
+                                <div style="font-size: 11px; color: #8696a0; margin-top: 5px;">Números Rebotados</div>
+                            </div>
+                            <div class="rejection-stat-item"
+                                style="background: #1a2e38; padding: 15px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: 700; color: #f44336;" id="rejPhoneInvalid">-
+                                </div>
+                                <div style="font-size: 11px; color: #8696a0; margin-top: 5px;">Números Inválidos</div>
+                            </div>
+                            <div class="rejection-stat-item"
+                                style="background: #1a2e38; padding: 15px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: 700; color: #9c27b0;" id="rejNoWhatsApp">-
+                                </div>
+                                <div style="font-size: 11px; color: #8696a0; margin-top: 5px;">Sin WhatsApp</div>
+                            </div>
+                            <div class="rejection-stat-item"
+                                style="background: #1a2e38; padding: 15px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: 700; color: #2196f3;" id="rejWithWebsite">-
+                                </div>
+                                <div style="font-size: 11px; color: #8696a0; margin-top: 5px;">Con Sitio Web</div>
+                            </div>
+                        </div>
+                        <!-- Detailed Rejection Reasons -->
+                        <div id="rejectionReasonsList" style="margin-top: 15px; max-height: 150px; overflow-y: auto;">
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- VISTA 2: CHATS -->
+            </section>
+
+            <section id="view-chats" class="view-section">
+                <div class="chat-interface-wrapper">
+                    <aside class="chat-sidebar">
+                        <header class="chat-sidebar-header">
+                            <div class="search-container-chat">
+                                <span class="material-icons search-icon">search</span>
+                                <input type="text" id="searchInput" placeholder="Buscar chat...">
+                            </div>
+                            <div class="filter-buttons-mini">
+                                <button class="filter-btn active" data-filter="all">All</button>
+                                <button class="filter-btn" data-filter="bot_1">B1</button>
+                                <button class="filter-btn" data-filter="bot_2">B2</button>
+                                <button class="filter-btn" data-filter="bot_3">B3</button>
+                            </div>
+                        </header>
+                        <div class="chat-list" id="chatList">
+                            <div class="loading-spinner">Cargando chats...</div>
+                        </div>
+                    </aside>
+
+                    <div class="chat-detail-area" id="chatArea">
+                        <div class="empty-state" id="emptyState">
+                            <div class="empty-state-content">
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/479px-WhatsApp.svg.png"
+                                    alt="WhatsApp" width="80" style="opacity: 0.3; margin-bottom: 20px;">
+                                <h3>Selecciona un chat</h3>
+                            </div>
+                        </div>
+
+                        <div class="active-chat-container hidden" id="activeChatContainer">
+                            <header class="chat-header">
+                                <div class="header-left">
+                                    <div class="chat-avatar"><img src="" id="activeChatAvatar" alt="User"></div>
+                                    <div class="chat-info">
+                                        <h3 id="activeChatName">Nombre</h3>
+                                        <span class="last-seen" id="activeChatPhone">...</span>
+                                    </div>
+                                </div>
+                                <div class="header-right" style="display: flex; align-items: center; gap: 15px;">
+                                    <span class="material-icons"
+                                        style="color: #25d366; font-size: 20px;">whatsapp</span>
+                                    <span class="bot-badge" id="activeChatBotBadge">Bot</span>
+                                </div>
+                            </header>
+                            <div class="messages-container" id="messagesContainer"></div>
+                            <footer class="chat-input-area">
+                                <span class="material-icons">sentiment_satisfied_alt</span>
+                                <div class="input-box"><input type="text" id="chatInput"
+                                        placeholder="Escribe un mensaje...">
+                                </div>
+                                <button id="sendMessageBtn" class="icon-btn"><span
+                                        class="material-icons">send</span></button>
+                            </footer>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- VISTA 3: LEADS -->
+            <section id="view-leads" class="view-section">
+                <header class="section-header">
+                    <h1>Base de Datos de Leads</h1>
+                    <div class="header-actions" style="display: flex; gap: 10px; align-items: center;">
+                        <button onclick="downloadLeadsJSON()" class="action-btn"
+                            style="background: #25d366; display: flex; align-items: center; gap: 5px;">
+                            <span class="material-icons" style="font-size: 18px;">download</span> JSON
+                        </button>
+                        <select id="leadStatusFilter"
+                            style="padding: 8px 12px; background: #202c33; border: 1px solid #2f3b43; color: white; border-radius: 6px;">
+                            <option value="">Todos los estados</option>
+                            <option value="pending">Pendientes</option>
+                            <option value="queued">En cola</option>
+                            <option value="contacted">Contactados</option>
+                            <option value="interested">Interesados</option>
+                            <option value="not_interested">No interesados</option>
+                        </select>
+                        <input type="text" placeholder="Buscar nombre, teléfono o zona..." id="leadSearchInput"
+                            class="table-search" style="width: 250px;">
+                        <button class="refresh-btn" id="refreshLeads"><span
+                                class="material-icons">refresh</span></button>
+                    </div>
+                </header>
+                <div class="table-container">
+                    <table class="leads-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 20%;">Nombre</th>
+                                <th>Teléfono</th>
+                                <th>Zona</th>
+                                <th>Rubro</th>
+                                <th>Estado</th>
+                                <th>Web</th>
+                                <th>Mensajes</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leadsTableBody">
+                            <tr>
+                                <td colspan="8" style="text-align:center;">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div
+                    style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center; color: #8696a0; font-size: 13px;">
+                    <span id="leadsCount">0 leads encontrados</span>
+                    <div id="paginationControls" style="display: flex; align-items: center; gap: 10px;">
+                        <button onclick="changePage(-1)" id="prevPage" class="action-btn"
+                            style="padding: 5px 10px; background: #2a3942;" disabled>Anterior</button>
+                        <span id="pageInfo">Página 1 de 1</span>
+                        <button onclick="changePage(1)" id="nextPage" class="action-btn"
+                            style="padding: 5px 10px; background: #2a3942;">Siguiente</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- LEAD DETAIL MODAL -->
+            <div id="leadDetailModal" class="modal-overlay"
+                style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;">
+                <div class="modal-content"
+                    style="background: #111b21; border-radius: 12px; width: 600px; max-width: 90%; max-height: 85vh; overflow-y: auto; border: 1px solid #2f3b43;">
+                    <div class="modal-header"
+                        style="padding: 20px; border-bottom: 1px solid #2f3b43; display: flex; justify-content: space-between; align-items: center;">
+                        <h2 id="modalLeadName" style="margin: 0; color: #e9edef;">Detalle del Lead</h2>
+                        <button onclick="closeLeadModal()"
+                            style="background: none; border: none; color: #8696a0; cursor: pointer; font-size: 24px;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <div id="modalLeadContent"></div>
+                    </div>
+                    <div class="modal-footer"
+                        style="padding: 15px 20px; border-top: 1px solid #2f3b43; display: flex; gap: 10px; justify-content: flex-end;">
+                        <button onclick="reQueueLead()" class="action-btn"
+                            style="background: #00a884; padding: 8px 16px;">Volver a Cola</button>
+                        <button onclick="remarkLead()" class="action-btn"
+                            style="background: #7e57c2; padding: 8px 16px;">Remarketing</button>
+                        <button onclick="deleteLead()" class="action-btn"
+                            style="background: #f44336; padding: 8px 16px;">Eliminar</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA 5: ESTADÍSTICAS -->
+            <section id="view-stats" class="view-section">
+                <header class="section-header">
+                    <h1>Lugares Scrapeados y Rubros</h1>
+                </header>
+                <div class="stats-grid" id="categoryStatsGrid"></div>
+                <div class="table-container" style="margin-top: 30px;">
+                    <table class="leads-table">
+                        <thead>
+                            <tr>
+                                <th>Rubro</th>
+                                <th>Total</th>
+                                <th>Pendientes</th>
+                                <th>Contactados</th>
+                                <th>Interesados</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoryTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- VISTA 6: CONSOLA -->
+            <section id="view-console" class="view-section">
+                <header class="section-header">
+                    <h1>Consola de Actividad en Vivo</h1>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <span class="scraper-badge offline" id="scraperStatusBadge"
+                            style="background:#222; border:1px solid #444; padding:4px 10px; border-radius:15px; font-size:11px;">Scraper:
+                            Inactivo</span>
+                        <button class="refresh-btn" onclick="clearAllConsoles()"><span
+                                class="material-icons">delete_sweep</span></button>
+                    </div>
+                </header>
+
+                <!-- Console principal (todos los logs juntos) -->
+                <div class="console-section" style="margin-bottom: 15px;">
+                    <div class="console-header" onclick="toggleConsole('main')"
+                        style="background: #1a2e38; padding: 12px 15px; border-radius: 8px 8px 0 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border: 1px solid #2f3b43;">
+                        <span style="font-weight: 600; color: #e9edef;">
+                            <span class="material-icons"
+                                style="vertical-align: middle; margin-right: 8px; font-size: 18px;">terminal</span>
+                            Todos los Logs
+                        </span>
+                        <span class="material-icons console-toggle" id="toggle-main"
+                            style="color: #8696a0;">expand_more</span>
+                    </div>
+                    <div class="console-wrapper" id="console-main"
+                        style="background: #000; border: 1px solid #333; border-top: none; border-radius: 0 0 8px 8px; height: 250px; overflow-y: auto; padding: 15px; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; line-height: 1.6;">
+                        <div class="console-output" id="consoleOutput">
+                            <div class="console-line system" style="color: #666;">-- Esperando logs de los bots... --
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Consolas individuales (colapsadas por defecto) -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                    <!-- Scraper Console -->
+                    <div class="console-section">
+                        <div class="console-header" onclick="toggleConsole('scraper')"
+                            style="background: #1a2e38; padding: 10px 12px; border-radius: 8px 8px 0 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border: 1px solid #2f3b43;">
+                            <span style="font-weight: 600; color: #8696a0; font-size: 13px;">
+                                <span class="material-icons"
+                                    style="vertical-align: middle; margin-right: 6px; font-size: 16px;">travel_explore</span>
+                                Scraper
+                            </span>
+                            <span class="material-icons console-toggle" id="toggle-scraper"
+                                style="color: #666; font-size: 18px;">expand_less</span>
+                        </div>
+                        <div class="console-wrapper collapsed" id="console-scraper"
+                            style="background: #000; border: 1px solid #333; border-top: none; border-radius: 0 0 8px 8px; height: 0; overflow: hidden; padding: 0 15px; font-family: 'Consolas', monospace; font-size: 11px; line-height: 1.5; transition: all 0.3s;">
+                            <div class="console-output" id="consoleScraperOutput"></div>
+                        </div>
+                    </div>
+
+                    <!-- Server Console -->
+                    <div class="console-section">
+                        <div class="console-header" onclick="toggleConsole('server')"
+                            style="background: #1a2e38; padding: 10px 12px; border-radius: 8px 8px 0 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border: 1px solid #2f3b43;">
+                            <span style="font-weight: 600; color: #8696a0; font-size: 13px;">
+                                <span class="material-icons"
+                                    style="vertical-align: middle; margin-right: 6px; font-size: 16px;">dns</span>
+                                Servidor
+                            </span>
+                            <span class="material-icons console-toggle" id="toggle-server"
+                                style="color: #666; font-size: 18px;">expand_less</span>
+                        </div>
+                        <div class="console-wrapper collapsed" id="console-server"
+                            style="background: #000; border: 1px solid #333; border-top: none; border-radius: 0 0 8px 8px; height: 0; overflow: hidden; padding: 0 15px; font-family: 'Consolas', monospace; font-size: 11px; line-height: 1.5; transition: all 0.3s;">
+                            <div class="console-output" id="consoleServerOutput"></div>
+                        </div>
+                    </div>
+
+                    <!-- Bot 1 Console -->
+                    <div class="console-section">
+                        <div class="console-header" onclick="toggleConsole('bot1')"
+                            style="background: #1a2e38; padding: 10px 12px; border-radius: 8px 8px 0 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border: 1px solid #00a88440;">
+                            <span style="font-weight: 600; color: #00a884; font-size: 13px;">
+                                <span class="material-icons"
+                                    style="vertical-align: middle; margin-right: 6px; font-size: 16px;">smart_toy</span>
+                                Bot 1
+                            </span>
+                            <span class="material-icons console-toggle" id="toggle-bot1"
+                                style="color: #666; font-size: 18px;">expand_less</span>
+                        </div>
+                        <div class="console-wrapper collapsed" id="console-bot1"
+                            style="background: #000; border: 1px solid #00a88440; border-top: none; border-radius: 0 0 8px 8px; height: 0; overflow: hidden; padding: 0 15px; font-family: 'Consolas', monospace; font-size: 11px; line-height: 1.5; transition: all 0.3s;">
+                            <div class="console-output" id="consoleBot1Output"></div>
+                        </div>
+                    </div>
+
+                    <!-- Bot 2 Console -->
+                    <div class="console-section">
+                        <div class="console-header" onclick="toggleConsole('bot2')"
+                            style="background: #1a2e38; padding: 10px 12px; border-radius: 8px 8px 0 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border: 1px solid #7e57c240;">
+                            <span style="font-weight: 600; color: #7e57c2; font-size: 13px;">
+                                <span class="material-icons"
+                                    style="vertical-align: middle; margin-right: 6px; font-size: 16px;">smart_toy</span>
+                                Bot 2
+                            </span>
+                            <span class="material-icons console-toggle" id="toggle-bot2"
+                                style="color: #666; font-size: 18px;">expand_less</span>
+                        </div>
+                        <div class="console-wrapper collapsed" id="console-bot2"
+                            style="background: #000; border: 1px solid #7e57c240; border-top: none; border-radius: 0 0 8px 8px; height: 0; overflow: hidden; padding: 0 15px; font-family: 'Consolas', monospace; font-size: 11px; line-height: 1.5; transition: all 0.3s;">
+                            <div class="console-output" id="consoleBot2Output"></div>
+                        </div>
+                    </div>
+
+                    <!-- Bot 3 Console -->
+                    <div class="console-section">
+                        <div class="console-header" onclick="toggleConsole('bot3')"
+                            style="background: #1a2e38; padding: 10px 12px; border-radius: 8px 8px 0 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border: 1px solid #ff980040;">
+                            <span style="font-weight: 600; color: #ff9800; font-size: 13px;">
+                                <span class="material-icons"
+                                    style="vertical-align: middle; margin-right: 6px; font-size: 16px;">smart_toy</span>
+                                Bot 3
+                            </span>
+                            <span class="material-icons console-toggle" id="toggle-bot3"
+                                style="color: #666; font-size: 18px;">expand_less</span>
+                        </div>
+                        <div class="console-wrapper collapsed" id="console-bot3"
+                            style="background: #000; border: 1px solid #ff980040; border-top: none; border-radius: 0 0 8px 8px; height: 0; overflow: hidden; padding: 0 15px; font-family: 'Consolas', monospace; font-size: 11px; line-height: 1.5; transition: all 0.3s;">
+                            <div class="console-output" id="consoleBot3Output"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VISTA 7: CONFIGURACIÓN -->
+            <section id="view-settings" class="view-section">
+                <header class="section-header">
+                    <h1>Configuración de Flota</h1>
+                    <button class="action-btn start-btn" id="saveConfigBtn"
+                        style="width: auto; padding: 10px 25px;">Guardar y
+                        Aplicar</button>
+                </header>
+                <div class="settings-container"
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
+                    <div class="settings-group"
+                        style="background: #111b21; padding: 25px; border-radius: 12px; border: 1px solid #2f3b43;">
+                        <h2 style="font-size: 18px; margin-bottom: 20px;">⏱️ Delays y Tiempos</h2>
+                        <div style="margin-top: 15px;">
+                            <label style="color: #8696a0; font-size: 13px; display: block;">Mínimo (seg)</label>
+                            <input type="number" id="cfgDelayMin"
+                                style="width:100%; padding:12px; background:#202c33; border:1px solid #2f3b43; color:white; border-radius:8px; margin-top:5px; outline: none;">
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <label style="color: #8696a0; font-size: 13px; display: block;">Máximo (seg)</label>
+                            <input type="number" id="cfgDelayMax"
+                                style="width:100%; padding:12px; background:#202c33; border:1px solid #2f3b43; color:white; border-radius:8px; margin-top:5px; outline: none;">
+                        </div>
+                    </div>
+                    <div class="settings-group"
+                        style="background: #111b21; padding: 25px; border-radius: 12px; border: 1px solid #2f3b43;">
+                        <h2 style="font-size: 18px; margin-bottom: 20px;">🧠 Inteligencia Artificial</h2>
+                        <div style="margin-top: 15px;">
+                            <label style="color: #8696a0; font-size: 13px; display: block;">Modelo Gemini</label>
+                            <select id="cfgAiModel"
+                                style="width:100%; padding:12px; background:#202c33; border:1px solid #2f3b43; color:white; border-radius:8px; margin-top:5px; outline: none;">
+                                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                                <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                            </select>
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <label style="color: #8696a0; font-size: 13px; display: block;">Prompt Base</label>
+                            <textarea id="cfgSystemPrompt" placeholder="Instrucciones para la IA..."
+                                style="width:100%; height:100px; padding:12px; background:#202c33; border:1px solid #2f3b43; color:white; border-radius:8px; margin-top:5px; outline: none;"></textarea>
+                        </div>
+                    </div>
+                    <div class="settings-group"
+                        style="background: #111b21; padding: 25px; border-radius: 12px; border: 1px solid #2f3b43;">
+                        <h2 style="font-size: 18px; margin-bottom: 20px;">🛡️ Seguridad y Límites</h2>
+                        <div style="margin-top: 15px;">
+                            <label style="color: #8696a0; font-size: 13px; display: block;">Máximo Leads/Día</label>
+                            <input type="number" id="cfgMaxLeads"
+                                style="width:100%; padding:12px; background:#202c33; border:1px solid #2f3b43; color:white; border-radius:8px; margin-top:5px; outline: none;">
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <label style="color: #8696a0; font-size: 13px; display: block;">Enfriamiento
+                                (min)</label>
+                            <input type="number" id="cfgCoolOff"
+                                style="width:100%; padding:12px; background:#202c33; border:1px solid #2f3b43; color:white; border-radius:8px; margin-top:5px; outline: none;">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VISTA 8: EDITAR MENSAJES -->
+            <section id="view-messages" class="view-section">
+                <header class="section-header">
+                    <h1>Editor de Variantes de Mensajes</h1>
+                    <div class="header-actions">
+                        <span id="templatesStatus" style="font-size: 13px; color: #8696a0; margin-right: 15px;"></span>
+                        <div style="display:flex; gap:10px;">
+                            <input type="file" id="jsonUploadInput" style="display: none;" accept=".json">
+                            <button class="action-btn" onclick="document.getElementById('jsonUploadInput').click()"
+                                style="padding: 6px 12px; font-size: 13px; background: #202c33; border: 1px solid #2f3b43;">
+                                <span class="material-icons"
+                                    style="font-size: 16px; vertical-align: bottom;">upload_file</span> Cargar JSON
+                            </button>
+                            <button class="action-btn" onclick="exportTemplatesJSON()"
+                                style="padding: 6px 12px; font-size: 13px; background: #202c33; border: 1px solid #2f3b43;">
+                                <span class="material-icons"
+                                    style="font-size: 16px; vertical-align: bottom;">download</span> Bajar JSON
+                            </button>
+                            <button class="refresh-btn" id="refreshTemplates"><span
+                                    class="material-icons">refresh</span></button>
+                        </div>
+                    </div>
+                </header>
+                <div class="messages-editor-container" id="messagesAccordion"
+                    style="max-width: 1000px; margin: 0 auto; padding-bottom: 50px;">
+                    <div style="text-align: center; padding: 50px; color: #8696a0;">
+                        <span class="material-icons"
+                            style="font-size: 48px; margin-bottom: 10px;">hourglass_empty</span>
+                        <p>Cargando variantes...</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-connection" class="view-section">
+                <header class="section-header">
+                    <h1>Conexión de Bots</h1>
+                    <div class="header-actions">
+                        <button class="gen-btn" onclick="generateNewBot()">
+                            <span class="material-icons">add_circle</span> Generar Nueva Instancia
+                        </button>
+                    </div>
+                </header>
+                <div class="qr-grid" id="botControlGrid"></div>
+            </section>
+        </main>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

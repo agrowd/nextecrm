@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convertir SVG a PNG - GMaps Scraper</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1a73e8;
+            text-align: center;
+        }
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .icon-item {
+            text-align: center;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            background: #fafafa;
+        }
+        .icon-item:hover {
+            border-color: #1a73e8;
+            background: #f0f8ff;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        button {
+            background: #1a73e8;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1557b0;
+        }
+        .download-all {
+            background: #34a853;
+            margin-top: 20px;
+        }
+        .download-all:hover {
+            background: #2d8f47;
+        }
+        .instructions {
+            background: #e8f0fe;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #1a73e8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ Convertir Iconos SVG a PNG</h1>
+        
+        <div class="instructions">
+            <h3>Instrucciones:</h3>
+            <ol>
+                <li>Haz clic en "Convertir" para cada icono</li>
+                <li>Haz clic derecho en el canvas y "Guardar imagen como..."</li>
+                <li>Guarda como <code>icon16.png</code>, <code>icon48.png</code>, etc.</li>
+                <li>Reemplaza los archivos en la carpeta <code>extension/icons/</code></li>
+                <li>Actualiza el <code>manifest.json</code> para usar .png en lugar de .svg</li>
+            </ol>
+        </div>
+
+        <div class="icon-grid">
+            <div class="icon-item">
+                <h3>Icono 16x16</h3>
+                <canvas id="canvas16" width="16" height="16"></canvas>
+                <br>
+                <button onclick="convertToPNG('icon16.svg', 'canvas16', 16)">Convertir</button>
+                <button onclick="downloadCanvas('canvas16', 'icon16.png')">Descargar</button>
+            </div>
+            
+            <div class="icon-item">
+                <h3>Icono 48x48</h3>
+                <canvas id="canvas48" width="48" height="48"></canvas>
+                <br>
+                <button onclick="convertToPNG('icon48.svg', 'canvas48', 48)">Convertir</button>
+                <button onclick="downloadCanvas('canvas48', 'icon48.png')">Descargar</button>
+            </div>
+            
+            <div class="icon-item">
+                <h3>Icono 128x128</h3>
+                <canvas id="canvas128" width="128" height="128"></canvas>
+                <br>
+                <button onclick="convertToPNG('icon128.svg', 'canvas128', 128)">Convertir</button>
+                <button onclick="downloadCanvas('canvas128', 'icon128.png')">Descargar</button>
+            </div>
+        </div>
+
+        <div style="text-align: center;">
+            <button class="download-all" onclick="convertAll()">Convertir Todos</button>
+        </div>
+    </div>
+
+    <script>
+        async function convertToPNG(svgFile, canvasId, size) {
+            try {
+                const response = await fetch(svgFile);
+                const svgText = await response.text();
+                
+                const canvas = document.getElementById(canvasId);
+                const ctx = canvas.getContext('2d');
+                
+                // Crear imagen desde SVG
+                const img = new Image();
+                const svgBlob = new Blob([svgText], {type: 'image/svg+xml'});
+                const url = URL.createObjectURL(svgBlob);
+                
+                img.onload = function() {
+                    ctx.clearRect(0, 0, size, size);
+                    ctx.drawImage(img, 0, 0, size, size);
+                    URL.revokeObjectURL(url);
+                };
+                
+                img.src = url;
+                
+            } catch (error) {
+                console.error('Error convirtiendo SVG:', error);
+                alert('Error al convertir el SVG. Verifica que los archivos SVG estén en la misma carpeta.');
+            }
+        }
+
+        function downloadCanvas(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function convertAll() {
+            convertToPNG('icon16.svg', 'canvas16', 16);
+            convertToPNG('icon48.svg', 'canvas48', 48);
+            convertToPNG('icon128.svg', 'canvas128', 128);
+        }
+
+        // Convertir automáticamente al cargar la página
+        window.onload = function() {
+            setTimeout(convertAll, 500);
+        };
+    </script>
+</body>
+</html> 
