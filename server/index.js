@@ -57,7 +57,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.socket.io"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.socket.io", "https://cdn.jsdelivr.net"],
       scriptSrcAttr: ["'unsafe-inline'"], // Fix: Allow inline event handlers like onclick
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "blob:", "https:", "*"], // Permitir avatares de WhatsApp
@@ -1646,6 +1646,95 @@ app.get('/messages/stats', async (req, res) => {
   }
 });
 
+// GET /api/stats/advanced - Estadísticas detalladas para gráficos
+app.get('/api/stats/advanced', async (req, res) => {
+  try {
+    const today = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 7);
+
+    // 1. FUNNEL DE CONVERSIÓN
+    const totalLeads = await Lead.countDocuments();
+    const validPhones = await Lead.countDocuments({ phone: { $ne: null, $ne: '' }, phoneInvalid: false });
+    const contacted = await Lead.countDocuments({ messagesSent: { $gt: 0 } });
+    const replied = await Lead.countDocuments({ whatsappResponse: { $ne: null, $ne: '' } });
+    const interested = await Lead.countDocuments({ status: 'interested' });
+
+    // 2. ACTIVIDAD DIARIA (Últimos 7 días) - LEADS
+    const leadsByDay = await Lead.aggregate([
+      { $match: { createdAt: { $gte: sevenDaysAgo } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // 3. ACTIVIDAD DIARIA (Últimos 7 días) - MENSAJES
+    const messagesByDay = await Message.aggregate([
+      { $match: { sentAt: { $gte: sevenDaysAgo } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$sentAt" } },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // 4. TOP CATEGORÍAS
+    const topCategories = await Lead.aggregate([
+      { $match: { category: { $ne: null, $ne: '' } } },
+      { $group: { _id: "$category", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+
+    // 5. SENTIMIENTOS (Estado de Leads)
+    const sentimentStats = await Lead.aggregate([
+      { $group: { _id: "$status", count: { $sum: 1 } } }
+    ]);
+
+    // 6. TOP UBICACIONES
+    const topLocations = await Lead.aggregate([
+      { $match: { location: { $ne: null, $ne: '' } } },
+      { $group: { _id: "$location", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 8 }
+    ]);
+
+    // 7. RENDIMIENTO DE BOTS (Mensajes por Instancia)
+    const botPerf = await Message.aggregate([
+      { $group: { _id: "$instanceId", count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    res.json({
+      success: true,
+      funnel: {
+        total: totalLeads,
+        valid: validPhones,
+        contacted: contacted,
+        replied: replied,
+        interested: interested
+      },
+      timeline: {
+        leads: leadsByDay,
+        messages: messagesByDay
+      },
+      categories: topCategories,
+      sentiments: sentimentStats.reduce((acc, curr) => ({ ...acc, [curr._id]: curr.count }), {}),
+      locations: topLocations,
+      botPerformance: botPerf
+    });
+  } catch (error) {
+    console.error('Error stats advanced:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // --- GESTIÓN DE PLANTILLAS (MENSAJES) ---
 
 // Función para inicializar plantillas desde AdvancedTemplateGenerator
@@ -2966,6 +3055,9 @@ ${keywordList || '• Sin datos'}`;
 
 // Exportar para que los bots puedan usarlo via socket
 // Los bots enviarán mensajes del admin y el server los procesará
+
+// Endpoint moved to line 1648
+
 
 // Iniciar servidor
 server.listen(PORT, () => {

@@ -60,6 +60,7 @@
             font-size: 18px;
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -457,13 +458,74 @@
                 </div>
             </div>
 
-            <!-- VISTA 5: ESTADÍSTICAS -->
+            <!-- VISTA 5: ESTADÍSTICAS AVANZADAS -->
             <section id="view-stats" class="view-section">
                 <header class="section-header">
-                    <h1>Lugares Scrapeados y Rubros</h1>
+                    <h1>Métricas de Performance</h1>
+                    <button class="refresh-btn" onclick="fetchAdvancedStats()"><span
+                            class="material-icons">refresh</span></button>
                 </header>
-                <div class="stats-grid" id="categoryStatsGrid"></div>
-                <div class="table-container" style="margin-top: 30px;">
+
+                <div class="charts-dashboard-grid"
+                    style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px;">
+                    <!-- Timeline Chart -->
+                    <div
+                        style="background: #111b21; padding: 20px; border-radius: 12px; border: 1px solid #2f3b43; grid-column: span 2;">
+                        <h3 style="color: #e9edef; font-size: 16px; margin-bottom: 15px;">Crecimiento (Últimos 7 días)
+                        </h3>
+                        <div style="height: 300px;">
+                            <canvas id="timelineChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Funnel Chart -->
+                    <div style="background: #111b21; padding: 20px; border-radius: 12px; border: 1px solid #2f3b43;">
+                        <h3 style="color: #e9edef; font-size: 16px; margin-bottom: 15px;">Embudo de Conversión</h3>
+                        <div style="height: 250px;">
+                            <canvas id="funnelChart"></canvas>
+                        </div>
+                        <div id="funnelStats"
+                            style="margin-top: 15px; color: #8696a0; font-size: 12px; text-align: center;">
+                            Cargando datos...
+                        </div>
+                    </div>
+
+                    <!-- Categories Chart -->
+                    <div style="background: #111b21; padding: 20px; border-radius: 12px; border: 1px solid #2f3b43;">
+                        <h3 style="color: #e9edef; font-size: 16px; margin-bottom: 15px;">Top 5 Industrias</h3>
+                        <div style="height: 250px;">
+                            <canvas id="categoriesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NEW: EXTRA METRICS ROW -->
+                <div class="charts-dashboard-grid"
+                    style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
+                    <!-- Sentiments/Status -->
+                    <div style="background: #111b21; padding: 20px; border-radius: 12px; border: 1px solid #2f3b43;">
+                        <h3 style="color: #e9edef; font-size: 16px; margin-bottom: 15px;">Estado de Leads</h3>
+                        <div style="height: 200px;">
+                            <canvas id="sentimentChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Geo Locations -->
+                    <div
+                        style="background: #111b21; padding: 20px; border-radius: 12px; border: 1px solid #2f3b43; grid-column: span 2;">
+                        <h3 style="color: #e9edef; font-size: 16px; margin-bottom: 15px;">Top Ubicaciones Scrapeadas
+                        </h3>
+                        <div style="height: 200px;">
+                            <canvas id="locationsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-header" style="margin-top: 30px;">
+                    <h2>Desglose por Rubro</h2>
+                </div>
+                <!-- Reusing existing table logic but styled inside a container -->
+                <div class="table-container">
                     <table class="leads-table">
                         <thead>
                             <tr>

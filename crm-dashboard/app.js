@@ -189,7 +189,7 @@ function switchView(viewId) {
     if (viewId === 'dashboard') fetchStats();
     if (viewId === 'chats') fetchConversations();
     if (viewId === 'leads') fetchLeads();
-    if (viewId === 'stats') fetchCategoryStats();
+    if (viewId === 'stats') fetchAdvancedStats();
     if (viewId === 'settings') fetchBotConfig();
     if (viewId === 'messages') fetchTemplates();
 }
@@ -1286,8 +1286,201 @@ async function deleteLead() {
     } catch (e) { alert('Error: ' + e.message); }
 }
 
-// --- CATEGORY STATS ---
+// --- ADVANCED STATS (CHARTS) ---
+let chartInstances = {};
+
+async function fetchAdvancedStats() {
+    try {
+        const response = await fetch(`${API_URL}/api/stats/advanced`);
+        const data = await response.json();
+        if (data.success) {
+            renderCharts(data);
+            fetchCategoryStats(); // Keep table updated too
+        }
+    } catch (e) { console.error("Error stats advanced:", e); }
+}
+
+function renderCharts(data) {
+    // 1. Timeline Chart
+    const ctxTimeline = document.getElementById('timelineChart').getContext('2d');
+    if (chartInstances.timeline) chartInstances.timeline.destroy();
+
+    chartInstances.timeline = new Chart(ctxTimeline, {
+        type: 'line',
+        data: {
+            labels: data.timeline.leads.map(d => d._id),
+            datasets: [
+                {
+                    label: 'Nuevos Leads',
+                    data: data.timeline.leads.map(d => d.count),
+                    borderColor: '#00a884',
+                    backgroundColor: 'rgba(0, 168, 132, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                },
+                {
+                    label: 'Mensajes Enviados',
+                    data: data.timeline.messages.map(d => d.count),
+                    borderColor: '#25d366',
+                    backgroundColor: 'rgba(37, 211, 102, 0.05)',
+                    borderDash: [5, 5],
+                    tension: 0.4,
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: '#e9edef' } }
+            },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#2f3b43' }, ticks: { color: '#8696a0' } },
+                x: { grid: { display: false }, ticks: { color: '#8696a0' } }
+            }
+        }
+    });
+
+    // 2. Funnel Chart (Horizontal Bar)
+    const ctxFunnel = document.getElementById('funnelChart').getContext('2d');
+    if (chartInstances.funnel) chartInstances.funnel.destroy();
+
+    // Calcular porcentajes
+    const rates = {
+        valid: data.funnel.total > 0 ? Math.round((data.funnel.valid / data.funnel.total) * 100) : 0,
+        contacted: data.funnel.valid > 0 ? Math.round((data.funnel.contacted / data.funnel.valid) * 100) : 0,
+        replied: data.funnel.contacted > 0 ? Math.round((data.funnel.replied / data.funnel.contacted) * 100) : 0,
+        interested: data.funnel.replied > 0 ? Math.round((data.funnel.interested / data.funnel.replied) * 100) : 0
+    };
+
+    chartInstances.funnel = new Chart(ctxFunnel, {
+        type: 'bar',
+        data: {
+            labels: ['Total Leads', 'Nros Válidos', 'Contactados', 'Respondieron', 'Interesados'],
+            datasets: [{
+                label: 'Conversion Funnel',
+                data: [data.funnel.total, data.funnel.valid, data.funnel.contacted, data.funnel.replied, data.funnel.interested],
+                backgroundColor: [
+                    '#202c33',
+                    '#8696a0',
+                    '#00a884',
+                    '#25d366',
+                    '#ffd700'
+                ],
+                borderRadius: 5
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { color: '#2f3b43' }, ticks: { color: '#8696a0' } },
+                y: { grid: { display: false }, ticks: { color: '#e9edef' } }
+            }
+        }
+    });
+
+    // Update text stats
+    const statsDiv = document.getElementById('funnelStats');
+    if (statsDiv) {
+        statsDiv.innerHTML = `
+            <div style="display:flex; justify-content:space-around; width:100%;">
+                <span>📞 Válidos: <b>${rates.valid}%</b></span>
+                <span>💬 Contacto: <b>${rates.contacted}%</b></span>
+                <span>↩️ Respuesta: <b>${rates.replied}%</b></span>
+                <span>⭐ Interés: <b>${rates.interested}%</b></span>
+            </div>
+        `;
+    }
+
+    // 3. Categories Chart (Doughnut)
+    const ctxCat = document.getElementById('categoriesChart').getContext('2d');
+    if (chartInstances.categories) chartInstances.categories.destroy();
+
+    chartInstances.categories = new Chart(ctxCat, {
+        type: 'doughnut',
+        data: {
+            labels: data.categories.map(c => c._id || 'Otros'),
+            datasets: [{
+                data: data.categories.map(c => c.count),
+                backgroundColor: ['#00a884', '#25d366', '#128c7e', '#075e54', '#34b7f1', '#536dfe'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right', labels: { color: '#e9edef' } }
+            }
+        }
+    });
+
+    // 4. Sentiment Chart (Pie)
+    const ctxSent = document.getElementById('sentimentChart').getContext('2d');
+    if (chartInstances.sentiment) chartInstances.sentiment.destroy();
+
+    // Map status to colors
+    const sentData = {
+        'pending': data.sentiments.pending || 0,
+        'contacted': data.sentiments.contacted || 0,
+        'replied': (data.sentiments.interested || 0) + (data.sentiments.not_interested || 0), // Aprox
+        'interested': data.sentiments.interested || 0
+    };
+
+    chartInstances.sentiment = new Chart(ctxSent, {
+        type: 'pie',
+        data: {
+            labels: ['Pendientes', 'Contactados', 'Interesados', 'Otros'],
+            datasets: [{
+                data: [sentData.pending, sentData.contacted, sentData.interested, (data.funnel.total - sentData.pending - sentData.contacted - sentData.interested)],
+                backgroundColor: ['#8696a0', '#00a884', '#ffd700', '#202c33'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#e9edef', boxWidth: 10 } }
+            }
+        }
+    });
+
+    // 5. Locations Chart (Bar)
+    const ctxLoc = document.getElementById('locationsChart').getContext('2d');
+    if (chartInstances.locations) chartInstances.locations.destroy();
+
+    chartInstances.locations = new Chart(ctxLoc, {
+        type: 'bar',
+        data: {
+            labels: data.locations.map(l => l._id),
+            datasets: [{
+                label: 'Leads por Zona',
+                data: data.locations.map(l => l.count),
+                backgroundColor: '#34b7f1',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false }, ticks: { color: '#8696a0', font: { size: 10 } } },
+                y: { display: false }
+            }
+        }
+    });
+}
+
+
+// --- CATEGORY STATS (LEGACY TABLE) ---
 async function fetchCategoryStats() {
+    // Legacy support: kept but called by fetchAdvancedStats now
     try {
         const response = await fetch(`${API_URL}/leads/categories`);
         const data = await response.json();
@@ -1297,14 +1490,9 @@ async function fetchCategoryStats() {
 
 function renderCategoryStats(categories) {
     const tableBody = getEl('categoryTableBody');
-    const grid = getEl('categoryStatsGrid');
-    if (!tableBody || !grid) return;
-    tableBody.innerHTML = ''; grid.innerHTML = '';
-    categories.slice(0, 4).forEach(cat => {
-        grid.insertAdjacentHTML('beforeend', `
-            <div class="stat-card"><div class="stat-icon" style="background: rgba(0, 168, 132, 0.1); color: #00a884;"><span class="material-icons">category</span></div><div class="stat-info"><h3>${cat.keyword || 'Otros'}</h3><div class="stat-value">${cat.count}</div><div class="stat-sub">${cat.contacted} contactados</div></div></div>
-        `);
-    });
+    if (!tableBody) return;
+    tableBody.innerHTML = '';
+    // Grid removed in favor of charts, only updating table
     categories.forEach(cat => {
         tableBody.insertAdjacentHTML('beforeend', `
             <tr><td style="font-weight:600; color:#fff;">${cat.keyword || 'Desconocido'}</td><td>${cat.count}</td><td style="color:#8696a0;">${cat.pending}</td><td style="color:#00a884;">${cat.contacted}</td><td style="color:#25d366;">${cat.interested}</td></tr>
