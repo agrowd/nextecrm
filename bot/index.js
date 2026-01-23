@@ -35,6 +35,7 @@ const IntelligentRateLimiter = require('./services/rateLimiter');
 const HumanBehaviorSimulator = require('./services/humanBehavior');
 const ResponseAnalyzer = require('./services/responseAnalyzer');
 const StealthBrowserManager = require('./services/stealthBrowser');
+const Scheduler = require('./services/scheduler');
 
 class WhatsAppBot {
   constructor() {
@@ -80,6 +81,7 @@ class WhatsAppBot {
     this.rateLimiter = null; // Se inicializa después
     this.behaviorSimulator = new HumanBehaviorSimulator();
     this.responseAnalyzer = new ResponseAnalyzer();
+    this.scheduler = new Scheduler(this.config); // Inicializar scheduler
     this.stealthBrowser = null; // Se inicializa antes de puppeteer
 
     // 📡 Conexión Real-time con el Servidor
@@ -219,6 +221,7 @@ class WhatsAppBot {
       const res = await axios.get(`${this.backendUrl}/bot/config`);
       if (res.data.success && res.data.config) {
         this.config = { ...this.config, ...res.data.config };
+        this.scheduler.updateConfig(this.config); // Actualizar scheduler
         this.log('Configuración remota aplicada correctamente.');
 
         // Aplicar a los servicios que la necesiten
@@ -239,6 +242,7 @@ class WhatsAppBot {
 
     this.socket.on('bot_config_updated', (newConfig) => {
       this.config = { ...this.config, ...newConfig };
+      this.scheduler.updateConfig(this.config); // Actualizar scheduler real-time
       this.log('🔄 Configuración actualizada en tiempo real desde el CRM');
     });
 
@@ -723,6 +727,11 @@ class WhatsAppBot {
         console.error('❌ Error en checkCompletedSessions interval:', error.message);
       }
     }, 60 * 1000);
+
+    // 🏷️ Sincronizar Etiquetas cada 5 minutos
+    setInterval(() => {
+      this.syncTagsWithBackend();
+    }, 5 * 60 * 1000);
   }
 
   // Función para loggear
@@ -741,6 +750,13 @@ class WhatsAppBot {
   }
 
   async processNextLead() {
+    // 0. VERIFICAR SCHEDULER (Horarios y Pausas)
+    const scheduleCheck = this.scheduler.shouldRun();
+    if (!scheduleCheck.shouldRun) {
+      console.log(`⏸️ Scheduler: Pausado (${scheduleCheck.reason}) - Saltando ciclo.`);
+      return;
+    }
+
     // Evitar procesamiento simultáneo
     if (this.isProcessing) {
       console.log('⏳ Ya hay un lead siendo procesado, saltando...');
@@ -2628,6 +2644,47 @@ class WhatsAppBot {
     }
 
     return matrix[str2.length][str1.length];
+  }
+
+  /**
+   * 🏷️ Sincronizar etiquetas de WhatsApp con el CRM
+   */
+  async syncTagsWithBackend() {
+    if (!this.client || !this.isReady) return;
+
+    try {
+      this.log('↻ Sincronizando etiquetas de WhatsApp...');
+      const chats = await this.client.getChats();
+
+      let syncCount = 0;
+      for (const chat of chats) {
+        if (chat.labels && chat.labels.length > 0) {
+          const labels = await this.client.getLabels();
+          const chatLabels = chat.labels.map(lId => {
+            const found = labels.find(l => l.id === lId);
+            return found ? found.name : lId;
+          });
+
+          let newStatus = null;
+          if (chatLabels.some(l => l.toLowerCase().includes('interesad'))) newStatus = 'interested';
+          else if (chatLabels.some(l => l.toLowerCase().includes('no interesa'))) newStatus = 'not_interested';
+          else if (chatLabels.some(l => l.toLowerCase().includes('vendido') || l.toLowerCase().includes('cliente'))) newStatus = 'completed';
+
+          if (newStatus) {
+            axios.post(`${this.backendUrl}/webhooks/whatsapp-status`, {
+              phone: chat.id.user,
+              status: newStatus,
+              tags: chatLabels
+            }).catch(() => { });
+            syncCount++;
+          }
+        }
+      }
+      if (syncCount > 0) this.log(`✅ Sincronizados ${syncCount} leads desde etiquetas WA`);
+
+    } catch (e) {
+      this.log(`⚠️ Error sincronizando etiquetas: ${e.message}`, 'warn');
+    }
   }
 }
 

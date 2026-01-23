@@ -190,7 +190,7 @@ function switchView(viewId) {
     if (viewId === 'chats') fetchConversations();
     if (viewId === 'leads') fetchLeads();
     if (viewId === 'stats') fetchAdvancedStats();
-    if (viewId === 'settings') fetchBotConfig();
+    if (viewId === 'settings') fetchGlobalConfig();
     if (viewId === 'messages') fetchTemplates();
 }
 
@@ -1793,4 +1793,87 @@ function setupDelegatedListeners() {
             toggleVariant(cat, idx, e.target.checked);
         }
     });
+}
+
+// --- CONFIGURACIÓN GLOBAL (Scheduler & Limits) ---
+async function fetchGlobalConfig() {
+    try {
+        const response = await fetch(`${API_URL}/api/config`);
+        const data = await response.json();
+        
+        if (data.success && data.config) {
+            const cfg = data.config;
+            const sched = cfg.schedule || { enabled: false, startTime: '09:00', endTime: '18:00', timezone: 'America/Argentina/Buenos_Aires', randomness: 15, days: [1,2,3,4,5] };
+            const seq = cfg.sequences || { maxMessagesPerDay: 200, coolOffPeriod: 15 };
+            const human = cfg.humanBehavior || { typingSpeed: 1.0 };
+
+            // Hydrate Scheduler
+            const tgl = getEl('schedEnabled'); if(tgl) tgl.checked = sched.enabled;
+            const start = getEl('schedStartTime'); if(start) start.value = sched.startTime;
+            const end = getEl('schedEndTime'); if(end) end.value = sched.endTime;
+            const tz = getEl('schedTimezone'); if(tz) tz.value = sched.timezone;
+            const rnd = getEl('schedRandomness'); if(rnd) { rnd.value = sched.randomness; }
+            const rndVal = getEl('schedRandomVal'); if(rndVal) rndVal.innerText = sched.randomness;
+
+            // Hydrate Limits
+            const max = getEl('limitMaxDaily'); if(max) max.value = seq.maxMessagesPerDay;
+            const maxVal = getEl('limitMaxDailyVal'); if(maxVal) maxVal.innerText = seq.maxMessagesPerDay;
+            
+            const cool = getEl('limitCooloff'); if(cool) cool.value = seq.coolOffPeriod;
+            const coolVal = getEl('limitCooloffVal'); if(coolVal) coolVal.innerText = seq.coolOffPeriod;
+
+            const type = getEl('humanTypingSpeed'); if(type) type.value = human.typingSpeed;
+            const typeVal = getEl('humanTypingVal'); if(typeVal) typeVal.innerText = human.typingSpeed;
+        }
+    } catch (e) {
+        console.error("Error fetching config:", e);
+        alert("Error cargando configuración.");
+    }
+}
+
+async function saveGlobalConfig() {
+    const tgl = getEl('schedEnabled'); 
+    const start = getEl('schedStartTime');
+    const end = getEl('schedEndTime');
+    const tz = getEl('schedTimezone');
+    const rnd = getEl('schedRandomness');
+    
+    const max = getEl('limitMaxDaily');
+    const cool = getEl('limitCooloff');
+    const type = getEl('humanTypingSpeed');
+
+    const newSettings = {
+        schedule: {
+            enabled: tgl ? tgl.checked : false,
+            startTime: start ? start.value : '09:00',
+            endTime: end ? end.value : '18:00',
+            timezone: tz ? tz.value : 'America/Argentina/Buenos_Aires',
+            randomness: rnd ? parseInt(rnd.value) : 15,
+            days: [1,2,3,4,5] // Default Mon-Fri for now
+        },
+        sequences: {
+            maxMessagesPerDay: max ? parseInt(max.value) : 200,
+            coolOffPeriod: cool ? parseInt(cool.value) : 15
+        },
+        humanBehavior: {
+            typingSpeed: type ? parseFloat(type.value) : 1.0,
+            readingSpeed: 1.0
+        }
+    };
+
+    try {
+        const response = await fetch(`${API_URL}/api/config`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ settings: newSettings })
+        });
+        const data = await response.json();
+        if (data.success) {
+            alert("Configuración guardada y sincronizada con la flota.");
+        } else {
+            alert("Error guardando configuración: " + (data.error || 'Desconocido'));
+        }
+    } catch (e) {
+        alert("Error de red al guardar.");
+    }
 }

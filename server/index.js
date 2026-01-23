@@ -1735,6 +1735,54 @@ app.get('/api/stats/advanced', async (req, res) => {
   }
 });
 
+// --- CONFIGURACIÓN GLOBAL ---
+app.get('/api/config', async (req, res) => {
+  try {
+    let config = await Config.findOne({ key: 'global_bot_settings' });
+    if (!config) {
+      config = await Config.create({
+        key: 'global_bot_settings',
+        settings: {} // Defaults applied from Schema
+      });
+    }
+    res.json({ success: true, config: config.settings });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/config', async (req, res) => {
+  try {
+    const { settings } = req.body;
+    const config = await Config.findOneAndUpdate(
+      { key: 'global_bot_settings' },
+      { $set: { settings } },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    // Notificar a todos los bots conectados del cambio
+    io.emit('bot_config_updated', config.settings);
+
+    res.json({ success: true, config: config.settings });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/webhooks/whatsapp-status', async (req, res) => {
+  try {
+    const { phone, status, tags } = req.body;
+    // Lógica para actualizar lead basado en etiquetas o status de WA
+    // Por ahora simple log y update status
+    if (status) {
+      await Lead.updateMany({ phone: { $regex: phone.replace(/\D/g, '') } }, { status });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // --- GESTIÓN DE PLANTILLAS (MENSAJES) ---
 
 // Función para inicializar plantillas desde AdvancedTemplateGenerator
