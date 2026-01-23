@@ -46,7 +46,7 @@ WORKDIR /app
 # Copiar archivos de dependencia primero para cache
 COPY package*.json ./
 COPY bot_2/package*.json ./bot_2/
-# COPY bot_3/package*.json ./bot_3/ 
+COPY bot_3/package*.json ./bot_3/ 
 
 # Instalar dependencias del root
 RUN npm install
