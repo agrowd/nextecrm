@@ -178,9 +178,12 @@
             btn.disabled = true;
 
             try {
-                const response = await fetch('/api/login', {
+                // Configurar URL de API (puerto 8484)
+                const API_URL = `${window.location.protocol}//${window.location.hostname}:8484`;
+                const response = await fetch(`${API_URL}/api/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include', // Importante para sesiones en diferentes puertos
                     body: JSON.stringify({ username, password })
                 });
 

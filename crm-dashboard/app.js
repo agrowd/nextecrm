@@ -1,8 +1,26 @@
-// Configuración para VPS: Frontend (8485) -> Backend (8484)
-// Si estamos en local (localhost), asumimos que el backend puede estar en el mismo o en 8484/3001.
-// Si estamos en producción (IP o dominio), el backend está en el puerto 8484.
 const API_URL = `${window.location.protocol}//${window.location.hostname}:8484`;
 const REFRESH_INTERVAL = 5000;
+
+// Wrapper para fetch que maneja el prefijo /api/, credenciales y redirección a login
+async function fetchAPI(endpoint, options = {}) {
+    // Asegurar que el endpoint empiece con /api/ si no lo tiene
+    const path = endpoint.startsWith('http') ? endpoint : (endpoint.startsWith('/api/') ? endpoint : `/api${endpoint.startsWith('/') ? '' : '/'}${endpoint}`);
+    const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${path}`;
+
+    // Forzar el envío de cookies de sesión
+    options.credentials = 'include';
+
+    const response = await fetch(url, options);
+
+    // Si la respuesta es 401 o contiene loginRequired, redirigir al login
+    if (response.status === 401) {
+        console.warn("Sesión expirada o no autorizada. Redirigiendo a login...");
+        window.location.href = `${API_URL}/login.html`;
+        throw new Error("No autorizado");
+    }
+
+    return response;
+}
 
 // State
 let currentState = {
@@ -198,7 +216,7 @@ function switchView(viewId) {
 // --- DASHBOARD & SCRAPER ---
 async function fetchStats() {
     try {
-        const response = await fetch(`${API_URL}/stats`);
+        const response = await fetchAPI('/stats');
         const data = await response.json();
         if (data.success) {
             const scat = getEl('statContacted'); if (scat) scat.textContent = data.stats.contacted_leads || 0;
@@ -215,7 +233,7 @@ async function fetchStats() {
 // --- REALTIME STATS ---
 async function fetchRealtimeStats() {
     try {
-        const response = await fetch(`${API_URL}/stats/realtime`);
+        const response = await fetchAPI('/stats/realtime');
         const data = await response.json();
         if (data.success) {
             const stats = data.stats;
@@ -269,7 +287,7 @@ async function fetchRealtimeStats() {
 // --- FETCH BOTS ---
 async function fetchBotList() {
     try {
-        const res = await fetch(`${API_URL}/api/bots/list`);
+        const res = await fetchAPI('/bots/list');
         const data = await res.json();
         if (data.success && Array.isArray(data.bots) && data.bots.length > 0) {
             // Actualizar map
@@ -292,7 +310,7 @@ let countdownInterval = null;
 
 async function fetchBotStats() {
     try {
-        const response = await fetch(`${API_URL}/stats/bots`);
+        const response = await fetchAPI('/stats/bots');
         const data = await response.json();
         if (data.success) {
             botStatsData = data.stats;
@@ -538,7 +556,7 @@ function clearAllConsoles() {
 // --- SETTINGS ---
 async function fetchBotConfig() {
     try {
-        const res = await fetch(`${API_URL}/bot/config`);
+        const res = await fetchAPI('/bot/config');
         const data = await res.json();
         if (data.success && data.config) {
             const dMin = getEl('cfgDelayMin'); if (dMin) dMin.value = data.config.delays?.min || 45;
@@ -572,7 +590,7 @@ function setupSettingsListeners() {
         };
 
         try {
-            const res = await fetch(`${API_URL}/bot/config`, {
+            const res = await fetchAPI('/bot/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ settings })
@@ -586,7 +604,7 @@ function setupSettingsListeners() {
 // --- CHATS ---
 async function fetchConversations() {
     try {
-        const response = await fetch(`${API_URL}/conversations?limit=500`);
+        const response = await fetchAPI(`/conversations?limit=500`);
         const data = await response.json();
         if (data.success) {
             processConversations(data.data);
@@ -982,7 +1000,7 @@ async function fetchLeads() {
         if (status) url.searchParams.append('status', status);
         if (term) url.searchParams.append('search', term);
 
-        const response = await fetch(url);
+        const response = await fetchAPI(url.toString());
         const data = await response.json();
 
         if (data.success) {
@@ -1292,7 +1310,7 @@ let chartInstances = {};
 
 async function fetchAdvancedStats() {
     try {
-        const response = await fetch(`${API_URL}/api/stats/advanced`);
+        const response = await fetchAPI('/stats/advanced');
         const data = await response.json();
         if (data.success) {
             renderCharts(data);
@@ -1483,7 +1501,7 @@ function renderCharts(data) {
 async function fetchCategoryStats() {
     // Legacy support: kept but called by fetchAdvancedStats now
     try {
-        const response = await fetch(`${API_URL}/leads/categories`);
+        const response = await fetchAPI('/leads/categories');
         const data = await response.json();
         if (data.success) renderCategoryStats(data.categories);
     } catch (e) { console.error(e); }
@@ -1504,7 +1522,7 @@ function renderCategoryStats(categories) {
 // --- MESSAGE TEMPLATES ---
 async function fetchTemplates() {
     try {
-        const response = await fetch(`${API_URL}/api/templates`);
+        const response = await fetchAPI('/templates');
         const data = await response.json();
         if (data.success) {
             currentState.templates = data.templates;
@@ -1598,7 +1616,7 @@ async function saveVariant(category, index) {
     categoryData.variants[index].content = content;
 
     try {
-        const response = await fetch(`${API_URL}/api/templates/${category}`, {
+        const response = await fetchAPI(`/templates/${category}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ variants: categoryData.variants })
@@ -1628,7 +1646,7 @@ async function toggleVariant(category, index) {
     categoryData.variants[index].isActive = event.target.checked;
 
     try {
-        await fetch(`${API_URL}/api/templates/${category}`, {
+        await fetchAPI(`/templates/${category}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ variants: categoryData.variants })
@@ -1701,7 +1719,7 @@ function importTemplatesJSON(file) {
 
             for (const cat of json) {
                 try {
-                    await fetch(`${API_URL}/api/templates/${cat.category}`, {
+                    await fetchAPI(`/templates/${cat.category}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ variants: cat.variants })
@@ -1887,7 +1905,7 @@ function appendConsoleLog(data) {
 async function startBotProcess(instanceId) {
     if (!confirm(`¿Iniciar ${instanceId}?`)) return;
     try {
-        const response = await fetch(`${API_URL}/api/bot/${instanceId}/start`, { method: 'POST' });
+        const response = await fetchAPI(`/bot/${instanceId}/start`, { method: 'POST' });
         const data = await response.json();
         if (data.success) {
             alert(data.message);
@@ -1905,7 +1923,7 @@ async function startBotProcess(instanceId) {
 async function stopBotProcess(instanceId) {
     if (!confirm(`¿Detener ${instanceId}?`)) return;
     try {
-        const response = await fetch(`${API_URL}/api/bot/${instanceId}/stop`, { method: 'POST' });
+        const response = await fetchAPI(`/bot/${instanceId}/stop`, { method: 'POST' });
         const data = await response.json();
         if (data.success) {
             alert(data.message);
@@ -1922,7 +1940,7 @@ async function stopBotProcess(instanceId) {
 async function deleteBotInstance(instanceId) {
     if (!confirm(`¿ELIMINAR ${instanceId}? Esto borrará sus archivos.`)) return;
     try {
-        const response = await fetch(`${API_URL}/api/bot/${instanceId}`, { method: 'DELETE' });
+        const response = await fetchAPI(`/bot/${instanceId}`, { method: 'DELETE' });
         const data = await response.json();
         if (data.success) {
             alert(data.message);
@@ -1939,7 +1957,7 @@ async function deleteBotInstance(instanceId) {
 async function fetchLogsHistory() {
     console.log('📜 Recuperando historial de logs...');
     try {
-        const response = await fetch(`${API_URL}/api/log-history?limit=100`);
+        const response = await fetchAPI(`/log-history?limit=100`);
         const data = await response.json();
         if (data.success && data.logs) {
             data.logs.forEach(log => {
@@ -1960,7 +1978,7 @@ async function fetchLogsHistory() {
 // --- CONFIGURACIÓN GLOBAL (Scheduler & Limits) ---
 async function fetchGlobalConfig() {
     try {
-        const response = await fetch(`${API_URL}/api/config`);
+        const response = await fetchAPI('/config');
         const data = await response.json();
 
         if (data.success && data.config) {
@@ -2024,7 +2042,7 @@ async function saveGlobalConfig() {
     };
 
     try {
-        const response = await fetch(`${API_URL}/api/config`, {
+        const response = await fetchAPI('/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ settings: newSettings })

@@ -134,8 +134,11 @@ const requireAuth = (req, res, next) => {
   if (req.session && req.session.authenticated) {
     return next();
   }
-  if (req.path.startsWith('/api/')) {
-    return res.status(401).json({ error: 'No autorizado' });
+  // Si es una ruta de API o pide JSON, devolver 401 en lugar de redirigir a HTML
+  if (req.originalUrl.startsWith('/api/') ||
+    req.path.startsWith('/api/') ||
+    req.headers['accept']?.includes('application/json')) {
+    return res.status(401).json({ error: 'No autorizado', loginRequired: true });
   }
   res.redirect('/login.html');
 };
@@ -666,8 +669,8 @@ app.get('/lead/check-messages', async (req, res) => {
   }
 });
 
-// GET /next - Obtener el siguiente lead para el bot de WhatsApp (soporta multi-bot)
-app.get('/next', async (req, res) => {
+// GET /api/next - Obtener el siguiente lead para el bot de WhatsApp (soporta multi-bot)
+app.get('/api/next', async (req, res) => {
   try {
     const instanceId = req.query.instanceId || 'unknown_bot';
     const lead = await Lead.getNextLead(instanceId);
@@ -719,8 +722,8 @@ app.get('/next', async (req, res) => {
   }
 });
 
-// GET /conversations - Obtener historial unificado (CRM)
-app.get('/conversations', async (req, res) => {
+// GET /api/conversations - Obtener historial unificado (CRM)
+app.get('/api/conversations', async (req, res) => {
   try {
     const { page = 1, limit = 50, status, instanceId, sentFromNumber, phone } = req.query;
 
@@ -809,8 +812,8 @@ app.put('/lead/:id/status', async (req, res) => {
   }
 });
 
-// GET /stats - Obtener estadísticas del sistema
-app.get('/stats', async (req, res) => {
+// GET /api/stats - Obtener estadísticas del sistema
+app.get('/api/stats', async (req, res) => {
   try {
     const totalLeads = await Lead.countDocuments();
     const leadsWithPhone = await Lead.countDocuments({ phone: { $exists: true, $ne: '' } });
@@ -853,8 +856,8 @@ app.get('/stats', async (req, res) => {
   }
 });
 
-// GET /stats/bots - Estadísticas detalladas por bot con tiempo estimado y rechazos
-app.get('/stats/bots', async (req, res) => {
+// GET /api/stats/bots - Estadísticas detalladas por bot con tiempo estimado y rechazos
+app.get('/api/stats/bots', async (req, res) => {
   try {
     // 1. Leads pendientes (para calcular tiempo estimado)
     const pendingLeads = await Lead.countDocuments({ status: 'pending' });
@@ -1006,8 +1009,8 @@ app.get('/stats/bots', async (req, res) => {
   }
 });
 
-// GET /stats/realtime - Estadísticas en tiempo real para el dashboard
-app.get('/stats/realtime', async (req, res) => {
+// GET /api/stats/realtime - Estadísticas en tiempo real para el dashboard
+app.get('/api/stats/realtime', async (req, res) => {
   try {
     const now = new Date();
     const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
@@ -1491,8 +1494,8 @@ app.get('/api/bots/list', async (req, res) => {
   }
 });
 
-// GET /stats/realtime - Estadísticas en tiempo real para el dashboard (FIX 305 leads issue)
-app.get('/stats/realtime', async (req, res) => {
+// GET /api/stats/realtime - Estadísticas en tiempo real para el dashboard (FIX 305 leads issue)
+app.get('/api/stats/realtime', async (req, res) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1667,8 +1670,8 @@ app.get('/leads/categories', async (req, res) => {
   }
 });
 
-// GET /json/leads - Obtener leads de la base de datos (con paginación)
-app.get('/json/leads', async (req, res) => {
+// GET /api/json/leads - Obtener leads de la base de datos (con paginación)
+app.get('/api/json/leads', async (req, res) => {
   try {
     const {
       page = 1,
@@ -2030,7 +2033,7 @@ app.post('/api/templates/:category', async (req, res) => {
 });
 
 // --- CONFIGURACIÓN GLOBAL DE BOTS ---
-app.get('/bot/config', async (req, res) => {
+app.get('/api/bot/config', async (req, res) => {
   try {
     let config = await Config.findOne({ key: 'global_bot_settings' });
     if (!config) {
@@ -2043,7 +2046,7 @@ app.get('/bot/config', async (req, res) => {
   }
 });
 
-app.post('/bot/config', async (req, res) => {
+app.post('/api/bot/config', async (req, res) => {
   try {
     const { settings } = req.body;
     let config = await Config.findOne({ key: 'global_bot_settings' });
