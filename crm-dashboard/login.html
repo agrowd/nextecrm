@@ -178,10 +178,8 @@
             btn.disabled = true;
 
             try {
-                // Si ya estamos en el puerto 8484, usar ruta relativa
-                // Si estamos en el 8485, construir la URL de 8484 forzando http
-                const isSamePort = window.location.port === '8484';
-                const apiUrlBase = isSamePort ? '' : `http://${window.location.hostname}:8484`;
+                // Forzar URL absoluta con http:// para evitar que el navegador intente SSL (ERR_SSL_PROTOCOL_ERROR)
+                const apiUrlBase = `http://${window.location.hostname}:8484`;
                 const loginUrl = `${apiUrlBase}/api/login`;
 
                 console.log('📡 Intentando login en:', loginUrl);

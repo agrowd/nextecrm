@@ -63,31 +63,16 @@ const PORT = 8484; // Forzado a 8484 para evitar conflictos con 3001
 const connectedBots = new Map(); // instanceId -> socketId
 const botStatuses = new Map();   // instanceId -> { status, lastSeen, qr }
 
-// 1. CORS - Debe ir antes que Helmet para que los headers de preflight se manejen correctamente
+// 1. CORS - Configuración para permitir credenciales y origen dinámico
 app.use(cors({
   origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 
-// Middleware para asegurar CORS dinámico y manejar OPTIONS (redundancia de seguridad)
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (origin) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
-
-// 2. Helmet - Configuración relajada para entornos IP/HTTP
+/* 
+// 2. Helmet - Desactivado temporalmente para debuggear ERR_SSL_PROTOCOL_ERROR
 app.use(helmet({
   hsts: false,
   crossOriginOpenerPolicy: false,
@@ -105,6 +90,13 @@ app.use(helmet({
     },
   },
 }));
+*/
+
+// Middleware para debuggear headers (opcional)
+app.use((req, res, next) => {
+  // console.log(`[${req.method}] ${req.url} - Origin: ${req.headers.origin}`);
+  next();
+});
 
 // Rate limiting para prevenir spam
 const limiter = rateLimit({
