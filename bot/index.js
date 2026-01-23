@@ -319,7 +319,7 @@ class WhatsAppBot {
     // ✅ CONFIGURACIÓN PUPPETEER ESTABILIZADA
     // Se han eliminado flags experimentales que causaban crashes
     const stealthPuppeteerConfig = {
-      headless: false,
+      headless: process.env.HEADLESS === 'true' ? "new" : false,
       executablePath: process.env.CHROME_PATH || undefined,
       bypassCSP: true, // 🛡️ FIX CRÍTICO: Evita "Execution context was destroyed"
       ignoreHTTPSErrors: true,

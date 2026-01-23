@@ -7,7 +7,8 @@ module.exports = {
                 PORT: 8484,
                 NODE_ENV: "production",
                 MONGODB_URI: "mongodb://localhost:27017/gmaps-leads-scraper",
-                BACKEND_URL: "http://localhost:8484"
+                BACKEND_URL: "http://localhost:8484",
+                HEADLESS: "true"
             }
         },
         {
