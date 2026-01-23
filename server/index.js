@@ -65,20 +65,9 @@ const botStatuses = new Map();   // instanceId -> { status, lastSeen, qr }
 
 // Configuración de seguridad
 app.use(helmet({
+  hsts: false, // IMPORTANTE: Desactivar HSTS para evitar forzar HTTPS
   crossOriginResourcePolicy: { policy: "cross-origin" },
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'", "data:", "*"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.socket.io", "https://cdn.jsdelivr.net"],
-      scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "blob:", "https:", "*"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
-      connectSrc: ["'self'", "https:", "wss:", "*"],
-      mediaSrc: ["'self'", "data:", "blob:", "*"],
-      objectSrc: ["'none'"],
-    },
-  },
+  contentSecurityPolicy: false, // Desactivar CSP momentáneamente para debug si es necesario, o dejarlo muy permisivo
 }));
 
 // Configuración de CORS más permisiva

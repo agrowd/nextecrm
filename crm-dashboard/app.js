@@ -1,4 +1,4 @@
-const API_URL = `${window.location.protocol}//${window.location.hostname}:8484`;
+const API_URL = window.location.port === '8484' ? '' : `http://${window.location.hostname}:8484`;
 const REFRESH_INTERVAL = 5000;
 
 // Wrapper para fetch que maneja el prefijo /api/, credenciales y redirección a login

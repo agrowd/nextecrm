@@ -178,12 +178,18 @@
             btn.disabled = true;
 
             try {
-                // Configurar URL de API (puerto 8484)
-                const API_URL = `${window.location.protocol}//${window.location.hostname}:8484`;
-                const response = await fetch(`${API_URL}/api/login`, {
+                // Si ya estamos en el puerto 8484, usar ruta relativa
+                // Si estamos en el 8485, construir la URL de 8484 forzando http
+                const isSamePort = window.location.port === '8484';
+                const apiUrlBase = isSamePort ? '' : `http://${window.location.hostname}:8484`;
+                const loginUrl = `${apiUrlBase}/api/login`;
+
+                console.log('📡 Intentando login en:', loginUrl);
+
+                const response = await fetch(loginUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include', // Importante para sesiones en diferentes puertos
+                    credentials: 'include',
                     body: JSON.stringify({ username, password })
                 });
 
