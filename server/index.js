@@ -3298,7 +3298,7 @@ ${keywordList || '• Sin datos'}`;
 
 
 // Iniciar servidor
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   log(`🚀 Servidor real-time iniciado en puerto ${PORT}`, 'success', 'server');
   log(`📊 Health check: http://localhost:${PORT}/health`, 'info', 'server');
   log(`📥 Endpoint de ingest: http://localhost:${PORT}/ingest`, 'info', 'server');
