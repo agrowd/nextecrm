@@ -222,18 +222,27 @@ class AdvancedTemplateGenerator {
             "¿Sabías que podemos convertir esa respuesta automática en un asistente virtual que venda por vos? Te ahorraría mucho tiempo de chat."
         ];
 
-        // MSG 4: TODOS LOS SERVICIOS (30 variantes)
+        // MSG 4: TODOS LOS SERVICIOS (Variantes con nuevos servicios solicitados)
         this.serviciosCompletos = [
-            "📋 Lo que hacemos en Nexte:\n• Diseño Web Profesional\n• SEO y Posicionamiento en Google\n• Google Ads y Meta Ads\n• Community Manager\n• Branding y Diseño Gráfico\n• Software a medida",
-            "🔧 Nuestros servicios:\n• Páginas web a medida\n• Tiendas online (e-commerce)\n• Posicionamiento SEO\n• Publicidad digital (Google/Meta)\n• Gestión de redes sociales\n• Apps y sistemas",
-            "💼 En Nexte ofrecemos:\n• Web profesional responsive\n• SEO técnico y contenidos\n• Campañas Google Ads\n• Campañas Facebook/Instagram\n• Diseño de marca\n• Desarrollo de software",
-            "🎯 Servicios Nexte Marketing:\n• Diseño web (landing, institucional, e-commerce)\n• SEO (on-page, off-page, local)\n• Publicidad paga (Google, Meta, LinkedIn)\n• Community management\n• Identidad visual",
-            "⚡ Trabajamos en:\n• Webs que venden\n• Posicionamiento Google\n• Campañas de publicidad\n• Manejo de redes\n• Diseño gráfico\n• Software personalizado",
-            "🚀 Servicios digitales completos:\n• Web profesional + hosting\n• Optimización SEO\n• Google Ads certificados\n• Meta Business Partner\n• Gestión de Instagram/Facebook\n• Desarrollo a medida",
-            "📱 Todo lo digital en un solo lugar:\n• Sitios web responsive\n• Tiendas online integradas\n• SEO y analítica\n• Publicidad en Google\n• Publicidad en redes\n• Automatizaciones",
-            "🌐 Nexte te ofrece:\n• Web + dominio + hosting\n• SEO para aparecer en Google\n• Ads en Google y Meta\n• Contenido para redes\n• Diseño de logo y marca\n• Sistemas web/apps",
-            "💡 Nuestro catálogo:\n• Landing pages desde $80k\n• Webs institucionales desde $150k\n• E-commerce desde $250k\n• SEO mensual desde $50k\n• Ads desde $30k + inversión\n• CM desde $75k/mes",
-            "🏆 Lo que podemos hacer por vos:\n• Una web que convierta visitas en clientes\n• Que aparezcas primero en Google\n• Campañas de ads rentables\n• Redes administradas profesionalmente\n• Marca y diseño premium"
+            "🚀 **Servicios Integrales Nexte:**\n\n• **Bots de Respuesta Inteligente:** Atendé consultas automáticamente.\n• **Gestión de Turnos a Medida:** Sistema de reservas personalizado.\n• **Web Autoadministrable:** Modificá tus fotos y textos fácilmente.\n• **Gestión de Google Maps:** Optimizamos tu ficha para destacar.\n• **SEO Técnico:** Posicionamiento real en buscadores.\n• **Soporte Web:** Cambios y mejoras continuas en tu sitio.",
+
+            "🔧 **Soluciones que ofrecemos:**\n\n• **Bots de WhatsApp:** Respuestas y filtros automáticos 24/7.\n• **Sistema de Turnos Custom:** Adaptado 100% a tu agenda.\n• **Gestión de Contenido:** Panel para cambiar fotos de tu web.\n• **Optimización Google Maps:** Aparecé en las búsquedas locales.\n• **SEO Técnico Avanzado:** Tu sitio rápido y visible.\n• **Actualizaciones Web:** Hacemos los cambios que necesites.",
+
+            "💼 **Digitalizá tu negocio con:**\n\n• **Chatbots Automáticos:** No pierdas ni un cliente por demoras.\n• **Gestión de Citas:** Agenda a medida para tu rubro.\n• **Sistemas de Gestión:** Subí y cambiá fotos de tu web al instante.\n• **Posicionamiento en Maps:** Dominá tu zona geográfica.\n• **SEO Técnico:** Mejora tu ranking en Google.\n• **Mantenimiento Web:** Ajustes y cambios incluidos.",
+
+            "⚡ **Nuestro catálogo de servicios:**\n\n• **Bots de Respuesta:** Automatizá la primera atención.\n• **Turneros a Medida:** Organización total de tus horarios.\n• **Web Dinámica:** Panel propio para editar imágenes y textos.\n• **Gestión de Maps:** Optimizamos tu perfil de negocio.\n• **SEO & Performance:** Webs veloces que Google ama.\n• **Cambios en Sitio Web:** Renovamos tu imagen cuando quieras.",
+
+            "🛠️ **Herramientas para crecer:**\n\n• **Bots IA:** Respuestas inmediatas a cada consulta.\n• **Gestión de Turnos:** Software dedicado para tu flujo de trabajo.\n• **Panel Autoadministrable:** Control total de las fotos de tu web.\n• **Google Maps Pro:** Gestión profesional de tu ubicación.\n• **SEO Técnico:** Estrategias para subir en el buscador.\n• **Soporte de Cambios:** Tu web siempre al día.",
+
+            "📱 **Todo lo que necesitas:**\n\n• **Automatización (Bots):** Respondé aunque estés durmiendo.\n• **Agendas Custom:** Sistema de turnos diseñado para vos.\n• **CMS a Medida:** Cambiá las fotos de tu web sin saber programar.\n• **Maps & Local SEO:** Destacá en el mapa de tu ciudad.\n• **SEO Técnico:** Auditoría y mejoras de posicionamiento.\n• **Gestión Web:** Nos encargamos de todos los cambios.",
+
+            "🌐 **Pack de Servicios Nexte:**\n\n• **Bots de Respuesta:** Filtra y atiende leads en automático.\n• **Sistema de Turnos:** Solución exacta para tu tipo de atención.\n• **Web Editable:** Herramienta para modificar tu galería de fotos.\n• **Optimización Maps:** Tu ficha de Google, impecable.\n• **SEO Técnico:** Optimizamos la estructura de tu sitio.\n• **Actualizaciones:** Cambios de diseño y contenido a pedido.",
+
+            "💡 **Potenciá tu presencia:**\n\n• **Chatbots 24/7:** Atención inmediata garantizada.\n• **Turnos Inteligentes:** Gestión a medida de tu calendario.\n• **Sistema de Fotos:** Actualizá tu web vos mismo.\n• **Gestión de Perfil Maps:** Mejoramos tu visibilidad local.\n• **Posicionamiento SEO:** Estrategias técnicas de indexación.\n• **Cambios Web:** Soporte técnico permanente.",
+
+            "🏆 **Servicios Premium:**\n\n• **Bots de Auto-Respuesta:** Agilidad para tus clientes.\n• **Gestión de Turnos:** Desarrollo a medida de tu agenda.\n• **Web Autogestionable:** Panel para rotar tus imágenes.\n• **Google Maps:** Estrategia de posicionamiento local.\n• **SEO Técnico:** Optimizamos código y velocidad.\n• **Mantenimiento:** Cambios y ajustes en tu sitio web.",
+
+            "🚀 **Lo que hacemos por vos:**\n\n• **Bots Inteligentes:** Respuestas rápidas y efectivas.\n• **Software de Turnos:** Adaptado a cómo trabajás.\n• **Panel de Control Web:** Modificá fotos y contenido fácil.\n• **Gestión de Maps:** Hacemos brillar tu negocio en el mapa.\n• **SEO Técnico:** Tu web optimizada para Google.\n• **Cambios Web:** Nos pedís, nosotros lo hacemos."
         ];
 
         // MSG 5: CTAs SUAVES (30 variantes) - Tono Sobrio, sin emojis

@@ -5,21 +5,33 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const Joi = require('joi');
 const path = require('path');
+const session = require('express-session');
 const fs = require('fs').promises;
 const fsSync = require('fs'); // Versión sincrónica para algunas operaciones
 const { exec, spawn } = require('child_process');
 require('dotenv').config();
 console.log('→ MONGODB_URI:', process.env.MONGODB_URI);
 
-// Función para loggear
-const log = (message, level = 'info', component = 'backend', details = null, leadId = null) => {
+// Función para loggear (con emisión a dashboard)
+const log = (message, level = 'info', component = 'server', details = null, leadId = null, instanceId = 'server') => {
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] ${message}`);
+  console.log(`[${timestamp}] [${instanceId}] ${message}`);
+
+  // Emitir a dashboards conectados para consola en tiempo real
+  if (typeof io !== 'undefined') {
+    io.emit('realtime_bot_log', {
+      instanceId,
+      level,
+      message,
+      timestamp
+    });
+  }
 
   // Guardar log en base de datos
   const logEntry = new Log({
     level,
     component,
+    instanceId,
     message,
     details,
     leadId
@@ -45,7 +57,7 @@ const io = new Server(server, {
     methods: ["GET", "POST"]
   }
 });
-const PORT = process.env.PORT || 8484;
+const PORT = 8484; // Forzado a 8484 para evitar conflictos con 3001
 
 // 🤖 Registro de Bots Conectados
 const connectedBots = new Map(); // instanceId -> socketId
@@ -56,14 +68,14 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'"],
+      defaultSrc: ["'self'", "data:", "*"],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.socket.io", "https://cdn.jsdelivr.net"],
-      scriptSrcAttr: ["'unsafe-inline'"], // Fix: Allow inline event handlers like onclick
+      scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "blob:", "https:", "*"], // Permitir avatares de WhatsApp
+      imgSrc: ["'self'", "data:", "blob:", "https:", "*"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       connectSrc: ["'self'", "https:", "wss:", "*"],
-      mediaSrc: ["'self'", "data:", "blob:", "*"], // Permitir sonidos de alerta
+      mediaSrc: ["'self'", "data:", "blob:", "*"],
       objectSrc: ["'none'"],
     },
   },
@@ -106,8 +118,58 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Servir archivos estáticos del dashboard
-app.use(express.static('../crm-dashboard'));
+// Configuración de Sesión
+app.use(session({
+  secret: 'nexus-crm-secret-key-2024',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false, // true solo si usamos https
+    maxAge: 24 * 60 * 60 * 1000 // 24 horas
+  }
+}));
+
+// Middleware de Autenticación
+const requireAuth = (req, res, next) => {
+  if (req.session && req.session.authenticated) {
+    return next();
+  }
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+  res.redirect('/login.html');
+};
+
+// Endpoint de Login
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+  if (username === 'natoh' && password === 'Federyco88!') {
+    req.session.authenticated = true;
+    req.session.user = username;
+    return res.json({ success: true });
+  }
+  res.status(401).json({ success: false, error: 'Credenciales inválidas' });
+});
+
+// Servir Login sin protección
+app.get('/login.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../crm-dashboard/login.html'));
+});
+
+// Redirigir root a dashboard (protegido)
+app.get('/', (req, res) => {
+  res.redirect('/dashboard');
+});
+
+// Proteger Dashboard y API (Middleware global para estas rutas)
+app.use('/dashboard', requireAuth, express.static(path.join(__dirname, '../crm-dashboard')));
+app.use('/crm', requireAuth, express.static(path.join(__dirname, '../crm-dashboard')));
+
+// Proteger todas las rutas API excepto login
+app.use('/api/*', (req, res, next) => {
+  if (req.path === '/api/login') return next();
+  requireAuth(req, res, next);
+});
 
 // Conectar a MongoDB
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/gmaps-leads-scraper', {
@@ -1153,7 +1215,7 @@ app.post('/api/bot/create', async (req, res) => {
       // Crear .env básico
       envContent = `
 INSTANCE_ID=${newBotId}
-SERVER_URL=http://localhost:3001
+SERVER_URL=http://localhost:8484
 GEMINI_API_KEY=${process.env.GEMINI_API_KEY || 'your-api-key'}
 `.trim();
     }
@@ -1358,33 +1420,63 @@ app.delete('/api/lead/:id', async (req, res) => {
   }
 });
 
-// GET /api/bots/list - Listar todos los bots disponibles
+// GET /api/bots/list - Listar todos los bots disponibles (Sincronizado con PM2)
 app.get('/api/bots/list', async (req, res) => {
   try {
     const baseDir = path.resolve(__dirname, '..');
-    const items = await fs.readdir(baseDir);
 
+    // Obtener lista de procesos PM2
+    let pm2List = [];
+    try {
+      const { stdout } = await new Promise((resolve, reject) => {
+        exec('npx pm2 jlist', (err, stdout) => {
+          if (err) return reject(err);
+          resolve({ stdout });
+        });
+      });
+      pm2List = JSON.parse(stdout);
+    } catch (e) {
+      console.warn('Error leyendo PM2 list:', e.message);
+    }
+
+    const items = await fs.readdir(baseDir);
     const bots = [];
+
     for (const item of items) {
       if (item.startsWith('bot')) {
         const botPath = path.join(baseDir, item);
         try {
           const stat = await fs.stat(botPath);
           if (stat.isDirectory()) {
-            // Verificar que tenga index.js
             try {
               await fs.access(path.join(botPath, 'index.js'));
-              const status = botStatuses.get(item) || { status: 'offline' };
-              bots.push({
-                instanceId: item,
-                path: botPath,
-                status: status.status,
-                wid: status.wid,
-                lastSeen: status.lastSeen
-              });
-            } catch (e) {
-              // No tiene index.js, ignorar
-            }
+
+              // Buscar estado real en PM2
+              const pm2Process = pm2List.find(p => p.name === item);
+              const memory = pm2Process ? Math.round(pm2Process.monit.memory / 1024 / 1024) : 0;
+
+              // Prioridad de estado: PM2 > Memoria interna > Offline
+              let finalStatus = 'offline';
+              if (pm2Process) {
+                finalStatus = pm2Process.pm2_env.status; // online, stopped, errored
+              } else if (botStatuses.has(item)) {
+                finalStatus = botStatuses.get(item).status;
+              }
+
+              // FIX: Omitir bot_1 fantasma si no está en PM2
+              if (item === 'bot_1' && finalStatus === 'offline' && !pm2Process) {
+                // Skip ghost bot_1
+              } else {
+                bots.push({
+                  instanceId: item,
+                  path: botPath,
+                  status: finalStatus,
+                  pm2_status: pm2Process ? pm2Process.pm2_env.status : 'stopped',
+                  memory: memory + 'MB',
+                  lastSeen: botStatuses.get(item)?.lastSeen || null
+                });
+              }
+            } catch (e) { }
           }
         } catch (e) { }
       }
@@ -1396,6 +1488,70 @@ app.get('/api/bots/list', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /stats/realtime - Estadísticas en tiempo real para el dashboard (FIX 305 leads issue)
+app.get('/stats/realtime', async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Conteo de leads
+    const pending = await Lead.countDocuments({ status: 'pending' });
+    const queued = await Lead.countDocuments({ status: 'queued' });
+
+    // Total real en cola
+    const totalQueue = pending + queued;
+
+    const contactedToday = await Lead.countDocuments({
+      lastContactAt: { $gte: today },
+      status: { $in: ['contacted', 'interested', 'not_interested'] }
+    });
+
+    const leadsFailedToday = await Lead.countDocuments({
+      lastContactAt: { $gte: today },
+      status: 'failed'
+    });
+
+    // Conteo de mensajes
+    const messagesToday = await Message.countDocuments({ sentAt: { $gte: today } });
+    const deliveredToday = await Message.countDocuments({ sentAt: { $gte: today }, status: { $in: ['delivered', 'read'] } });
+    const failedToday = await Message.countDocuments({ sentAt: { $gte: today }, status: 'failed' });
+
+    const lastMessage = await Message.findOne().sort({ sentAt: -1 }).lean();
+
+    // Stats por bot hoy
+    const botStats = await Message.aggregate([
+      { $match: { sentAt: { $gte: today } } },
+      { $group: { _id: "$instanceId", count: { $sum: 1 } } }
+    ]);
+
+    const todayStats = botStats.map(b => ({
+      instanceId: b._id,
+      messagestoday: b.count
+    }));
+
+    res.json({
+      success: true,
+      stats: {
+        queue: { total: totalQueue, pending, queued },
+        leads: { contactedToday, failedToday },
+        messages: {
+          today: messagesToday,
+          deliveredToday,
+          failedToday,
+          lastMessage: lastMessage ? {
+            time: lastMessage.sentAt,
+            bot: lastMessage.instanceId,
+            leadName: lastMessage.leadName
+          } : null
+        },
+        bots: { todayStats }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -1736,6 +1892,26 @@ app.get('/api/stats/advanced', async (req, res) => {
 });
 
 // --- CONFIGURACIÓN GLOBAL ---
+app.get('/api/log-history', async (req, res) => {
+  console.log('📬 Solicitud recibida en /api/log-history');
+  try {
+    const { component, instanceId, limit = 100 } = req.query;
+    const filter = {};
+    if (component) filter.component = component;
+    if (instanceId) filter.instanceId = instanceId;
+
+    const logs = await Log.find(filter)
+      .sort({ timestamp: -1 })
+      .limit(parseInt(limit))
+      .lean();
+
+    res.json({ success: true, logs: logs.reverse() });
+  } catch (error) {
+    console.error('❌ Error en /api/log-history:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.get('/api/config', async (req, res) => {
   try {
     let config = await Config.findOne({ key: 'global_bot_settings' });
@@ -2835,9 +3011,23 @@ io.on('connection', (socket) => {
   });
 
   // Relevo de logs de bots en tiempo real
-  socket.on('bot_log', (data) => {
+  socket.on('bot_log', async (data) => {
     // { instanceId, level, message, timestamp }
     io.emit('realtime_bot_log', data);
+
+    // Guardar en DB
+    try {
+      const logEntry = new Log({
+        level: data.level || 'info',
+        component: 'bot',
+        instanceId: data.instanceId,
+        message: data.message,
+        timestamp: data.timestamp || new Date()
+      });
+      await logEntry.save();
+    } catch (err) {
+      console.error('Error guardando log de bot:', err);
+    }
   });
 
   // Scraping Heartbeat desde la extensión (vía socket si lo soporta)
@@ -3109,10 +3299,10 @@ ${keywordList || '• Sin datos'}`;
 
 // Iniciar servidor
 server.listen(PORT, () => {
-  console.log(`🚀 Servidor real-time iniciado en puerto ${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`📥 Endpoint de ingest: http://localhost:${PORT}/ingest`);
-  console.log(`📤 Endpoint de next: http://localhost:${PORT}/next`);
+  log(`🚀 Servidor real-time iniciado en puerto ${PORT}`, 'success', 'server');
+  log(`📊 Health check: http://localhost:${PORT}/health`, 'info', 'server');
+  log(`📥 Endpoint de ingest: http://localhost:${PORT}/ingest`, 'info', 'server');
+  log(`📤 Endpoint de next: http://localhost:${PORT}/next`, 'info', 'server');
 });
 
 // Manejo de señales para cierre graceful

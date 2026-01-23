@@ -137,6 +137,7 @@ function init() {
     fetchTemplates();
     initSocket();
     setupTemplateListeners();
+    fetchLogsHistory();
 
     // Fallback: Si no llegan bots por socket, intentar fetch manual
     fetchBotList();
@@ -1723,7 +1724,6 @@ function importTemplatesJSON(file) {
 
 // --- GLOBAL EXPORTS ---
 window.openLeadModal = openLeadModal;
-window.toggleAccordion = toggleAccordion;
 window.exportTemplatesJSON = exportTemplatesJSON;
 window.importTemplatesJSON = importTemplatesJSON;
 window.deleteLeadFromList = deleteLeadFromList;
@@ -1738,8 +1738,9 @@ window.toggleConsole = toggleConsole;
 window.saveVariant = saveVariant;
 window.toggleVariant = toggleVariant;
 window.addVariant = addVariant;
-window.toggleAccordion = toggleAccordion;
-window.closeLeadModal = closeLeadModal; // Fix: Expose to global scope for inline handler
+window.closeLeadModal = closeLeadModal;
+window.saveGlobalConfig = saveGlobalConfig;
+window.fetchGlobalConfig = fetchGlobalConfig;
 
 
 
@@ -1795,35 +1796,196 @@ function setupDelegatedListeners() {
     });
 }
 
+// --- CONSOLE HANDLING ---
+function toggleConsole(botId) {
+    const el = document.getElementById(`console-${botId}`);
+    const toggle = document.getElementById(`toggle-${botId}`);
+    if (!el) return;
+
+    if (el.classList.contains('collapsed')) {
+        el.classList.remove('collapsed');
+        el.style.height = '200px';
+        el.style.padding = '15px';
+        if (toggle) toggle.innerText = 'expand_more';
+    } else {
+        el.classList.add('collapsed');
+        el.style.height = '0';
+        el.style.padding = '0 15px';
+        if (toggle) toggle.innerText = 'expand_less';
+    }
+}
+
+function clearAllConsoles() {
+    const outputs = [
+        'consoleOutput',
+        'consoleScraperOutput',
+        'consoleServerOutput'
+    ];
+    // También buscar consolas de bots dinámicas
+    const botOutputs = document.querySelectorAll('[id^="consoleBotOutput-"]');
+
+    outputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '<div class="console-line system" style="color: #666;">-- Consola limpiada --</div>';
+    });
+
+    botOutputs.forEach(el => {
+        el.innerHTML = '<div class="console-line system" style="color: #666;">-- Consola limpiada --</div>';
+    });
+}
+
+function appendConsoleLog(data) {
+    const { instanceId, level, message, timestamp } = data;
+    const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+
+    const line = document.createElement('div');
+    line.className = `console-line ${level || 'info'}`;
+    line.style.marginBottom = '4px';
+
+    // Color según nivel
+    let color = '#d1d7db'; // info
+    if (level === 'warn') color = '#ff9800';
+    else if (level === 'error') color = '#f44336';
+    else if (level === 'success') color = '#25d366';
+    else if (level === 'system') color = '#8696a0';
+
+    line.innerHTML = `<span style="color: #666;">[${time}]</span> <span style="color: #00a884; font-weight: bold;">[${instanceId.toUpperCase()}]</span> <span style="color: ${color};">${message}</span>`;
+
+    // 1. Agregar a la consola principal
+    const mainConsole = document.getElementById('consoleOutput');
+    if (mainConsole) {
+        mainConsole.appendChild(line.cloneNode(true));
+        mainConsole.scrollTop = mainConsole.scrollHeight;
+
+        // Limitar a los últimos 300 logs para no saturar el DOM
+        if (mainConsole.children.length > 300) mainConsole.removeChild(mainConsole.firstChild);
+    }
+
+    // 2. Agregar a la consola específica
+    let targetConsoleId = null;
+    if (instanceId === 'scraper') targetConsoleId = 'consoleScraperOutput';
+    else if (instanceId === 'server' || instanceId === 'backend') targetConsoleId = 'consoleServerOutput';
+    else {
+        // Mapear bot_1 -> consoleBot1Output
+        const botNum = instanceId.replace(/\D/g, ''); // Extraer números (ej: 'bot_1' -> '1')
+        if (botNum && !instanceId.includes('scraper') && !instanceId.includes('server')) {
+            targetConsoleId = `consoleBot${botNum}Output`;
+        } else {
+            targetConsoleId = `consoleBotOutput-${instanceId}`; // fallback
+        }
+    }
+
+    const targetConsole = document.getElementById(targetConsoleId);
+    if (targetConsole) {
+        targetConsole.appendChild(line);
+        targetConsole.scrollTop = targetConsole.scrollHeight;
+        if (targetConsole.children.length > 200) targetConsole.removeChild(targetConsole.firstChild);
+    }
+}
+
+// --- BOT CONTROL FUNCTIONS ---
+async function startBotProcess(instanceId) {
+    if (!confirm(`¿Iniciar ${instanceId}?`)) return;
+    try {
+        const response = await fetch(`${API_URL}/api/bot/${instanceId}/start`, { method: 'POST' });
+        const data = await response.json();
+        if (data.success) {
+            alert(data.message);
+            // Recargar lista de bots para actualizar estado
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (e) {
+        alert('Error de red al iniciar bot');
+        console.error(e);
+    }
+}
+
+async function stopBotProcess(instanceId) {
+    if (!confirm(`¿Detener ${instanceId}?`)) return;
+    try {
+        const response = await fetch(`${API_URL}/api/bot/${instanceId}/stop`, { method: 'POST' });
+        const data = await response.json();
+        if (data.success) {
+            alert(data.message);
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (e) {
+        alert('Error de red al detener bot');
+        console.error(e);
+    }
+}
+
+async function deleteBotInstance(instanceId) {
+    if (!confirm(`¿ELIMINAR ${instanceId}? Esto borrará sus archivos.`)) return;
+    try {
+        const response = await fetch(`${API_URL}/api/bot/${instanceId}`, { method: 'DELETE' });
+        const data = await response.json();
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (e) {
+        alert('Error de red al eliminar bot');
+        console.error(e);
+    }
+}
+
+async function fetchLogsHistory() {
+    console.log('📜 Recuperando historial de logs...');
+    try {
+        const response = await fetch(`${API_URL}/api/log-history?limit=100`);
+        const data = await response.json();
+        if (data.success && data.logs) {
+            data.logs.forEach(log => {
+                appendConsoleLog({
+                    instanceId: log.instanceId || log.component || 'server',
+                    level: log.level,
+                    message: log.message,
+                    timestamp: log.timestamp
+                });
+            });
+        }
+    } catch (e) {
+        console.error('Error fetching logs history:', e);
+    }
+}
+
+
 // --- CONFIGURACIÓN GLOBAL (Scheduler & Limits) ---
 async function fetchGlobalConfig() {
     try {
         const response = await fetch(`${API_URL}/api/config`);
         const data = await response.json();
-        
+
         if (data.success && data.config) {
             const cfg = data.config;
-            const sched = cfg.schedule || { enabled: false, startTime: '09:00', endTime: '18:00', timezone: 'America/Argentina/Buenos_Aires', randomness: 15, days: [1,2,3,4,5] };
+            const sched = cfg.schedule || { enabled: false, startTime: '09:00', endTime: '18:00', timezone: 'America/Argentina/Buenos_Aires', randomness: 15, days: [1, 2, 3, 4, 5] };
             const seq = cfg.sequences || { maxMessagesPerDay: 200, coolOffPeriod: 15 };
             const human = cfg.humanBehavior || { typingSpeed: 1.0 };
 
             // Hydrate Scheduler
-            const tgl = getEl('schedEnabled'); if(tgl) tgl.checked = sched.enabled;
-            const start = getEl('schedStartTime'); if(start) start.value = sched.startTime;
-            const end = getEl('schedEndTime'); if(end) end.value = sched.endTime;
-            const tz = getEl('schedTimezone'); if(tz) tz.value = sched.timezone;
-            const rnd = getEl('schedRandomness'); if(rnd) { rnd.value = sched.randomness; }
-            const rndVal = getEl('schedRandomVal'); if(rndVal) rndVal.innerText = sched.randomness;
+            const tgl = getEl('schedEnabled'); if (tgl) tgl.checked = sched.enabled;
+            const start = getEl('schedStartTime'); if (start) start.value = sched.startTime;
+            const end = getEl('schedEndTime'); if (end) end.value = sched.endTime;
+            const tz = getEl('schedTimezone'); if (tz) tz.value = sched.timezone;
+            const rnd = getEl('schedRandomness'); if (rnd) { rnd.value = sched.randomness; }
+            const rndVal = getEl('schedRandomVal'); if (rndVal) rndVal.innerText = sched.randomness;
 
             // Hydrate Limits
-            const max = getEl('limitMaxDaily'); if(max) max.value = seq.maxMessagesPerDay;
-            const maxVal = getEl('limitMaxDailyVal'); if(maxVal) maxVal.innerText = seq.maxMessagesPerDay;
-            
-            const cool = getEl('limitCooloff'); if(cool) cool.value = seq.coolOffPeriod;
-            const coolVal = getEl('limitCooloffVal'); if(coolVal) coolVal.innerText = seq.coolOffPeriod;
+            const max = getEl('limitMaxDaily'); if (max) max.value = seq.maxMessagesPerDay;
+            const maxVal = getEl('limitMaxDailyVal'); if (maxVal) maxVal.innerText = seq.maxMessagesPerDay;
 
-            const type = getEl('humanTypingSpeed'); if(type) type.value = human.typingSpeed;
-            const typeVal = getEl('humanTypingVal'); if(typeVal) typeVal.innerText = human.typingSpeed;
+            const cool = getEl('limitCooloff'); if (cool) cool.value = seq.coolOffPeriod;
+            const coolVal = getEl('limitCooloffVal'); if (coolVal) coolVal.innerText = seq.coolOffPeriod;
+
+            const type = getEl('humanTypingSpeed'); if (type) type.value = human.typingSpeed;
+            const typeVal = getEl('humanTypingVal'); if (typeVal) typeVal.innerText = human.typingSpeed;
         }
     } catch (e) {
         console.error("Error fetching config:", e);
@@ -1832,12 +1994,12 @@ async function fetchGlobalConfig() {
 }
 
 async function saveGlobalConfig() {
-    const tgl = getEl('schedEnabled'); 
+    const tgl = getEl('schedEnabled');
     const start = getEl('schedStartTime');
     const end = getEl('schedEndTime');
     const tz = getEl('schedTimezone');
     const rnd = getEl('schedRandomness');
-    
+
     const max = getEl('limitMaxDaily');
     const cool = getEl('limitCooloff');
     const type = getEl('humanTypingSpeed');
@@ -1849,7 +2011,7 @@ async function saveGlobalConfig() {
             endTime: end ? end.value : '18:00',
             timezone: tz ? tz.value : 'America/Argentina/Buenos_Aires',
             randomness: rnd ? parseInt(rnd.value) : 15,
-            days: [1,2,3,4,5] // Default Mon-Fri for now
+            days: [1, 2, 3, 4, 5] // Default Mon-Fri for now
         },
         sequences: {
             maxMessagesPerDay: max ? parseInt(max.value) : 200,
