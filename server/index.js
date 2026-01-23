@@ -63,34 +63,16 @@ const PORT = 8484; // Forzado a 8484 para evitar conflictos con 3001
 const connectedBots = new Map(); // instanceId -> socketId
 const botStatuses = new Map();   // instanceId -> { status, lastSeen, qr }
 
-// Configuración de seguridad
-app.use(helmet({
-  hsts: false,
-  crossOriginResourcePolicy: { policy: "cross-origin" },
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'", "data:", "blob:", "https:", "*"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.socket.io", "https://cdn.jsdelivr.net"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "blob:", "https:", "*"],
-      mediaSrc: ["'self'", "data:", "blob:", "*"],
-      connectSrc: ["'self'", "https:", "wss:", "*"],
-    },
-  },
-}));
-
-// Configuración de CORS más permisiva
+// 1. CORS - Debe ir antes que Helmet para que los headers de preflight se manejen correctamente
 app.use(cors({
-  origin: true, // Permitir todos los orígenes
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
-// Middleware para manejar OPTIONS y asegurar CORS dinámico
+// Middleware para asegurar CORS dinámico y manejar OPTIONS (redundancia de seguridad)
 app.use((req, res, next) => {
-  // El middleware cors ya se encarga de los headers básicos si está bien configurado.
-  // Pero para estar 100% seguros con Socket.io y múltiples puertos:
   const origin = req.headers.origin;
   if (origin) {
     res.header('Access-Control-Allow-Origin', origin);
@@ -104,6 +86,25 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// 2. Helmet - Configuración relajada para entornos IP/HTTP
+app.use(helmet({
+  hsts: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  originAgentCluster: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'", "data:", "blob:", "https:", "*"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.socket.io", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:", "*"],
+      mediaSrc: ["'self'", "data:", "blob:", "*"],
+      connectSrc: ["'self'", "https:", "wss:", "*"],
+    },
+  },
+}));
 
 // Rate limiting para prevenir spam
 const limiter = rateLimit({
