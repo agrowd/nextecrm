@@ -48,8 +48,14 @@ COPY package*.json ./
 COPY bot_2/package*.json ./bot_2/
 # COPY bot_3/package*.json ./bot_3/ 
 
-# Instalar dependencias y PM2 global
+# Instalar dependencias del root
 RUN npm install
+
+# Instalar dependencias de los bots
+RUN cd bot_2 && npm install
+RUN cd bot_3 && npm install
+
+# Instalar PM2 global
 RUN npm install -g pm2
 
 # Copiar el resto del código
