@@ -22,7 +22,7 @@ let currentState = {
 // Real-time Connection
 let socket;
 function initSocket() {
-    socket = io();
+    socket = io(API_URL);
 
     socket.on('connect', () => {
         console.log('📡 Dashboard conectado');
