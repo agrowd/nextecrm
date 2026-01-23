@@ -47,16 +47,18 @@ WORKDIR /app
 COPY package*.json ./
 COPY bot_2/package*.json ./bot_2/
 COPY bot_3/package*.json ./bot_3/ 
+COPY server/package*.json ./server/
 
 # Instalar dependencias del root
 RUN npm install
 
-# Instalar dependencias de los bots
+# Instalar dependencias de los bots y server
 RUN cd bot_2 && npm install
 RUN cd bot_3 && npm install
+RUN cd server && npm install
 
-# Instalar PM2 global
-RUN npm install -g pm2
+# Instalar PM2 y serve global
+RUN npm install -g pm2 serve
 
 # Copiar el resto del código
 COPY . .

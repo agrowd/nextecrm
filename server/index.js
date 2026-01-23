@@ -1463,9 +1463,9 @@ app.get('/api/bots/list', async (req, res) => {
                 finalStatus = botStatuses.get(item).status;
               }
 
-              // FIX: Omitir bot_1 fantasma si no está en PM2
-              if (item === 'bot_1' && finalStatus === 'offline' && !pm2Process) {
-                // Skip ghost bot_1
+              // FIX: Omitir bot_1 fantasma y el bot de plantilla
+              if ((item === 'bot_1' || item === 'bot') && finalStatus === 'offline' && !pm2Process) {
+                // Skip ghost bot_1/bot
               } else {
                 bots.push({
                   instanceId: item,
@@ -1527,10 +1527,12 @@ app.get('/stats/realtime', async (req, res) => {
       { $group: { _id: "$instanceId", count: { $sum: 1 } } }
     ]);
 
-    const todayStats = botStats.map(b => ({
-      instanceId: b._id,
-      messagestoday: b.count
-    }));
+    const todayStats = botStats
+      .filter(b => b._id !== 'bot_1' && b._id !== 'bot')
+      .map(b => ({
+        instanceId: b._id,
+        messagestoday: b.count
+      }));
 
     res.json({
       success: true,
