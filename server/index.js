@@ -65,9 +65,18 @@ const botStatuses = new Map();   // instanceId -> { status, lastSeen, qr }
 
 // Configuración de seguridad
 app.use(helmet({
-  hsts: false, // IMPORTANTE: Desactivar HSTS para evitar forzar HTTPS
+  hsts: false,
   crossOriginResourcePolicy: { policy: "cross-origin" },
-  contentSecurityPolicy: false, // Desactivar CSP momentáneamente para debug si es necesario, o dejarlo muy permisivo
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'", "data:", "blob:", "https:", "*"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.socket.io", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:", "*"],
+      mediaSrc: ["'self'", "data:", "blob:", "*"],
+      connectSrc: ["'self'", "https:", "wss:", "*"],
+    },
+  },
 }));
 
 // Configuración de CORS más permisiva
@@ -1292,8 +1301,9 @@ call pm2 start ecosystem.config.js
 app.delete('/api/bot/:instanceId', async (req, res) => {
   try {
     const { instanceId } = req.params;
+    const folderName = instanceId === 'bot_1' ? 'bot' : instanceId;
     const baseDir = path.resolve(__dirname, '..');
-    const botPath = path.join(baseDir, instanceId);
+    const botPath = path.join(baseDir, folderName);
 
     // No permitir eliminar bot_1 (template)
     if (instanceId === 'bot' || instanceId === 'bot_1') {
@@ -1340,8 +1350,9 @@ app.delete('/api/bot/:instanceId', async (req, res) => {
 // POST /api/bot/:instanceId/start - Iniciar bot
 app.post('/api/bot/:instanceId/start', async (req, res) => {
   const { instanceId } = req.params;
+  const folderName = instanceId === 'bot_1' ? 'bot' : instanceId;
   const baseDir = path.resolve(__dirname, '..');
-  const botPath = path.join(baseDir, instanceId);
+  const botPath = path.join(baseDir, folderName);
   const configPath = path.join(botPath, 'ecosystem.config.js');
 
   console.log(`🚀 Iniciando bot ${instanceId}...`);
@@ -1372,10 +1383,8 @@ app.post('/api/bot/:instanceId/stop', async (req, res) => {
   console.log(`⏹️ Deteniendo bot ${instanceId}...`);
 
   exec(`npx pm2 stop ${instanceId}`, (error, stdout, stderr) => {
-    if (error) {
-      return res.status(500).json({ success: false, error: error.message });
-    }
-    res.json({ success: true, message: `Bot ${instanceId} detenido` });
+    // No devolvemos error 500 si falla el stop (puede estar ya parado)
+    res.json({ success: true, message: `Bot ${instanceId} detenido o ya inactivo` });
   });
 });
 
@@ -1524,7 +1533,6 @@ app.get('/api/stats/realtime', async (req, res) => {
     ]);
 
     const todayStats = botStats
-      .filter(b => b._id !== 'bot_1' && b._id !== 'bot')
       .map(b => ({
         instanceId: b._id,
         messagestoday: b.count
@@ -1737,8 +1745,8 @@ app.get('/json/messages', async (req, res) => {
   }
 });
 
-// GET /messages - Obtener mensajes de la base de datos
-app.get('/messages', async (req, res) => {
+// GET /api/messages - Obtener mensajes de la base de datos
+app.get('/api/messages', async (req, res) => {
   try {
     const {
       leadId,
@@ -1779,8 +1787,8 @@ app.get('/messages', async (req, res) => {
   }
 });
 
-// GET /messages/stats - Obtener estadísticas de mensajes
-app.get('/messages/stats', async (req, res) => {
+// GET /api/messages/stats - Obtener estadísticas de mensajes
+app.get('/api/messages/stats', async (req, res) => {
   try {
     const stats = await Message.getMessageStats();
     const result = stats[0] || {
@@ -2134,8 +2142,8 @@ app.get('/messages/by-phone/:phone', async (req, res) => {
   }
 });
 
-// POST /messages - Crear nuevo mensaje
-app.post('/messages', async (req, res) => {
+// POST /api/messages - Crear nuevo mensaje
+app.post('/api/messages', async (req, res) => {
   try {
     const messageData = req.body;
 
@@ -2313,8 +2321,8 @@ app.post('/send-message', async (req, res) => {
   }
 });
 
-// GET /leads - Listar leads con filtros
-app.get('/leads', async (req, res) => {
+// GET /api/leads - Listar leads con filtros
+app.get('/api/leads', async (req, res) => {
   try {
     const {
       status,

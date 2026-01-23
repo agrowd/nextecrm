@@ -994,7 +994,16 @@ async function fetchLeads() {
         const page = currentState.leadsPage || 1;
         const limit = 500;
 
-        const url = new URL(`${API_URL}/api/json/leads`);
+        // Construir URL de forma segura
+        let url;
+        try {
+            const baseUrl = API_URL || window.location.origin;
+            url = new URL('/api/json/leads', baseUrl.startsWith('http') ? baseUrl : window.location.origin + baseUrl);
+        } catch (e) {
+            console.error("Error construyendo URL:", e);
+            url = new URL(window.location.origin + '/api/json/leads');
+        }
+
         url.searchParams.append('page', page);
         url.searchParams.append('limit', limit);
         if (status) url.searchParams.append('status', status);
