@@ -1,4 +1,4 @@
-const API_URL = window.location.port === '8484' ? '' : `http://${window.location.hostname}:8484`;
+const API_URL = window.location.port === '8484' ? window.location.origin : `http://${window.location.hostname}:8484`;
 const REFRESH_INTERVAL = 5000;
 
 // Wrapper para fetch que maneja el prefijo /api/, credenciales y redirección a login
@@ -994,7 +994,7 @@ async function fetchLeads() {
         const page = currentState.leadsPage || 1;
         const limit = 500;
 
-        const url = new URL(`${API_URL}/json/leads`);
+        const url = new URL(`${API_URL}/api/json/leads`);
         url.searchParams.append('page', page);
         url.searchParams.append('limit', limit);
         if (status) url.searchParams.append('status', status);

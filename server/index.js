@@ -252,8 +252,8 @@ app.post('/bot/qr', (req, res) => {
   res.send('OK');
 });
 
-// POST /bot/generate - Generar una nueva instancia de bot
-app.post('/bot/generate', async (req, res) => {
+// POST /api/bot/generate - Generar una nueva instancia de bot
+app.post('/api/bot/generate', async (req, res) => {
   try {
     console.log('🏗️ Iniciando generación de nueva instancia de bot...');
 
@@ -1594,8 +1594,8 @@ app.get('/system/status', async (req, res) => {
   }
 });
 
-// GET /leads/categories - Obtener categorías de leads
-app.get('/leads/categories', async (req, res) => {
+// GET /api/leads/categories - Obtener categorías de leads
+app.get('/api/leads/categories', async (req, res) => {
   try {
     const categories = await Lead.aggregate([
       {
@@ -2838,8 +2838,8 @@ app.put('/leads/mark-all-contacted', async (req, res) => {
   }
 });
 
-// PUT /leads/reset-today - Resetear leads scrapeados hoy
-app.put('/leads/reset-today', async (req, res) => {
+// PUT /api/leads/reset-today - Resetear leads scrapeados hoy
+app.put('/api/leads/reset-today', async (req, res) => {
   try {
     const { date } = req.body;
     const today = date ? new Date(date) : new Date();
