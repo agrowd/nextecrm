@@ -434,9 +434,6 @@ app.get('/data/leads.json', async (req, res) => {
     const jsonPath = path.join(__dirname, 'data/leads.json');
     const content = await fs.readFile(jsonPath, 'utf8');
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.send(content);
   } catch (error) {
     console.error('Error sirviendo JSON:', error);
@@ -446,9 +443,6 @@ app.get('/data/leads.json', async (req, res) => {
 
 // Manejar solicitudes OPTIONS para CORS
 app.options('/data/leads.json', (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.status(200).end();
 });
 
@@ -466,9 +460,6 @@ app.post('/data/leads.json', async (req, res) => {
     await fs.writeFile(jsonPath, JSON.stringify(data, null, 2));
 
     console.log('✅ Archivo JSON actualizado');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.json({ success: true, message: 'JSON actualizado correctamente' });
   } catch (error) {
     console.error('Error actualizando JSON:', error);
