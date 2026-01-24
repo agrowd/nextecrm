@@ -259,6 +259,98 @@ app.post('/ingest', async (req, res) => {
   }
 });
 
+// POST /messages - Guardar mensajes (chat history)
+app.post('/messages', async (req, res) => {
+  try {
+    const { phone, content, fromMe, type, timestamp, instanceId, senderName } = req.body;
+
+    // Normalizar teléfono (solo números)
+    const cleanPhone = phone.replace(/\D/g, '');
+
+    // Buscar Lead asociado
+    // Intentamos match exacto, o contains
+    let lead = await Lead.findOne({
+      $or: [
+        { phone: cleanPhone },
+        { phone: phone } // por si acaso
+      ]
+    });
+
+    // Guardar mensaje
+    const newMessage = new Message({
+      phone: cleanPhone,
+      content,
+      fromMe,
+      type: type || 'text',
+      timestamp: timestamp || new Date(),
+      instanceId,
+      leadId: lead ? lead._id : null,
+      senderName
+    });
+
+    await newMessage.save();
+
+    // Actualizar último mensaje en Lead si existe
+    if (lead) {
+      lead.lastMessage = content;
+      lead.lastContactAt = new Date();
+      if (!fromMe) lead.unreadCount = (lead.unreadCount || 0) + 1;
+      await lead.save();
+    }
+
+    // Emitir a socket para dashboard real-time
+    if (global.io) {
+      global.io.emit('new_message', {
+        ...newMessage.toObject(),
+        leadId: lead ? lead._id : null
+      });
+    }
+
+    res.json({ success: true, messageId: newMessage._id });
+
+  } catch (error) {
+    console.error('Error en /messages:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /leads - Búsqueda optimizada para BOT
+app.get('/leads', async (req, res) => {
+  try {
+    const { search, limit } = req.query;
+    let query = {};
+
+    if (search) {
+      // Si parece teléfono, búsqueda flexible (últimos 7-8 dígitos)
+      const isPhone = search.replace(/\D/g, '').length > 6;
+      if (isPhone) {
+        const cleanSearch = search.replace(/\D/g, '');
+        const suffix = cleanSearch.slice(-7); // Últimos 7 para asegurar match (ej: 45565002)
+        query = {
+          $or: [
+            { phone: { $regex: suffix, $options: 'i' } },
+            { phone: search }
+          ]
+        };
+      } else {
+        query = {
+          $or: [
+            { businessName: { $regex: search, $options: 'i' } },
+            { phone: { $regex: search, $options: 'i' } }
+          ]
+        };
+      }
+    }
+
+    const leads = await Lead.find(query).limit(Number(limit) || 10);
+    res.json(leads);
+
+  } catch (error) {
+    console.error('Error en GET /leads:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 /* 
 // 2. Helmet - Desactivado temporalmente para debuggear ERR_SSL_PROTOCOL_ERROR
 app.use(helmet({
