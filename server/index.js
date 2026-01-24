@@ -442,6 +442,127 @@ app.post('/api/bot/generate', async (req, res) => {
   }
 });
 
+// POST /api/bot/:instanceId/start - Iniciar un bot
+app.post('/api/bot/:instanceId/start', async (req, res) => {
+  const { instanceId } = req.params;
+  console.log(`▶️ Iniciando bot ${instanceId}...`);
+
+  try {
+    // Mapear bot_1 -> /app/bot, bot_2 -> /app/bot_2, etc.
+    const botFolder = instanceId === 'bot_1' ? 'bot' : instanceId;
+    const botPath = path.join(__dirname, '..', botFolder);
+    const botScript = path.join(botPath, 'index.js');
+
+    // Verificar que el directorio del bot existe
+    try {
+      await fs.access(botPath);
+    } catch {
+      console.log(`❌ Bot ${instanceId} no encontrado en ${botPath}`);
+      return res.status(404).json({ success: false, error: 'Configuración de bot no encontrada' });
+    }
+
+    // Verificar que el script existe
+    try {
+      await fs.access(botScript);
+    } catch {
+      console.log(`❌ Script del bot no existe: ${botScript}`);
+      return res.status(404).json({ success: false, error: 'Script del bot no encontrado' });
+    }
+
+    // Iniciar el bot con pm2
+    const pm2Name = instanceId === 'bot_1' ? 'nexte-bot1' : `nexte-${instanceId}`;
+
+    exec(`pm2 start ${botScript} --name ${pm2Name} --watch=false`, { cwd: botPath }, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`❌ Error iniciando ${instanceId}:`, error.message);
+        return res.status(500).json({ success: false, error: error.message });
+      }
+      console.log(`✅ Bot ${instanceId} iniciado con pm2`);
+
+      // Actualizar estado y notificar por socket
+      if (botStatuses) {
+        botStatuses.set(instanceId, { status: 'online', startedAt: new Date() });
+      }
+      io.emit('bot_status_update', { instanceId, status: 'online' });
+      io.emit('bot_list_update', Array.from(botStatuses?.entries() || []));
+
+      res.json({ success: true, message: `Bot ${instanceId} iniciado` });
+    });
+  } catch (error) {
+    console.error(`❌ Error en start bot:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/bot/:instanceId/stop - Detener un bot
+app.post('/api/bot/:instanceId/stop', async (req, res) => {
+  const { instanceId } = req.params;
+  console.log(`⏹️ Deteniendo bot ${instanceId}...`);
+
+  try {
+    const pm2Name = instanceId === 'bot_1' ? 'nexte-bot1' : `nexte-${instanceId}`;
+
+    exec(`pm2 stop ${pm2Name} && pm2 delete ${pm2Name}`, (error, stdout, stderr) => {
+      if (error) {
+        // pm2 puede dar error si el proceso no existe, pero igual lo consideramos éxito
+        console.log(`⚠️ Proceso ${pm2Name} no encontrado o ya detenido`);
+      }
+      console.log(`✅ Bot ${instanceId} detenido`);
+
+      // Actualizar estado y notificar por socket
+      if (botStatuses) {
+        botStatuses.set(instanceId, { status: 'not_running' });
+      }
+      io.emit('bot_status_update', { instanceId, status: 'not_running' });
+      io.emit('bot_list_update', Array.from(botStatuses?.entries() || []));
+
+      res.json({ success: true, message: `Bot ${instanceId} detenido` });
+    });
+  } catch (error) {
+    console.error(`❌ Error en stop bot:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE /api/bot/:instanceId - Eliminar una instancia de bot
+app.delete('/api/bot/:instanceId', async (req, res) => {
+  const { instanceId } = req.params;
+  console.log(`🗑️ Eliminando bot ${instanceId}...`);
+
+  // Proteger bot_1 de eliminación
+  if (instanceId === 'bot_1' || instanceId === 'bot') {
+    return res.status(400).json({ success: false, message: 'No se puede eliminar el bot principal (bot_1)' });
+  }
+
+  try {
+    // Primero detener el proceso si está corriendo
+    const pm2Name = `nexte-${instanceId}`;
+    exec(`pm2 stop ${pm2Name} && pm2 delete ${pm2Name}`, async () => {
+      // Eliminar el directorio del bot
+      const botPath = path.join(__dirname, '..', instanceId);
+
+      try {
+        await fs.rm(botPath, { recursive: true, force: true });
+        console.log(`✅ Bot ${instanceId} eliminado completamente`);
+
+        // Actualizar estado
+        if (botStatuses) {
+          botStatuses.delete(instanceId);
+        }
+        io.emit('bot_list_update', Array.from(botStatuses?.entries() || []));
+
+        res.json({ success: true, message: `Bot ${instanceId} eliminado` });
+      } catch (fsError) {
+        console.error(`❌ Error eliminando directorio:`, fsError);
+        res.status(500).json({ success: false, message: 'Error eliminando archivos del bot' });
+      }
+    });
+  } catch (error) {
+    console.error(`❌ Error en delete bot:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Helper para copiar directorios recursivamente
 async function copyDir(src, dest) {
   await fs.mkdir(dest, { recursive: true });
