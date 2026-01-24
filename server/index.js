@@ -540,7 +540,18 @@ app.post('/api/bot/:instanceId/start', async (req, res) => {
     console.log(`🔧 [BOT-START] Ejecutando: pm2 start ${botScript} --name ${pm2Name}`);
     console.log(`🔧 [BOT-START] CWD: ${botPath}`);
 
-    exec(`pm2 start ${botScript} --name ${pm2Name} --watch=false`, { cwd: botPath }, (error, stdout, stderr) => {
+    // Inyectar variables de entorno explícitamente y forzar actualización
+    const envVars = {
+      ...process.env,
+      BOT_INSTANCE_ID: instanceId,
+      BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8484'
+    };
+
+    // Agregar --update-env para asegurar que tome las nuevas variables si ya existía
+    exec(`pm2 start ${botScript} --name ${pm2Name} --watch=false --update-env`, {
+      cwd: botPath,
+      env: envVars
+    }, (error, stdout, stderr) => {
       if (error) {
         console.error(`❌ [BOT-START] Error pm2 ${instanceId}:`, error.message);
         console.error(`❌ [BOT-START] STDERR:`, stderr);
