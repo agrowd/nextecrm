@@ -70,7 +70,20 @@ function initSocket() {
     });
 
     socket.on('bot_list_update', (botsArray) => {
-        currentState.bots = new Map(botsArray);
+        console.log('🔄 bot_list_update recibido:', botsArray);
+        // botsArray viene del servidor como Array.from(botStatuses.entries()) = [['bot_1', {...}], ...]
+        if (Array.isArray(botsArray) && botsArray.length > 0) {
+            // Verificar formato: puede ser [[id, status], ...] o [{instanceId, status}, ...]
+            if (Array.isArray(botsArray[0])) {
+                // Formato Map entries: [['bot_1', {status:...}], ...]
+                currentState.bots = new Map(botsArray);
+            } else if (botsArray[0].instanceId) {
+                // Formato objetos: [{instanceId: 'bot_1', status:...}, ...]
+                botsArray.forEach(b => {
+                    currentState.bots.set(b.instanceId, { status: b.status, wid: b.wid, qr: b.qr });
+                });
+            }
+        }
         renderBotControls();
         updateBotFilters(); // Actualizar filtros de bots dinámicamente
     });
@@ -311,19 +324,27 @@ async function fetchBotList() {
     try {
         const res = await fetchAPI('/bots/list');
         const data = await res.json();
+        console.log('📋 fetchBotList response:', data);
+
         if (data.success && Array.isArray(data.bots) && data.bots.length > 0) {
+            console.log('📋 Bots detectados:', data.bots.map(b => `${b.instanceId}:${b.status}`).join(', '));
             // Actualizar map
             data.bots.forEach(b => {
-                const current = currentState.bots.get(b.instanceId) || {};
-                currentState.bots.set(b.instanceId, { ...current, status: b.status, wid: b.wid, qr: b.qr });
+                if (b.instanceId) {
+                    const current = currentState.bots.get(b.instanceId) || {};
+                    currentState.bots.set(b.instanceId, { ...current, status: b.status, wid: b.wid, qr: b.qr });
+                }
             });
             renderBotControls();
             updateBotFilters();
         } else {
-            // Si falla o viene vacío, renderizar con fallback
+            console.warn('⚠️ Respuesta de bots vacía o inválida, usando fallback');
             renderBotControls();
         }
-    } catch (e) { console.warn("No se pudo obtener lista de bots, usando fallback"); renderBotControls(); }
+    } catch (e) {
+        console.error("❌ Error en fetchBotList:", e);
+        renderBotControls();
+    }
 }
 
 // --- BOT STATISTICS ---

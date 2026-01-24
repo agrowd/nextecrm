@@ -583,13 +583,22 @@ app.get('/api/bots/list', async (req, res) => {
       }
     }
 
-    // Devolver lista ordenada
-    const botsArray = Array.from(botStatuses.entries()).sort((a, b) => {
-      const numA = parseInt(a[0].replace('bot_', '').replace('bot', '1')) || 99;
-      const numB = parseInt(b[0].replace('bot_', '').replace('bot', '1')) || 99;
-      return numA - numB;
-    });
+    // Convertir a array de objetos con instanceId (formato que espera el frontend)
+    const botsArray = Array.from(botStatuses.entries())
+      .map(([id, statusObj]) => ({
+        instanceId: id,
+        status: statusObj.status || 'not_running',
+        wid: statusObj.wid || null,
+        qr: statusObj.qr || null,
+        lastSeen: statusObj.lastSeen || null
+      }))
+      .sort((a, b) => {
+        const numA = parseInt(a.instanceId.replace('bot_', '').replace('bot', '1')) || 99;
+        const numB = parseInt(b.instanceId.replace('bot_', '').replace('bot', '1')) || 99;
+        return numA - numB;
+      });
 
+    console.log('📋 Bots list:', botsArray.map(b => `${b.instanceId}:${b.status}`).join(', '));
     res.json({ success: true, bots: botsArray });
   } catch (error) {
     console.error('❌ Error listando bots:', error);
