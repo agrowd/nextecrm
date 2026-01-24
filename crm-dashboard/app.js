@@ -1130,7 +1130,7 @@ async function generateNewBot() {
             btn.innerHTML = `<span class="material-icons rotating" style="font-size:18px;">sync</span> Generando...`;
         }
 
-        const response = await fetch(`${API_URL}/api/bot/generate`, {
+        const response = await fetch(`${API_URL}/api/bot/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -1487,7 +1487,7 @@ async function deleteLead() {
     if (!currentLeadId) return;
     if (!confirm('¿Estás seguro de eliminar este lead?')) return;
     try {
-        await fetch(`${API_URL}/lead/${currentLeadId}`, { method: 'DELETE' });
+        await fetch(`${API_URL}/api/lead/${currentLeadId}`, { method: 'DELETE' });
         alert('Lead eliminado');
         closeLeadModal();
         fetchLeads();
