@@ -1004,12 +1004,20 @@ function renderBotControls() {
 
 async function startBotProcess(id, event) {
     if (event) event.preventDefault();
+
+    // UI Modal para confirmar inicio
+    const confirmed = await ui.modal.confirm(
+        '¿Iniciar Bot?',
+        `¿Deseas iniciar el proceso de ${id}? Esto conectará al sistema de leads.`,
+        'info'
+    );
+    if (!confirmed) return;
+
     console.log(`🚀 [UI] Iniciando bot ${id}...`);
 
     try {
-        const res = await fetch(`${API_URL}/api/bot/${id}/start`, {
-            method: 'POST',
-            credentials: 'include'
+        const res = await fetchAPI(`/bot/${id}/start`, {
+            method: 'POST'
         });
         const data = await res.json();
         console.log(`📬 [UI] Respuesta start ${id}:`, data);
@@ -1021,15 +1029,20 @@ async function startBotProcess(id, event) {
             const current = currentState.bots.get(id) || {};
             currentState.bots.set(id, { ...current, status: 'starting' });
             renderBotControls();
+
+            // Mostrar alerta informativa pequeña o toast si existiera (opcional, por ahora modal success)
+            // ui.modal.alert('Iniciando', `El ${id} se está iniciando. Por favor espera a que cambie a "Conectado".`, 'success');
         } else {
             console.error(`❌ [UI] Error iniciando ${id}:`, data.error || data.message);
             // Mostrar error en la UI en lugar de alert
             const current = currentState.bots.get(id) || {};
             currentState.bots.set(id, { ...current, status: 'not_running' });
             renderBotControls();
+            ui.modal.alert('Error', `No se pudo iniciar el bot: ${data.message}`, 'error');
         }
     } catch (e) {
         console.error(`🚨 [UI] Error de red iniciando ${id}:`, e);
+        ui.modal.alert('Error de Conexión', 'Fallo al conectar con el servidor', 'error');
     }
 }
 
