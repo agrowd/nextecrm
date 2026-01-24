@@ -6,7 +6,7 @@ module.exports = {
             env: {
                 PORT: 8484,
                 NODE_ENV: "production",
-                MONGODB_URI: "mongodb://mongo:27017/gmaps-leads-scraper",
+                // MONGODB_URI se hereda del entorno Docker (env_file .env)
                 BACKEND_URL: "http://localhost:8484",
                 HEADLESS: "true"
             }
