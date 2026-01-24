@@ -950,30 +950,67 @@ function renderBotControls() {
     });
 }
 
-async function startBotProcess(id) {
+async function startBotProcess(id, event) {
+    if (event) event.preventDefault();
+    console.log(`🚀 [UI] Iniciando bot ${id}...`);
+
     try {
-        const res = await fetch(`${API_URL}/api/bot/${id}/start`, { method: 'POST' });
+        const res = await fetch(`${API_URL}/api/bot/${id}/start`, {
+            method: 'POST',
+            credentials: 'include'
+        });
         const data = await res.json();
+        console.log(`📬 [UI] Respuesta start ${id}:`, data);
+
         if (data.success) {
-            console.log(`Bot ${id} iniciado desde UI`);
+            console.log(`✅ [UI] Bot ${id} proceso iniciado - esperando conexión socket...`);
             // El estado se actualizará vía socket cuando el bot se conecte
-        } else { alert("Error: " + data.error); }
-    } catch (e) { alert("Error conectando al servidor"); }
+            // Actualizar UI local inmediatamente con estado 'starting'
+            const current = currentState.bots.get(id) || {};
+            currentState.bots.set(id, { ...current, status: 'starting' });
+            renderBotControls();
+        } else {
+            console.error(`❌ [UI] Error iniciando ${id}:`, data.error || data.message);
+            // Mostrar error en la UI en lugar de alert
+            const current = currentState.bots.get(id) || {};
+            currentState.bots.set(id, { ...current, status: 'not_running' });
+            renderBotControls();
+        }
+    } catch (e) {
+        console.error(`🚨 [UI] Error de red iniciando ${id}:`, e);
+    }
 }
 
-async function stopBotProcess(id) {
-    if (!confirm(`¿Deseas detener completamente el proceso de ${id}?`)) return;
+async function stopBotProcess(id, event) {
+    if (event) event.preventDefault();
+
+    if (!confirm(`¿Deseas detener completamente el proceso de ${id}?`)) {
+        console.log(`⏸️ [UI] Cancelado detener ${id}`);
+        return;
+    }
+
+    console.log(`⏹️ [UI] Deteniendo bot ${id}...`);
+
     try {
-        const res = await fetch(`${API_URL}/api/bot/${id}/stop`, { method: 'POST' });
+        const res = await fetch(`${API_URL}/api/bot/${id}/stop`, {
+            method: 'POST',
+            credentials: 'include'
+        });
         const data = await res.json();
+        console.log(`📬 [UI] Respuesta stop ${id}:`, data);
+
         if (data.success) {
-            console.log(`Bot ${id} detenido`);
+            console.log(`✅ [UI] Bot ${id} detenido correctamente`);
             // Actualizar estado local inmediatamente para feedback visual
             const current = currentState.bots.get(id) || {};
             currentState.bots.set(id, { ...current, status: 'not_running' });
             renderBotControls();
-        } else { alert("Error: " + data.error); }
-    } catch (e) { alert("Error conectando al servidor"); }
+        } else {
+            console.error(`❌ [UI] Error deteniendo ${id}:`, data.error || data.message);
+        }
+    } catch (e) {
+        console.error(`🚨 [UI] Error de red deteniendo ${id}:`, e);
+    }
 }
 
 async function deleteBotInstance(id) {
