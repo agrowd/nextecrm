@@ -3623,6 +3623,58 @@ ${keywordList || '• Sin datos'}`;
 // Endpoint moved to line 1648
 
 
+// GET /next - Obtener siguiente lead para procesar (Endpoint crítico para el bot)
+app.get('/next', async (req, res) => {
+  try {
+    const { instanceId } = req.query; // Bot que solicita el lead
+
+    // 1. Estadísticas de cola
+    const pendingCount = await Lead.countDocuments({ status: 'pending' });
+    const totalCount = await Lead.countDocuments({});
+
+    // 2. Buscar siguiente lead pendiente (FIFO)
+    // Usamos findOneAndUpdate para atomicidad (evitar que dos bots tomen el mismo)
+    const lead = await Lead.findOneAndUpdate(
+      { status: 'pending' },
+      {
+        $set: {
+          status: 'processing',
+          contactedByInstance: instanceId || 'unknown',
+          lastContactAt: new Date()
+        }
+      },
+      { sort: { createdAt: 1 }, new: true } // El más antiguo primero
+    );
+
+    if (!lead) {
+      return res.json({
+        success: true,
+        message: 'No hay leads pendientes',
+        queue: {
+          pending: pendingCount,
+          total: totalCount
+        }
+      });
+    }
+
+    console.log(`📤 Asignando lead ${lead.businessName || lead.phone} a ${instanceId}`);
+
+    res.json({
+      success: true,
+      lead,
+      queue: {
+        pending: pendingCount, // Restamos 1 porque acabamos de tomar uno? No, count fue antes.
+        total: totalCount
+      }
+    });
+
+  } catch (error) {
+    console.error('Error en /next:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
 // Iniciar servidor
 server.listen(PORT, '0.0.0.0', () => {
   log(`🚀 Servidor real-time iniciado en puerto ${PORT}`, 'success', 'server');
