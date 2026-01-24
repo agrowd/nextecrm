@@ -13,6 +13,7 @@ services:
     environment:
       - PORT=8484
       - HEADLESS=true
+      - BACKEND_URL=http://127.0.0.1:8484
     volumes:
       - ./logs:/app/logs
       - ./sessions:/app/sessions

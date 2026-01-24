@@ -65,7 +65,7 @@ async function ensureBotEnv() {
     if (fsSync.existsSync(templateEnvPath)) {
       baseContent = fsSync.readFileSync(templateEnvPath, 'utf8');
     } else {
-      baseContent = `BACKEND_URL=http://localhost:8484\nBOT_INSTANCE_ID=bot_1\n`;
+      baseContent = `BACKEND_URL=http://127.0.0.1:8484\nBOT_INSTANCE_ID=bot_1\n`;
     }
 
     for (const bot of botPaths) {
@@ -128,7 +128,13 @@ const PORT = 8484; // Forzado a 8484 para evitar conflictos con 3001
 const connectedBots = new Map(); // instanceId -> socketId
 const botStatuses = new Map();   // instanceId -> { status, lastSeen, qr }
 
-// 1. CORS - Configuración para permitir credenciales y origen dinámico
+// 1. GLOBAL DEBUG LOGGER (Verificar tráfico entrante)
+app.use((req, res, next) => {
+  console.log(`🌍 INCOMING: ${req.method} ${req.url} from ${req.ip}`);
+  next();
+});
+
+// 2. CORS - Configuración para permitir credenciales y origen dinámico
 app.use(cors({
   origin: true,
   credentials: true,
