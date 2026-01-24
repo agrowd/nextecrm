@@ -136,6 +136,52 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 
+// 🚨 ENDPOINT CRÍTICO BOT (Top Priority)
+// GET /next - Obtener siguiente lead para procesar
+app.get('/next', async (req, res) => {
+  try {
+    const { instanceId } = req.query; // Bot que solicita el lead
+    console.log(`🔔 /next HIT from ${instanceId} (Localhost Bypass)`);
+
+    // 1. Estadísticas de cola
+    const pendingCount = await Lead.countDocuments({ status: 'pending' });
+    const totalCount = await Lead.countDocuments({});
+
+    // 2. Buscar siguiente lead pendiente (FIFO)
+    const lead = await Lead.findOneAndUpdate(
+      { status: 'pending' },
+      {
+        $set: {
+          status: 'processing',
+          contactedByInstance: instanceId || 'unknown',
+          lastContactAt: new Date()
+        }
+      },
+      { sort: { createdAt: 1 }, new: true }
+    );
+
+    if (!lead) {
+      return res.json({
+        success: true,
+        message: 'No hay leads pendientes',
+        queue: { pending: pendingCount, total: totalCount }
+      });
+    }
+
+    console.log(`📤 Asignando lead ${lead.businessName || lead.phone} a ${instanceId}`);
+
+    res.json({
+      success: true,
+      lead,
+      queue: { pending: pendingCount, total: totalCount }
+    });
+
+  } catch (error) {
+    console.error('Error en /next:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 /* 
 // 2. Helmet - Desactivado temporalmente para debuggear ERR_SSL_PROTOCOL_ERROR
 app.use(helmet({
