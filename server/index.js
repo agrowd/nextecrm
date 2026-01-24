@@ -3903,6 +3903,82 @@ app.get('/next', async (req, res) => {
 });
 
 
+// POST /api/admin/migrate-leadnames - Migrar nombres de leads en mensajes
+app.post('/api/admin/migrate-leadnames', async (req, res) => {
+  try {
+    console.log('🔄 Iniciando migración de leadNames...');
+
+    // Estadísticas
+    const stats = { updated: 0, noLeadFound: 0, errors: 0 };
+
+    // Buscar mensajes sin leadName
+    const messagesToMigrate = await Message.find({
+      $or: [
+        { leadName: { $exists: false } },
+        { leadName: null },
+        { leadName: '' }
+      ]
+    }).select('_id phone');
+
+    if (messagesToMigrate.length === 0) {
+      return res.json({ success: true, message: 'No hay mensajes que migrar', stats });
+    }
+
+    // Construir cache de leads
+    const allLeads = await Lead.find({}).select('name phone');
+    const phoneToName = new Map();
+    for (const lead of allLeads) {
+      if (!lead.phone || !lead.name) continue;
+      const cleanPhone = lead.phone.replace(/\D/g, '');
+      phoneToName.set(cleanPhone, lead.name);
+      phoneToName.set(cleanPhone.slice(-10), lead.name);
+      phoneToName.set(cleanPhone.slice(-8), lead.name);
+    }
+
+    // Procesar en batches de 100
+    const BATCH_SIZE = 100;
+    for (let i = 0; i < messagesToMigrate.length; i += BATCH_SIZE) {
+      const batch = messagesToMigrate.slice(i, i + BATCH_SIZE);
+      const bulkOps = [];
+
+      for (const msg of batch) {
+        const cleanPhone = (msg.phone || '').replace(/\D/g, '');
+        const leadName = phoneToName.get(cleanPhone) ||
+          phoneToName.get(cleanPhone.slice(-10)) ||
+          phoneToName.get(cleanPhone.slice(-8));
+
+        if (leadName) {
+          bulkOps.push({
+            updateOne: {
+              filter: { _id: msg._id },
+              update: { $set: { leadName: leadName } }
+            }
+          });
+          stats.updated++;
+        } else {
+          stats.noLeadFound++;
+        }
+      }
+
+      if (bulkOps.length > 0) {
+        await Message.bulkWrite(bulkOps);
+      }
+    }
+
+    console.log(`✅ Migración completada: ${stats.updated} actualizados, ${stats.noLeadFound} sin lead`);
+    res.json({
+      success: true,
+      message: `Migración completada`,
+      stats,
+      total: messagesToMigrate.length
+    });
+
+  } catch (error) {
+    console.error('❌ Error en migración:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Iniciar servidor
 server.listen(PORT, '0.0.0.0', () => {
   log(`🚀 Servidor real-time iniciado en puerto ${PORT}`, 'success', 'server');
