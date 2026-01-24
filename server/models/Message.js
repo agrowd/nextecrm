@@ -1,16 +1,16 @@
 const mongoose = require('mongoose');
 
 const MessageSchema = new mongoose.Schema({
-  leadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead', required: true },
-  leadName: { type: String, required: true },
+  leadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead', required: false },
+  leadName: { type: String, required: false },
   phone: { type: String, required: true },
-  messageNumber: { type: Number, required: true }, // 1, 2, 3, etc.
+  messageNumber: { type: Number, required: false, default: 0 }, // 1, 2, 3, etc.
   content: { type: String, required: true },
   variation: { type: String, default: '' }, // variación usada
   type: {
     type: String,
-    default: 'oferta_servicio',
-    enum: ['oferta_servicio', 'respuesta_automatica', 'mensaje_manual', 'verificacion']
+    default: 'text',
+    enum: ['oferta_servicio', 'respuesta_automatica', 'mensaje_manual', 'verificacion', 'text', 'image', 'audio', 'video', 'document', 'system']
   },
   status: {
     type: String,
