@@ -285,6 +285,7 @@ app.post('/messages', async (req, res) => {
       timestamp: timestamp || new Date(),
       instanceId,
       leadId: lead ? lead._id : null,
+      leadName: lead ? lead.name : (senderName || cleanPhone), // ← FIX: Populate leadName for dashboard display
       senderName
     });
 
