@@ -142,6 +142,10 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 
+// 3. PARSERS (Necesario antes de cualquier ruta que use req.body)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
 // 🚨 ENDPOINT CRÍTICO BOT (Top Priority)
 // GET /next - Obtener siguiente lead para procesar
 app.get('/next', async (req, res) => {
@@ -293,9 +297,7 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Middleware para parsing JSON
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+// (Moved to top of file)
 
 // Middleware de Autenticación
 const requireAuth = (req, res, next) => {
