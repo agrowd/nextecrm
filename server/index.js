@@ -563,6 +563,40 @@ app.delete('/api/bot/:instanceId', async (req, res) => {
   }
 });
 
+// GET /api/bots/list - Listar todos los bots y sus estados
+app.get('/api/bots/list', async (req, res) => {
+  try {
+    // Detectar carpetas de bots existentes
+    const rootDir = path.join(__dirname, '..');
+    const items = await fs.readdir(rootDir);
+
+    // Buscar carpetas de bot (bot, bot_2, bot_3, etc.)
+    const botFolders = items.filter(i => i === 'bot' || (i.startsWith('bot_') && !isNaN(i.split('_')[1])));
+
+    // Mapear a los IDs esperados por el dashboard
+    const expectedBots = botFolders.map(folder => folder === 'bot' ? 'bot_1' : folder);
+
+    // Asegurar que botStatuses tenga entradas para todos los bots detectados
+    for (const botId of expectedBots) {
+      if (!botStatuses.has(botId)) {
+        botStatuses.set(botId, { status: 'not_running' });
+      }
+    }
+
+    // Devolver lista ordenada
+    const botsArray = Array.from(botStatuses.entries()).sort((a, b) => {
+      const numA = parseInt(a[0].replace('bot_', '').replace('bot', '1')) || 99;
+      const numB = parseInt(b[0].replace('bot_', '').replace('bot', '1')) || 99;
+      return numA - numB;
+    });
+
+    res.json({ success: true, bots: botsArray });
+  } catch (error) {
+    console.error('❌ Error listando bots:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Helper para copiar directorios recursivamente
 async function copyDir(src, dest) {
   await fs.mkdir(dest, { recursive: true });
