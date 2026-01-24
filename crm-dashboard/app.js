@@ -983,12 +983,7 @@ async function startBotProcess(id, event) {
 
 async function stopBotProcess(id, event) {
     if (event) event.preventDefault();
-
-    if (!confirm(`¿Deseas detener completamente el proceso de ${id}?`)) {
-        console.log(`⏸️ [UI] Cancelado detener ${id}`);
-        return;
-    }
-
+    // Removido confirm() que causaba redirección de página
     console.log(`⏹️ [UI] Deteniendo bot ${id}...`);
 
     try {
@@ -1014,16 +1009,22 @@ async function stopBotProcess(id, event) {
 }
 
 async function deleteBotInstance(id) {
-    if (!confirm(`¿Deseas ELIMINAR permanentemente el bot ${id} y todos sus archivos?`)) return;
+    // Removido confirm() que causaba redirección de página
+    console.log(`🗑️ [UI] Eliminando bot ${id}...`);
     try {
-        const res = await fetch(`${API_URL}/api/bot/${id}`, { method: 'DELETE' });
+        const res = await fetch(`${API_URL}/api/bot/${id}`, { method: 'DELETE', credentials: 'include' });
         const data = await res.json();
+        console.log(`📬 [UI] Respuesta delete ${id}:`, data);
         if (data.success) {
             currentState.bots.delete(id);
             renderBotControls();
             updateBotFilters();
-        } else { alert("Error: " + data.message); }
-    } catch (e) { alert("Error conectando al servidor"); }
+        } else {
+            console.error(`❌ [UI] Error eliminando ${id}:`, data.message);
+        }
+    } catch (e) {
+        console.error(`🚨 [UI] Error de red eliminando ${id}:`, e);
+    }
 }
 
 async function generateNewBot() {

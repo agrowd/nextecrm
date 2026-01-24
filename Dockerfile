@@ -54,7 +54,7 @@ COPY server/package*.json ./server/
 RUN npm install
 
 # Instalar dependencias de los bots y server
-RUN cd bot && npm install
+RUN npm cache clean --force && cd bot && npm install --legacy-peer-deps
 RUN cd bot_2 && npm install
 RUN cd bot_3 && npm install
 RUN cd server && npm install
