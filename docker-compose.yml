@@ -14,5 +14,10 @@ services:
       - PORT=8484
       - HEADLESS=true
     volumes:
-      - ./bot_2/sessions:/app/bot_2/sessions
+      - ./:/app
+      - /app/node_modules
       - ./logs:/app/logs
+      - ./sessions:/app/sessions
+      - ./bot_1:/app/bot_1
+      - ./bot_2:/app/bot_2
+      - ./bot_3:/app/bot_3
