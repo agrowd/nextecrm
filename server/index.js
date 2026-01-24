@@ -188,6 +188,73 @@ app.get('/next', async (req, res) => {
   }
 });
 
+// POST /logs - Recibir logs del bot
+app.post('/logs', async (req, res) => {
+  try {
+    const { level, component, message, details, leadId, instanceId } = req.body;
+
+    // Guardar en DB
+    const logEntry = new Log({
+      level: level || 'info',
+      component: component || 'bot',
+      instanceId: instanceId || 'unknown',
+      message,
+      details,
+      leadId
+    });
+    await logEntry.save();
+
+    // Emitir a socket
+    if (global.io) {
+      global.io.emit('realtime_bot_log', {
+        instanceId,
+        level,
+        message,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error en /logs:', error);
+    res.status(500).json({ success: false });
+  }
+});
+
+// POST /ingest - Recibir leads del scraper
+app.post('/ingest', async (req, res) => {
+  try {
+    const data = req.body;
+    const leads = Array.isArray(data) ? data : (data.leads ? data.leads : [data]);
+    let added = 0;
+
+    console.log(`📥 Ingestando ${leads.length} leads...`);
+
+    for (const leadData of leads) {
+      // Verificar duplicados por teléfono
+      const exists = await Lead.findOne({ phone: leadData.phone });
+      if (!exists) {
+        await Lead.create({
+          ...leadData,
+          status: 'pending',
+          source: 'extension'
+        });
+        added++;
+
+        // Notificar nuevo lead
+        if (global.io) global.io.emit('new_lead', leadData);
+      }
+    }
+
+    console.log(`✅ Ingestados ${added} nuevos leads.`);
+    res.json({ success: true, added, total: leads.length });
+
+  } catch (error) {
+    console.error('Error en /ingest:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 /* 
 // 2. Helmet - Desactivado temporalmente para debuggear ERR_SSL_PROTOCOL_ERROR
 app.use(helmet({
