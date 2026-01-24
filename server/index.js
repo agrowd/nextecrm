@@ -242,6 +242,37 @@ app.get('/health', (req, res) => {
   });
 });
 
+// 🔬 Ruta pública de diagnóstico de BD (sin auth)
+app.get('/health-db', async (req, res) => {
+  try {
+    const uri = process.env.MONGODB_URI || 'NOT SET';
+    const maskedUri = uri.replace(/:([^:@]+)@/, ':****@'); // Ocultar password
+
+    const leadsCount = await Lead.countDocuments();
+    const messagesCount = await Message.countDocuments();
+    const logsCount = await Log.countDocuments();
+
+    console.log(`[HEALTH-DB] URI: ${maskedUri}`);
+    console.log(`[HEALTH-DB] Leads: ${leadsCount}, Messages: ${messagesCount}, Logs: ${logsCount}`);
+
+    res.json({
+      success: true,
+      mongoUri: maskedUri,
+      dbState: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      dbName: mongoose.connection.name || 'unknown',
+      collections: {
+        leads: leadsCount,
+        messages: messagesCount,
+        logs: logsCount
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[HEALTH-DB ERROR]', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // 🔬 Ruta de diagnóstico de base de datos
 app.get('/api/db-check', async (req, res) => {
   try {
