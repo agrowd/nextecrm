@@ -1030,43 +1030,38 @@ async function deleteBotInstance(id) {
 async function generateNewBot() {
     const btn = event?.currentTarget;
     const originalText = btn?.innerHTML || '';
+    // Removido confirm() que causaba redirección
+    console.log('🏗️ [UI] Generando nueva instancia de bot...');
 
-    if (confirm('¿Estás seguro de que deseas generar una nueva instancia de bot?')) {
-        try {
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML = `<span class="material-icons rotating" style="font-size:18px;">sync</span> Generando...`;
-            }
+    try {
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<span class="material-icons rotating" style="font-size:18px;">sync</span> Generando...`;
+        }
 
-            const response = await fetch(`${API_URL}/api/bot/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({})
-            });
+        const response = await fetch(`${API_URL}/api/bot/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({})
+        });
 
-            const data = await response.json();
-            if (data.success) {
-                alert(`🚀 ¡Éxito! Nueva instancia '${data.bot.instanceId}' creada correctamente.
+        const data = await response.json();
+        console.log('📬 [UI] Respuesta generate bot:', data);
 
-Para iniciar el bot:
-1. Terminal: ${data.bot.startCommand}
-2. PM2: ${data.bot.pm2Command}
-
-El bot aparecerá en el dashboard cuando se conecte.`);
-
-                // Refresh bot list
-                renderBotControls();
-            } else {
-                alert(`❌ Error: ${data.message || data.error}`);
-            }
-        } catch (e) {
-            console.error(e);
-            alert('Error al intentar generar la instancia: ' + e.message);
-        } finally {
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-            }
+        if (data.success) {
+            console.log(`✅ [UI] Nueva instancia '${data.bot?.instanceId || data.instanceId}' creada`);
+            // Actualizar lista de bots inmediatamente
+            await fetchBotList();
+        } else {
+            console.error(`❌ [UI] Error generando bot:`, data.message || data.error);
+        }
+    } catch (e) {
+        console.error('🚨 [UI] Error de red generando bot:', e);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
         }
     }
 }
