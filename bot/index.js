@@ -288,7 +288,21 @@ class WhatsAppBot {
       await chat.sendMessage(message);
       console.log('✅ Mensaje enviado.');
 
-      // Notificar al dashboard
+      // Guardar en DB vía Backend (importante para historial)
+      try {
+        await axios.post(`${this.backendUrl}/messages`, {
+          phone: phone.replace(/\D/g, ''),
+          content: message,
+          fromMe: true,
+          timestamp: new Date(),
+          instanceId: this.instanceId,
+          type: 'text'
+        });
+      } catch (dbError) {
+        console.error('⚠️ Error guardando mensaje manual en DB:', dbError.message);
+      }
+
+      // Notificar al dashboard (fallback por si socket del backend tarda)
       this.socket.emit('new_whatsapp_message', {
         instanceId: this.instanceId,
         from: 'me',
@@ -382,6 +396,15 @@ class WhatsAppBot {
     this.client.on('ready', async () => {
       console.log('✅ WhatsApp Bot listo!');
       this.isReady = true;
+
+      // 📢 Notificar al Admin
+      try {
+        const ADMIN_NUMBER = '5491126642674';
+        await this.client.sendMessage(`${ADMIN_NUMBER}@c.us`, `🤖 Bot ${this.instanceId} ONLINE y listo para trabajar! 🚀`);
+        console.log(`📱 Menú de admin/aviso enviado a ${ADMIN_NUMBER}`);
+      } catch (err) {
+        console.error('⚠️ Error enviando aviso al admin:', err.message);
+      }
 
       // 🔑 MULTI-BOT: Capturar número conectado
       try {

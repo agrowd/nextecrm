@@ -35,6 +35,7 @@ const IntelligentRateLimiter = require('./services/rateLimiter');
 const HumanBehaviorSimulator = require('./services/humanBehavior');
 const ResponseAnalyzer = require('./services/responseAnalyzer');
 const StealthBrowserManager = require('./services/stealthBrowser');
+const Scheduler = require('./services/scheduler');
 
 class WhatsAppBot {
   constructor() {
@@ -51,10 +52,14 @@ class WhatsAppBot {
     this.lastNoLeadsLog = null; // Para controlar logs de "no hay leads"
 
     // 🔑 MULTI-BOT: Identificador único de esta instancia
+    console.log(`🔍 [INIT] Checking Identity... ENV_ID: '${process.env.BOT_INSTANCE_ID}'`);
+    if (!process.env.BOT_INSTANCE_ID) {
+      console.warn('⚠️ BOT_INSTANCE_ID missing from environment. Generating random ID...');
+    }
     this.instanceId = process.env.BOT_INSTANCE_ID || `bot_${Date.now().toString(36)}`;
     this.connectedNumber = null; // Se llena cuando WhatsApp conecta
     this.lastMessageTimestamps = new Map(); // ⏱️ Tiempos de envío para detectar auto-replies
-    console.log(`🤖 Instancia de bot: ${this.instanceId}`);
+    console.log(`🤖 Instancia de bot INICIADA: ${this.instanceId}`);
 
     // Sistema para detectar leads atascados
     this.stuckLeads = new Map(); // Almacena leads que se están procesando repetidamente
@@ -80,6 +85,7 @@ class WhatsAppBot {
     this.rateLimiter = null; // Se inicializa después
     this.behaviorSimulator = new HumanBehaviorSimulator();
     this.responseAnalyzer = new ResponseAnalyzer();
+    this.scheduler = new Scheduler(this.config); // Inicializar scheduler
     this.stealthBrowser = null; // Se inicializa antes de puppeteer
 
     // 📡 Conexión Real-time con el Servidor
@@ -219,6 +225,7 @@ class WhatsAppBot {
       const res = await axios.get(`${this.backendUrl}/bot/config`);
       if (res.data.success && res.data.config) {
         this.config = { ...this.config, ...res.data.config };
+        this.scheduler.updateConfig(this.config); // Actualizar scheduler
         this.log('Configuración remota aplicada correctamente.');
 
         // Aplicar a los servicios que la necesiten
@@ -239,6 +246,7 @@ class WhatsAppBot {
 
     this.socket.on('bot_config_updated', (newConfig) => {
       this.config = { ...this.config, ...newConfig };
+      this.scheduler.updateConfig(this.config); // Actualizar scheduler real-time
       this.log('🔄 Configuración actualizada en tiempo real desde el CRM');
     });
 
@@ -260,6 +268,13 @@ class WhatsAppBot {
       }
     });
 
+    this.socket.on('templates_updated', (data) => {
+      this.log(`🔄 Plantillas actualizadas desde el CRM: ${data.category}`);
+      if (this.aiGenerator && this.aiGenerator.templateGenerator) {
+        this.aiGenerator.templateGenerator.fetchTemplates();
+      }
+    });
+
     this.socket.on('disconnect', () => {
       this.log('🔌 Desconectado del servidor central', 'warn');
     });
@@ -273,7 +288,21 @@ class WhatsAppBot {
       await chat.sendMessage(message);
       console.log('✅ Mensaje enviado.');
 
-      // Notificar al dashboard
+      // Guardar en DB vía Backend (importante para historial)
+      try {
+        await axios.post(`${this.backendUrl}/messages`, {
+          phone: phone.replace(/\D/g, ''),
+          content: message,
+          fromMe: true,
+          timestamp: new Date(),
+          instanceId: this.instanceId,
+          type: 'text'
+        });
+      } catch (dbError) {
+        console.error('⚠️ Error guardando mensaje manual en DB:', dbError.message);
+      }
+
+      // Notificar al dashboard (fallback por si socket del backend tarda)
       this.socket.emit('new_whatsapp_message', {
         instanceId: this.instanceId,
         from: 'me',
@@ -308,7 +337,7 @@ class WhatsAppBot {
     // ✅ CONFIGURACIÓN PUPPETEER ESTABILIZADA
     // Se han eliminado flags experimentales que causaban crashes
     const stealthPuppeteerConfig = {
-      headless: false,
+      headless: process.env.HEADLESS === 'true' ? "new" : false,
       executablePath: process.env.CHROME_PATH || undefined,
       bypassCSP: true, // 🛡️ FIX CRÍTICO: Evita "Execution context was destroyed"
       ignoreHTTPSErrors: true,
@@ -367,6 +396,15 @@ class WhatsAppBot {
     this.client.on('ready', async () => {
       console.log('✅ WhatsApp Bot listo!');
       this.isReady = true;
+
+      // 📢 Notificar al Admin
+      try {
+        const ADMIN_NUMBER = '5491126642674';
+        await this.client.sendMessage(`${ADMIN_NUMBER}@c.us`, `🤖 Bot ${this.instanceId} ONLINE y listo para trabajar! 🚀`);
+        console.log(`📱 Menú de admin/aviso enviado a ${ADMIN_NUMBER}`);
+      } catch (err) {
+        console.error('⚠️ Error enviando aviso al admin:', err.message);
+      }
 
       // 🔑 MULTI-BOT: Capturar número conectado
       try {
@@ -716,6 +754,11 @@ class WhatsAppBot {
         console.error('❌ Error en checkCompletedSessions interval:', error.message);
       }
     }, 60 * 1000);
+
+    // 🏷️ Sincronizar Etiquetas cada 5 minutos
+    setInterval(() => {
+      this.syncTagsWithBackend();
+    }, 5 * 60 * 1000);
   }
 
   // Función para loggear
@@ -734,6 +777,13 @@ class WhatsAppBot {
   }
 
   async processNextLead() {
+    // 0. VERIFICAR SCHEDULER (Horarios y Pausas)
+    const scheduleCheck = this.scheduler.shouldRun();
+    if (!scheduleCheck.shouldRun) {
+      console.log(`⏸️ Scheduler: Pausado (${scheduleCheck.reason}) - Saltando ciclo.`);
+      return;
+    }
+
     // Evitar procesamiento simultáneo
     if (this.isProcessing) {
       console.log('⏳ Ya hay un lead siendo procesado, saltando...');
@@ -2621,6 +2671,47 @@ class WhatsAppBot {
     }
 
     return matrix[str2.length][str1.length];
+  }
+
+  /**
+   * 🏷️ Sincronizar etiquetas de WhatsApp con el CRM
+   */
+  async syncTagsWithBackend() {
+    if (!this.client || !this.isReady) return;
+
+    try {
+      this.log('↻ Sincronizando etiquetas de WhatsApp...');
+      const chats = await this.client.getChats();
+
+      let syncCount = 0;
+      for (const chat of chats) {
+        if (chat.labels && chat.labels.length > 0) {
+          const labels = await this.client.getLabels();
+          const chatLabels = chat.labels.map(lId => {
+            const found = labels.find(l => l.id === lId);
+            return found ? found.name : lId;
+          });
+
+          let newStatus = null;
+          if (chatLabels.some(l => l.toLowerCase().includes('interesad'))) newStatus = 'interested';
+          else if (chatLabels.some(l => l.toLowerCase().includes('no interesa'))) newStatus = 'not_interested';
+          else if (chatLabels.some(l => l.toLowerCase().includes('vendido') || l.toLowerCase().includes('cliente'))) newStatus = 'completed';
+
+          if (newStatus) {
+            axios.post(`${this.backendUrl}/webhooks/whatsapp-status`, {
+              phone: chat.id.user,
+              status: newStatus,
+              tags: chatLabels
+            }).catch(() => { });
+            syncCount++;
+          }
+        }
+      }
+      if (syncCount > 0) this.log(`✅ Sincronizados ${syncCount} leads desde etiquetas WA`);
+
+    } catch (e) {
+      this.log(`⚠️ Error sincronizando etiquetas: ${e.message}`, 'warn');
+    }
   }
 }
 
