@@ -1891,22 +1891,36 @@ app.post('/api/bot/:instanceId/start', async (req, res) => {
   console.log(`🚀 Iniciando bot ${instanceId}...`);
 
   try {
-    await fs.access(configPath);
+    const hasEcosystem = await fs.access(configPath).then(() => true).catch(() => false);
+
+    let command;
+    if (hasEcosystem) {
+      command = `npx pm2 start ${configPath} --name ${instanceId}`;
+    } else {
+      // Fallback: Iniciar index.js directo
+      // IMPORTANTE: Asegurar que se pasan las variables de entorno si no están en ecosystem
+      const indexPath = path.join(botPath, 'index.js');
+      // Usamos --name para que PM2 lo reconozca
+      command = `npx pm2 start ${indexPath} --name ${instanceId} -- --colors`;
+      console.log(`⚠️ Ecosystem no encontrado para ${instanceId}, usando fallback manual: ${command}`);
+    }
 
     // Usar pm2 start or restart si ya existe
-    exec(`npx pm2 start ${configPath} --name ${instanceId}`, (error, stdout, stderr) => {
+    exec(command, (error, stdout, stderr) => {
       if (error) {
-        // Si falla porque ya existe, intentar restart
+        // Si falla (ej: ya existe), intentar restart
+        console.warn(`Error inicio ${instanceId}: ${error.message}. Intentando restart...`);
         exec(`npx pm2 restart ${instanceId}`, (err2) => {
           if (err2) return res.status(500).json({ success: false, error: err2.message });
-          res.json({ success: true, message: `Bot ${instanceId} reiniciado` });
+          res.json({ success: true, message: `Bot ${instanceId} reiniciado (Recovered)` });
         });
         return;
       }
       res.json({ success: true, message: `Bot ${instanceId} iniciado` });
     });
   } catch (e) {
-    res.status(404).json({ success: false, error: 'Configuración de bot no encontrada' });
+    // Catch genérico (aunque manejado arriba con hasEcosystem)
+    res.status(500).json({ success: false, error: e.message });
   }
 });
 

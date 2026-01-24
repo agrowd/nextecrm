@@ -397,15 +397,6 @@ class WhatsAppBot {
       console.log('✅ WhatsApp Bot listo!');
       this.isReady = true;
 
-      // 📢 Notificar al Admin
-      try {
-        const ADMIN_NUMBER = '5491126642674';
-        await this.client.sendMessage(`${ADMIN_NUMBER}@c.us`, `🤖 Bot ${this.instanceId} ONLINE y listo para trabajar! 🚀`);
-        console.log(`📱 Menú de admin/aviso enviado a ${ADMIN_NUMBER}`);
-      } catch (err) {
-        console.error('⚠️ Error enviando aviso al admin:', err.message);
-      }
-
       // 🔑 MULTI-BOT: Capturar número conectado
       try {
         const info = await this.client.info;
