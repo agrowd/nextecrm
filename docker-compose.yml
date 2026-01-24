@@ -8,24 +8,11 @@ services:
     ports:
       - "8484:8484"
       - "8485:8485"
+    env_file:
+      - .env
     environment:
-      - MONGODB_URI=mongodb://mongo:27017/gmaps-leads-scraper
       - PORT=8484
       - HEADLESS=true
     volumes:
       - ./bot_2/sessions:/app/bot_2/sessions
       - ./logs:/app/logs
-    depends_on:
-      - mongo
-
-  mongo:
-    image: mongo:6.0
-    container_name: rascafull-mongo
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:27017:27017" # Solo accesible localmente por seguridad
-    volumes:
-      - mongo-data:/data/db
-
-volumes:
-  mongo-data:
