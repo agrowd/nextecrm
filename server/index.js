@@ -180,12 +180,22 @@ app.use(express.urlencoded({ extended: true }));
 
 // Middleware de Autenticación
 const requireAuth = (req, res, next) => {
+  // 🔓 PERMITIR ACCESO LOCAL (Para que los bots puedan leer templates/leads sin login)
+  const remoteIp = req.socket.remoteAddress;
+  const isLocal = remoteIp === '127.0.0.1' || remoteIp === '::1' || remoteIp === '::ffff:127.0.0.1';
+
+  if (isLocal) {
+    // Opcional: Loggear acceso local solo para debug
+    // console.log(`🔓 Localhost access bypass: ${req.originalUrl}`);
+    return next();
+  }
+
   if (req.session && req.session.authenticated) {
     return next();
   }
 
   // Debug log for auth failure
-  console.log(`🔒 Auth failed for: ${req.originalUrl}`);
+  console.log(`🔒 Auth failed for: ${req.originalUrl} from ${remoteIp}`);
 
   // Si es una ruta de API o pide JSON, devolver 401 en lugar de redirigir a HTML
   if (req.originalUrl.startsWith('/api/') ||
