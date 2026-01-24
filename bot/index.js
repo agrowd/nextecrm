@@ -52,10 +52,14 @@ class WhatsAppBot {
     this.lastNoLeadsLog = null; // Para controlar logs de "no hay leads"
 
     // 🔑 MULTI-BOT: Identificador único de esta instancia
+    console.log(`🔍 [INIT] Checking Identity... ENV_ID: '${process.env.BOT_INSTANCE_ID}'`);
+    if (!process.env.BOT_INSTANCE_ID) {
+      console.warn('⚠️ BOT_INSTANCE_ID missing from environment. Generating random ID...');
+    }
     this.instanceId = process.env.BOT_INSTANCE_ID || `bot_${Date.now().toString(36)}`;
     this.connectedNumber = null; // Se llena cuando WhatsApp conecta
     this.lastMessageTimestamps = new Map(); // ⏱️ Tiempos de envío para detectar auto-replies
-    console.log(`🤖 Instancia de bot: ${this.instanceId}`);
+    console.log(`🤖 Instancia de bot INICIADA: ${this.instanceId}`);
 
     // Sistema para detectar leads atascados
     this.stuckLeads = new Map(); // Almacena leads que se están procesando repetidamente

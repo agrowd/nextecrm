@@ -53,29 +53,57 @@ const { Server } = require('socket.io');
 // 🛡️ ASEGURAR ENTORNO BOT_1 (Fix para VPS donde git ignora .env)
 // ─────────────────────────────────────────────────────────────────────────────
 async function ensureBotEnv() {
-  const botEnvPath = path.join(__dirname, '../bot/.env');
-  const templateEnvPath = path.join(__dirname, '../env.example');
+  const templateEnvPath = path.join(__dirname, '../env.example'); // Usar example como base
+  // Definir paths para el template y para la instancia activa bot_1
+  const botPaths = [
+    { path: path.join(__dirname, '../bot/.env'), id: 'bot_template' },
+    { path: path.join(__dirname, '../bot_1/.env'), id: 'bot_1' }
+  ];
 
   try {
-    if (!fsSync.existsSync(botEnvPath)) {
-      console.log('⚠️ bot/.env no encontrado (Git ignore). Generando default para bot_1...');
-
-      let content = '';
-      if (fsSync.existsSync(templateEnvPath)) {
-        content = fsSync.readFileSync(templateEnvPath, 'utf8');
-      } else {
-        content = `BACKEND_URL=http://localhost:8484\nBOT_INSTANCE_ID=bot_1\n`;
-      }
-
-      if (!content.includes('BOT_INSTANCE_ID=')) {
-        content += '\nBOT_INSTANCE_ID=bot_1';
-      } else {
-        content = content.replace(/BOT_INSTANCE_ID=.*/g, 'BOT_INSTANCE_ID=bot_1');
-      }
-
-      fsSync.writeFileSync(botEnvPath, content);
-      console.log('✅ bot/.env creado exitosamente para bot_1');
+    let baseContent = '';
+    if (fsSync.existsSync(templateEnvPath)) {
+      baseContent = fsSync.readFileSync(templateEnvPath, 'utf8');
+    } else {
+      baseContent = `BACKEND_URL=http://localhost:8484\nBOT_INSTANCE_ID=bot_1\n`;
     }
+
+    for (const bot of botPaths) {
+      // Si el archivo no existe o queremos forzar el ID correcto para bot_1
+      const exists = fsSync.existsSync(bot.path);
+
+      // Para bot_1, siempre queremos asegurar que tenga BOT_INSTANCE_ID=bot_1
+      // Para el template, queremos placeholder o default
+
+      if (!exists || bot.id === 'bot_1') {
+        let content = exists ? fsSync.readFileSync(bot.path, 'utf8') : baseContent;
+        const targetId = bot.id === 'bot_template' ? 'bot_1' : 'bot_1';
+
+        // Si no tiene instance ID o es incorrecto para bot_1, lo corregimos
+        if (!content.includes('BOT_INSTANCE_ID=')) {
+          content += `\nBOT_INSTANCE_ID=${targetId}`;
+          console.log(`🔧 Agregado BOT_INSTANCE_ID=${targetId} a ${bot.id}`);
+          fsSync.writeFileSync(bot.path, content);
+        } else if (bot.id === 'bot_1' && !content.includes('BOT_INSTANCE_ID=bot_1')) {
+          // Forzar bot_1 en bot_1/.env si tiene otro valor
+          content = content.replace(/BOT_INSTANCE_ID=.*/g, 'BOT_INSTANCE_ID=bot_1');
+          console.log(`🔧 Corregido BOT_INSTANCE_ID=bot_1 en ${bot.id}`);
+          fsSync.writeFileSync(bot.path, content);
+        } else if (!exists) {
+          // Crear archivo nuevo si no existe
+          content = content.replace(/BOT_INSTANCE_ID=.*/g, `BOT_INSTANCE_ID=${targetId}`);
+          fsSync.writeFileSync(bot.path, content);
+          console.log(`✅ Creado .env para ${bot.id}`);
+        }
+      }
+    }
+
+    // Check extra para la carpeta bot_1 si no existe
+    const bot1Dir = path.join(__dirname, '../bot_1');
+    if (!fsSync.existsSync(bot1Dir)) {
+      console.log('⚠️ Carpeta bot_1 no existe, será creada por el generador o es volumen nuevo.');
+    }
+
   } catch (error) {
     console.error('❌ Error asegurando bot/.env:', error.message);
   }
@@ -85,39 +113,6 @@ async function ensureBotEnv() {
 ensureBotEnv();
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 🛡️ ASEGURAR ENTORNO BOT_1 (Fix para VPS donde git ignora .env)
-// ─────────────────────────────────────────────────────────────────────────────
-async function ensureBotEnv() {
-  const botEnvPath = path.join(__dirname, '../bot/.env');
-  const templateEnvPath = path.join(__dirname, '../env.example');
-
-  try {
-    if (!fsSync.existsSync(botEnvPath)) {
-      console.log('⚠️ bot/.env no encontrado (Git ignore). Generando default para bot_1...');
-
-      let content = '';
-      if (fsSync.existsSync(templateEnvPath)) {
-        content = fsSync.readFileSync(templateEnvPath, 'utf8');
-      } else {
-        content = `BACKEND_URL=http://localhost:8484\nBOT_INSTANCE_ID=bot_1\n`;
-      }
-
-      if (!content.includes('BOT_INSTANCE_ID=')) {
-        content += '\nBOT_INSTANCE_ID=bot_1';
-      } else {
-        content = content.replace(/BOT_INSTANCE_ID=.*/g, 'BOT_INSTANCE_ID=bot_1');
-      }
-
-      fsSync.writeFileSync(botEnvPath, content);
-      console.log('✅ bot/.env creado exitosamente para bot_1');
-    }
-  } catch (error) {
-    console.error('❌ Error asegurando bot/.env:', error.message);
-  }
-}
-
-// Ejecutar verificación inicial
-ensureBotEnv();
 
 const app = express();
 const server = http.createServer(app);
