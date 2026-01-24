@@ -477,16 +477,13 @@ app.post('/api/bot/:instanceId/start', async (req, res) => {
         console.error(`❌ Error iniciando ${instanceId}:`, error.message);
         return res.status(500).json({ success: false, error: error.message });
       }
-      console.log(`✅ Bot ${instanceId} iniciado con pm2`);
+      console.log(`✅ Bot ${instanceId} iniciado con pm2 (esperando conexión socket...)`);
 
-      // Actualizar estado y notificar por socket
-      if (botStatuses) {
-        botStatuses.set(instanceId, { status: 'online', startedAt: new Date() });
-      }
-      io.emit('bot_status_update', { instanceId, status: 'online' });
-      io.emit('bot_list_update', Array.from(botStatuses?.entries() || []));
+      // Usar status 'starting' - cambiará a 'online' cuando el bot conecte via socket
+      botStatuses.set(instanceId, { status: 'starting', startedAt: new Date() });
+      io.emit('bot_status_update', { instanceId, status: 'starting' });
 
-      res.json({ success: true, message: `Bot ${instanceId} iniciado` });
+      res.json({ success: true, message: `Bot ${instanceId} iniciando... Espera a que se conecte.` });
     });
   } catch (error) {
     console.error(`❌ Error en start bot:`, error);

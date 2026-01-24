@@ -894,6 +894,17 @@ function renderBotControls() {
                 <button class="action-btn start-btn" onclick="startBotProcess('${id}')">REINICIAR</button>
                 <button class="action-btn stop-btn" style="margin-top: 8px;" onclick="stopBotProcess('${id}')">DETENER PM2</button>
             `;
+        } else if (bot.status === 'starting') {
+            statusColor = '#2196f3';
+            statusHtml = `<span class="status-dot" style="background:${statusColor}; animation: pulse 1s infinite;"></span> Iniciando...`;
+            actionHtml = `
+                <div style="text-align: center; color: #888; padding: 15px;">
+                    <span class="material-icons rotating" style="font-size: 32px; color: ${color};">sync</span>
+                    <p style="margin-top: 10px;">Esperando conexión del bot...</p>
+                    <p style="font-size: 11px; opacity: 0.7;">El QR aparecerá cuando el bot se conecte</p>
+                </div>
+                <button class="action-btn stop-btn" style="margin-top: 8px;" onclick="stopBotProcess('${id}')">CANCELAR</button>
+            `;
         } else if (bot.status === 'online') {
             statusColor = '#ff9800';
             statusHtml = `<span class="status-dot" style="background:${statusColor}"></span> Conectado (Sin sesión)`;
