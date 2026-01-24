@@ -113,7 +113,25 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Configuración de Sesión
+// Middleware de Autenticación
+const requireAuth = (req, res, next) => {
+  if (req.session && req.session.authenticated) {
+    return next();
+  }
+
+  // Debug log for auth failure
+  console.log(`🔒 Auth failed for: ${req.originalUrl}`);
+
+  // Si es una ruta de API o pide JSON, devolver 401 en lugar de redirigir a HTML
+  if (req.originalUrl.startsWith('/api/') ||
+    req.path.startsWith('/api/') ||
+    req.headers['accept']?.includes('application/json')) {
+    return res.status(401).json({ error: 'No autorizado', loginRequired: true });
+  }
+  res.redirect('/login.html');
+};
+
+// 3. Session - Debe ir antes de cualquier ruta que use req.session
 app.use(session({
   secret: 'nexus-crm-secret-key-2024',
   resave: false,
@@ -124,19 +142,11 @@ app.use(session({
   }
 }));
 
-// Middleware de Autenticación
-const requireAuth = (req, res, next) => {
-  if (req.session && req.session.authenticated) {
-    return next();
-  }
-  // Si es una ruta de API o pide JSON, devolver 401 en lugar de redirigir a HTML
-  if (req.originalUrl.startsWith('/api/') ||
-    req.path.startsWith('/api/') ||
-    req.headers['accept']?.includes('application/json')) {
-    return res.status(401).json({ error: 'No autorizado', loginRequired: true });
-  }
-  res.redirect('/login.html');
-};
+// Debug middleware para ver qué llega a la API
+app.use('/api', (req, res, next) => {
+  console.log(`[API REQUEST] ${req.method} ${req.originalUrl} - Auth: ${!!(req.session && req.session.authenticated)}`);
+  next();
+});
 
 // Endpoint de Login
 app.post('/api/login', (req, res) => {

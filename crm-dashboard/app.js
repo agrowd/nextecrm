@@ -1,4 +1,6 @@
-const API_URL = window.location.port === '8484' ? window.location.origin : `http://${window.location.hostname}:8484`;
+// Usar ruta relativa si estamos en el mismo puerto que el servidor API (8484)
+// De lo contrario, usar URL absoluta (ej. si se accede por el puerto 8485)
+const API_URL = window.location.port === '8484' ? '' : `http://${window.location.hostname}:8484`;
 const REFRESH_INTERVAL = 5000;
 
 // Wrapper para fetch que maneja el prefijo /api/, credenciales y redirección a login
@@ -10,16 +12,27 @@ async function fetchAPI(endpoint, options = {}) {
     // Forzar el envío de cookies de sesión
     options.credentials = 'include';
 
-    const response = await fetch(url, options);
+    try {
+        console.log(`📡 Fetching API: ${url}`);
+        const response = await fetch(url, options);
 
-    // Si la respuesta es 401 o contiene loginRequired, redirigir al login
-    if (response.status === 401) {
-        console.warn("Sesión expirada o no autorizada. Redirigiendo a login...");
-        window.location.href = `${API_URL}/login.html`;
-        throw new Error("No autorizado");
+        // Si la respuesta es 401 o contiene loginRequired, redirigir al login
+        if (response.status === 401) {
+            console.warn("⚠️ Sesión expirada o no autorizada. Redirigiendo a login...");
+            const redirectUrl = API_URL ? `${API_URL}/login.html` : '/login.html';
+            window.location.href = redirectUrl;
+            throw new Error("No autorizado");
+        }
+
+        if (!response.ok) {
+            console.error(`❌ API Error [${response.status}]: ${response.statusText} en ${url}`);
+        }
+
+        return response;
+    } catch (error) {
+        console.error(`🚨 Network Error at ${url}:`, error);
+        throw error;
     }
-
-    return response;
 }
 
 // State
