@@ -242,6 +242,31 @@ app.get('/health', (req, res) => {
   });
 });
 
+// 🔬 Ruta de diagnóstico de base de datos
+app.get('/api/db-check', async (req, res) => {
+  try {
+    const leadsCount = await Lead.countDocuments();
+    const messagesCount = await Message.countDocuments();
+    const logsCount = await Log.countDocuments();
+
+    console.log(`[DB-CHECK] Leads: ${leadsCount}, Messages: ${messagesCount}, Logs: ${logsCount}`);
+
+    res.json({
+      success: true,
+      dbState: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      collections: {
+        leads: leadsCount,
+        messages: messagesCount,
+        logs: logsCount
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[DB-CHECK ERROR]', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ALMACENAMIENTO DE QRS EN MEMORIA (Para VPS Dashboard)
 const botQRS = new Map(); // instanceId -> qrCodeString
 

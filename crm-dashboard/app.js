@@ -28,6 +28,15 @@ async function fetchAPI(endpoint, options = {}) {
             console.error(`❌ API Error [${response.status}]: ${response.statusText} en ${url}`);
         }
 
+        // Clonar la respuesta para poder leer el cuerpo sin consumirlo
+        const clonedResponse = response.clone();
+        try {
+            const data = await clonedResponse.json();
+            console.log(`✅ [${path}] Response:`, data);
+        } catch (parseError) {
+            // No es JSON, ignorar el log del cuerpo
+        }
+
         return response;
     } catch (error) {
         console.error(`🚨 Network Error at ${url}:`, error);
