@@ -381,7 +381,7 @@ app.use((req, res, next) => {
 // Rate limiting para prevenir spam
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // máximo 100 requests por ventana
+  max: 5000, // máximo 5000 requests por ventana (flexible para dashboard polling)
   message: {
     error: 'Demasiadas requests desde esta IP',
     code: 'RATE_LIMIT_EXCEEDED'

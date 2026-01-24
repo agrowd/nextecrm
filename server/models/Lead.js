@@ -16,7 +16,7 @@ const LeadSchema = new mongoose.Schema({
   location: { type: String, default: '', trim: true },
   ip: { type: String, default: '', trim: true },
   ua: { type: String, default: '', trim: true },
-  status: { type: String, default: 'pending', enum: ['pending', 'queued', 'contacted', 'interested', 'not_interested', 'completed'] },
+  status: { type: String, default: 'pending', enum: ['pending', 'queued', 'contacted', 'interested', 'not_interested', 'completed', 'processing', 'no_whatsapp', 'failed', 'check_failed', 'paused'] },
   lastContactAt: { type: Date, default: null },
   nextActionAt: { type: Date, default: null },
   // Nuevos campos para tracking
