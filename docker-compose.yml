@@ -18,5 +18,8 @@ services:
       - ./logs:/app/logs
       - ./sessions:/app/sessions
       - ./bot_1:/app/bot_1
+      - /app/bot_1/node_modules
       - ./bot_2:/app/bot_2
+      - /app/bot_2/node_modules
       - ./bot_3:/app/bot_3
+      - /app/bot_3/node_modules
