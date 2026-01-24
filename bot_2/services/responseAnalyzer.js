@@ -104,7 +104,9 @@ Responde JSON:
                 };
             }
         } catch (error) {
-            console.error('Error analizando respuesta:', error.message);
+            // Silenciar error de API desactivada/404 y usar fallback
+            // console.error('Error analizando respuesta:', error.message);
+            console.log('⚠️ Análisis IA no disponible (Gemini desactivado), usando detección por palabras clave.');
         }
 
         // Fallback a detección simple
