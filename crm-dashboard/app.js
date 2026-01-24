@@ -59,6 +59,58 @@ let currentState = {
     templates: []
 };
 
+// UI Helpers
+const ui = {
+    modal: {
+        show: (title, message, iconType = 'info', buttons = []) => {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('genericModal');
+                const titleEl = document.getElementById('genericModalTitle');
+                const msgEl = document.getElementById('genericModalMessage');
+                const iconEl = document.getElementById('genericModalIcon');
+                const btnContainer = document.getElementById('genericModalButtons');
+
+                titleEl.textContent = title;
+                msgEl.textContent = message;
+
+                // Icon
+                let iconHtml = '';
+                if (iconType === 'info') iconHtml = '<span class="material-icons" style="font-size: 48px; color: #2196f3;">info</span>';
+                if (iconType === 'success') iconHtml = '<span class="material-icons" style="font-size: 48px; color: #25d366;">check_circle</span>';
+                if (iconType === 'warning') iconHtml = '<span class="material-icons" style="font-size: 48px; color: #ff9800;">warning</span>';
+                if (iconType === 'error') iconHtml = '<span class="material-icons" style="font-size: 48px; color: #f44336;">error</span>';
+                iconEl.innerHTML = iconHtml;
+
+                // Buttons
+                btnContainer.innerHTML = '';
+                buttons.forEach(btn => {
+                    const button = document.createElement('button');
+                    button.textContent = btn.text;
+                    button.className = 'action-btn';
+                    button.style.background = btn.color || '#202c33';
+                    button.style.padding = '8px 20px';
+                    button.onclick = () => {
+                        modal.style.display = 'none';
+                        resolve(btn.value);
+                    };
+                    btnContainer.appendChild(button);
+                });
+
+                modal.style.display = 'flex';
+            });
+        },
+        alert: async (title, message, type = 'info') => {
+            await ui.modal.show(title, message, type, [{ text: 'Entendido', value: true, color: '#00a884' }]);
+        },
+        confirm: async (title, message, type = 'warning') => {
+            return await ui.modal.show(title, message, type, [
+                { text: 'Cancelar', value: false, color: '#202c33' },
+                { text: 'Confirmar', value: true, color: '#00a884' }
+            ]);
+        }
+    }
+};
+
 // Real-time Connection
 let socket;
 function initSocket() {
@@ -983,54 +1035,80 @@ async function startBotProcess(id, event) {
 
 async function stopBotProcess(id, event) {
     if (event) event.preventDefault();
-    // Removido confirm() que causaba redirección de página
+
+    const confirmed = await ui.modal.confirm(
+        '¿Detener Bot?',
+        `¿Estás seguro de que deseas detener el proceso de ${id}? El bot dejará de responder mensajes.`,
+        'warning'
+    );
+
+    if (!confirmed) return;
+
     console.log(`⏹️ [UI] Deteniendo bot ${id}...`);
 
     try {
-        const res = await fetch(`${API_URL}/api/bot/${id}/stop`, {
-            method: 'POST',
-            credentials: 'include'
+        const res = await fetchAPI(`/bot/${id}/stop`, {
+            method: 'POST'
         });
         const data = await res.json();
         console.log(`📬 [UI] Respuesta stop ${id}:`, data);
 
         if (data.success) {
-            console.log(`✅ [UI] Bot ${id} detenido correctamente`);
-            // Actualizar estado local inmediatamente para feedback visual
+            ui.modal.alert('Bot Detenido', `El bot ${id} ha sido detenido correctamente.`, 'success');
+            // Actualizar estado local
             const current = currentState.bots.get(id) || {};
             currentState.bots.set(id, { ...current, status: 'not_running' });
             renderBotControls();
         } else {
             console.error(`❌ [UI] Error deteniendo ${id}:`, data.error || data.message);
+            ui.modal.alert('Error', `No se pudo detener el bot: ${data.message}`, 'error');
         }
     } catch (e) {
         console.error(`🚨 [UI] Error de red deteniendo ${id}:`, e);
+        ui.modal.alert('Error de Conexión', 'No se pudo comunicar con el servidor', 'error');
     }
 }
 
 async function deleteBotInstance(id) {
-    // Removido confirm() que causaba redirección de página
+    const confirmed = await ui.modal.confirm(
+        '¿Eliminar Bot?',
+        `⚠️ PELIGRO: Esto eliminará permanentemente la instancia ${id}, sus sesiones y archivos de configuración. ¿Continuar?`,
+        'error'
+    );
+
+    if (!confirmed) return;
+
     console.log(`🗑️ [UI] Eliminando bot ${id}...`);
     try {
-        const res = await fetch(`${API_URL}/api/bot/${id}`, { method: 'DELETE', credentials: 'include' });
+        const res = await fetchAPI(`/bot/${id}`, { method: 'DELETE' });
         const data = await res.json();
         console.log(`📬 [UI] Respuesta delete ${id}:`, data);
         if (data.success) {
             currentState.bots.delete(id);
             renderBotControls();
             updateBotFilters();
+            ui.modal.alert('Eliminado', `La instancia ${id} fue eliminada.`, 'success');
         } else {
             console.error(`❌ [UI] Error eliminando ${id}:`, data.message);
+            ui.modal.alert('Error', `No se pudo eliminar: ${data.message}`, 'error');
         }
     } catch (e) {
         console.error(`🚨 [UI] Error de red eliminando ${id}:`, e);
+        ui.modal.alert('Error de Conexión', 'Fallo al conectar con el servidor', 'error');
     }
 }
 
 async function generateNewBot() {
     const btn = event?.currentTarget;
     const originalText = btn?.innerHTML || '';
-    // Removido confirm() que causaba redirección
+    const confirmed = await ui.modal.confirm(
+        '¿Generar Nueva Instancia?',
+        'Esto creará una nueva carpeta de bot (ej. bot_4) y la preparará para conectar. ¿Deseas continuar?',
+        'info'
+    );
+
+    if (!confirmed) return;
+
     console.log('🏗️ [UI] Generando nueva instancia de bot...');
 
     try {
@@ -1055,9 +1133,11 @@ async function generateNewBot() {
             await fetchBotList();
         } else {
             console.error(`❌ [UI] Error generando bot:`, data.message || data.error);
+            ui.modal.alert('Error', `No se pudo generar el bot: ${data.message}`, 'error');
         }
     } catch (e) {
         console.error('🚨 [UI] Error de red generando bot:', e);
+        ui.modal.alert('Error Fatal', 'Falló la solicitud al servidor', 'error');
     } finally {
         if (btn) {
             btn.disabled = false;
