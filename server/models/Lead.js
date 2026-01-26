@@ -51,7 +51,9 @@ const LeadSchema = new mongoose.Schema({
   contactedByInstance: { type: String, default: '' } // instanceId del bot que lo contactó
 }, {
   timestamps: true,
-  strict: false // Permite campos adicionales
+  strict: false, // Permite campos adicionales
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
 // Índices para optimizar consultas

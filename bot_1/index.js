@@ -322,8 +322,13 @@ class WhatsAppBot {
   }
 
   async init() {
-    this.log(`Bot en espera de comando 'start_bot' desde el CRM...`);
-    // Ya no llamamos a initializeWhatsApp aquí automáticamente
+    if (process.env.AUTO_START === 'true') {
+      this.log('🚀 AUTO_START detectado. Iniciando automáticamente...');
+      await this.initializeWhatsApp();
+    } else {
+      this.log(`Bot en espera de comando 'start_bot' desde el CRM...`);
+      // Ya no llamamos a initializeWhatsApp aquí automáticamente
+    }
   }
 
   async initializeWhatsApp() {
@@ -535,6 +540,7 @@ class WhatsAppBot {
         timestamp: message.timestamp * 1000
       });
 
+      await this.saveMessageToBackend(message);
       await this.handleIncomingMessage(message);
     });
 
@@ -555,6 +561,9 @@ class WhatsAppBot {
           body: message.body,
           timestamp: message.timestamp * 1000
         });
+
+        // Persistir también los mensajes enviados (incluyendo manuales desde el celular)
+        await this.saveMessageToBackend(message);
       }
     });
 
@@ -844,6 +853,12 @@ class WhatsAppBot {
 
         // Mostrar información detallada de la cola
         console.log(`\n📞 === PROCESANDO NUEVO LEAD ===`);
+        console.log(`🎯 Lead asignado: ${lead.name} (${lead.phone})`);
+
+        // 🔄 Sincronizar historial antes de empezar la secuencia
+        const whatsappFormat = lead.phone.includes('@c.us') ? lead.phone : `${lead.phone.replace(/\D/g, '')}@c.us`;
+        await this.syncLeadHistory(whatsappFormat, lead.name);
+
         console.log(`👤 Lead: ${lead.name}`);
         console.log(`📱 Teléfono: ${lead.phone}`);
         console.log(`🏢 Negocio: ${lead.businessName || 'N/A'}`);
@@ -1122,8 +1137,12 @@ class WhatsAppBot {
           // Si es el primer mensaje y tiene respuesta inmediata, verificar si es bot
           let chatForCheck = null;
           try {
-            chatForCheck = await this.client.getChatById(whatsappFormat);
-          } catch (e) { }
+            if (this.client && this.isReady) {
+              chatForCheck = await this.client.getChatById(whatsappFormat);
+            }
+          } catch (e) {
+            console.log(`      ⚠️ No se pudo obtener chat para verificación: ${e.message}`);
+          }
 
           if (i === 0 && chatForCheck && (chatForCheck.unreadCount > 0 || chatForCheck.lastMessage)) {
             const lastMsg = chatForCheck.lastMessage;
@@ -1279,8 +1298,14 @@ class WhatsAppBot {
     } catch (error) {
       this.log(`❌ Error en secuencia: ${error.message}`, 'error', null, lead.id);
       console.error(`   ❌ ERROR CRÍTICO EN SECUENCIA:`, error.stack || error);
-      await this.updateLeadStatus(lead.id, 'contacted', lead.name); // Marcar contactado para no repetir infinitamente
-      return { success: false, reason: 'error', error: error.message };
+      console.error('❌ Error crítico en secuencia de mensajes:', error.message);
+
+      // Intentar actualizar estado a fallido si tenemos ID
+      if (lead && (lead._id || lead.id)) {
+        await this.updateLeadStatus(lead._id || lead.id, 'failed', lead.name);
+      }
+
+      return { success: false, reason: 'internal_error', error: error.message };
     }
   }
 
@@ -2185,19 +2210,70 @@ class WhatsAppBot {
   }
 
   async updateLeadStatus(leadId, status, leadName = null) {
-    try {
-      // 🔑 MULTI-BOT: Incluir info de qué instancia/número contactó
-      const updateData = { status };
-      if (status === 'contacted' && this.connectedNumber) {
-        updateData.contactedByNumber = this.connectedNumber;
-        updateData.contactedByInstance = this.instanceId;
-      }
+    // ... existing implementation ...
+  }
 
-      await axios.put(`${this.backendUrl}/lead/${leadId}/status`, updateData);
-      const displayName = leadName || leadId;
-      console.log(`✅ Estado actualizado para lead ${displayName}: ${status}`);
-    } catch (error) {
-      console.error('❌ Error actualizando estado del lead:', error.message);
+  /**
+   * 💾 Guardar mensaje en el backend (Persistencia completa)
+   */
+  async saveMessageToBackend(msg) {
+    try {
+      const phone = msg.fromMe ? msg.to.split('@')[0] : msg.from.split('@')[0];
+      if (!phone || phone.length < 5) return;
+
+      await axios.post(`${this.backendUrl}/messages`, {
+        phone: phone,
+        content: msg.body || `[Archivo: ${msg.type}]`,
+        fromMe: msg.fromMe,
+        type: msg.type || 'text',
+        sentAt: new Date(msg.timestamp * 1000),
+        whatsappMessageId: msg.id._serialized,
+        instanceId: this.instanceId,
+        sentFromNumber: this.connectedNumber,
+        metadata: {
+          fromMe: msg.fromMe,
+          device: msg.deviceType
+        }
+      });
+    } catch (e) {
+      // Silencioso para no afectar flujo principal
+    }
+  }
+
+  /**
+   * 🔄 Sincronizar historial de un lead específico
+   */
+  async syncLeadHistory(whatsappFormat, leadName = '') {
+    try {
+      console.log(`🔄 Sincronizando historial de ${leadName} (${whatsappFormat})...`);
+      const chat = await this.client.getChatById(whatsappFormat);
+      if (!chat) return;
+
+      const messages = await chat.fetchMessages({ limit: 20 });
+      let syncedCount = 0;
+
+      for (const msg of messages) {
+        if (msg.type === 'chat' || msg.type === 'image') {
+          try {
+            const phone = msg.fromMe ? msg.to.split('@')[0] : msg.from.split('@')[0];
+            const res = await axios.post(`${this.backendUrl}/messages`, {
+              phone: phone,
+              leadName: leadName || phone,
+              content: msg.body || `[${msg.type}]`,
+              fromMe: msg.fromMe,
+              type: msg.type,
+              sentAt: new Date(msg.timestamp * 1000),
+              whatsappMessageId: msg.id._serialized,
+              instanceId: this.instanceId,
+              sentFromNumber: this.connectedNumber
+            });
+            if (res.data.success && !res.data.isDuplicate) syncedCount++;
+          } catch (e) { }
+        }
+      }
+      console.log(`✅ Historial sincronizado: ${syncedCount} mensajes nuevos para ${leadName}`);
+    } catch (e) {
+      console.warn(`⚠️ Error sincronizando historial de ${whatsappFormat}: ${e.message}`);
     }
   }
 

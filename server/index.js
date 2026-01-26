@@ -262,44 +262,68 @@ app.post('/ingest', async (req, res) => {
 // POST /messages - Guardar mensajes (chat history)
 app.post('/messages', async (req, res) => {
   try {
-    const { phone, content, fromMe, type, timestamp, instanceId, senderName } = req.body;
+    const { phone, content, fromMe, type, timestamp, instanceId, senderName, whatsappMessageId, metadata } = req.body;
 
     // Normalizar teléfono (solo números)
     const cleanPhone = phone.replace(/\D/g, '');
 
-    // Buscar Lead asociado
-    // Intentamos match exacto, o contains
-    let lead = await Lead.findOne({
-      $or: [
-        { phone: cleanPhone },
-        { phone: phone } // por si acaso
-      ]
-    });
+    // 1. Evitar Duplicados: Verificar si el mensaje ya existe por whatsappMessageId
+    if (whatsappMessageId) {
+      const existingMsg = await Message.findOne({ whatsappMessageId });
+      if (existingMsg) {
+        return res.json({
+          success: true,
+          messageId: existingMsg._id,
+          isDuplicate: true
+        });
+      }
+    }
 
-    // Guardar mensaje
+    // 2. Buscar Lead: Lógica mejorada (match por los últimos 10 dígitos)
+    let lead = null;
+    if (cleanPhone.length >= 8) {
+      const phoneSuffix = cleanPhone.slice(-10);
+      lead = await Lead.findOne({
+        phone: { $regex: phoneSuffix + '$' }
+      });
+    }
+
+    if (!lead && phone) {
+      lead = await Lead.findOne({ phone: phone });
+    }
+
+    // 3. Crear Mensaje
     const newMessage = new Message({
       phone: cleanPhone,
       content,
-      fromMe,
+      fromMe: fromMe === true || fromMe === 'true',
       type: type || 'text',
       timestamp: timestamp || new Date(),
       instanceId,
       leadId: lead ? lead._id : null,
-      leadName: lead ? lead.name : (senderName || cleanPhone), // ← FIX: Populate leadName for dashboard display
-      senderName
+      leadName: lead ? lead.name : (senderName || cleanPhone),
+      senderName,
+      whatsappMessageId,
+      metadata
     });
 
     await newMessage.save();
 
-    // Actualizar último mensaje en Lead si existe
+    // 4. Actualizar Lead
     if (lead) {
-      lead.lastMessage = content;
-      lead.lastContactAt = new Date();
-      if (!fromMe) lead.unreadCount = (lead.unreadCount || 0) + 1;
-      await lead.save();
+      const updateData = {
+        lastMessage: content,
+        lastContactAt: new Date()
+      };
+
+      if (!fromMe) {
+        updateData.$inc = { unreadCount: 1 };
+      }
+
+      await Lead.findByIdAndUpdate(lead._id, updateData);
     }
 
-    // Emitir a socket para dashboard real-time
+    // 5. Emitir a Socket
     if (global.io) {
       global.io.emit('new_message', {
         ...newMessage.toObject(),
@@ -1298,6 +1322,12 @@ app.put('/lead/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
     const { status, whatsappResponse, contactedByNumber, contactedByInstance } = req.body;
+
+    if (id === 'undefined' || !id) {
+      return res.status(400).json({
+        error: 'ID de lead inválido o no proporcionado'
+      });
+    }
 
     const lead = await Lead.findById(id);
     if (!lead) {
