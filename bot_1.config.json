@@ -1,0 +1,14 @@
+{
+    "apps": [
+        {
+            "name": "bot_1",
+            "script": "./bot/index.js",
+            "env": {
+                "BOT_INSTANCE_ID": "bot_1",
+                "BACKEND_URL": "http://localhost:8484",
+                "HEADLESS": "true",
+                "AUTO_START": "true"
+            }
+        }
+    ]
+}

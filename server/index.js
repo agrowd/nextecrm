@@ -1672,6 +1672,10 @@ app.get('/api/stats/realtime', async (req, res) => {
   }
 });
 
+// 🤖 Aliases para control de bots (compatibilidad sin /api)
+app.post('/bot/:instanceId/start', (req, res) => res.redirect(307, `/api/bot/${req.params.instanceId}/start`));
+app.post('/bot/:instanceId/stop', (req, res) => res.redirect(307, `/api/bot/${req.params.instanceId}/stop`));
+
 // POST /api/bot/create - Crear nueva instancia de bot para VPS
 app.post('/api/bot/create', async (req, res) => {
   try {
@@ -2581,7 +2585,10 @@ app.post('/api/templates/:category', async (req, res) => {
   }
 });
 
-// --- CONFIGURACIÓN GLOBAL DE BOTS ---
+// --- CONFIGURACIÓN GLOBAL DE BOTS (Aliases para compatibilidad sin /api) ---
+app.get('/bot/config', (req, res) => res.redirect(307, '/api/bot/config'));
+app.post('/bot/config', (req, res) => res.redirect(307, '/api/bot/config'));
+
 app.get('/api/bot/config', async (req, res) => {
   try {
     let config = await Config.findOne({ key: 'global_bot_settings' });
@@ -3790,6 +3797,21 @@ async function handleAdminCommand(command, senderBotId) {
 • Enviados: ${totalMessages}
 • Fallidos: ${failedMessages}
 • Éxito: ${totalMessages > 0 ? Math.round((1 - failedMessages / totalMessages) * 100) : 0}%`;
+
+  } else if (cmd === 'errores' || cmd === 'logs') {
+    const recentLogs = await Log.find({ level: 'error' })
+      .sort({ timestamp: -1 })
+      .limit(5)
+      .lean();
+
+    let logsList = recentLogs.map(l => {
+      const time = new Date(l.timestamp).toLocaleTimeString('es-AR');
+      return `❌ [${time}] ${l.message.substring(0, 100)}`;
+    }).join('\n\n');
+
+    response = `🛑 *Últimos Errores:*
+    
+${logsList || '✅ No se detectaron errores recientes.'}`;
 
   } else if (cmd === 'pendientes' || cmd === 'leads') {
     const pendingLeads = await Lead.countDocuments({ status: 'pending' });

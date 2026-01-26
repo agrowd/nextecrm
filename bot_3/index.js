@@ -80,8 +80,14 @@ class WhatsAppBot {
       sequences: { maxMessagesPerDay: 200, coolOffPeriod: 15 }
     };
 
-    // ✅ NUEVOS SERVICIOS INTEGRADOS
-    this.aiGenerator = null; // Se inicializa después cuando WhatsApp esté ready
+    // ✅ NUEVOS SERVICIOS INTEGRADOS (Inicialización segura)
+    this.aiGenerator = {
+      generatePersonalizedSequence: async () => [],
+      generateBotSalesPitch: async () => null,
+      detectAutoReply: async () => false,
+      checkHealth: async () => false,
+      initialize: async () => { }
+    };
     this.rateLimiter = null; // Se inicializa después
     this.behaviorSimulator = new HumanBehaviorSimulator();
     this.responseAnalyzer = new ResponseAnalyzer();
@@ -316,8 +322,13 @@ class WhatsAppBot {
   }
 
   async init() {
-    this.log(`Bot en espera de comando 'start_bot' desde el CRM...`);
-    // Ya no llamamos a initializeWhatsApp aquí automáticamente
+    if (process.env.AUTO_START === 'true') {
+      this.log('🚀 AUTO_START detectado. Iniciando automáticamente...');
+      await this.initializeWhatsApp();
+    } else {
+      this.log(`Bot en espera de comando 'start_bot' desde el CRM...`);
+      // Ya no llamamos a initializeWhatsApp aquí automáticamente
+    }
   }
 
   async initializeWhatsApp() {
@@ -395,7 +406,7 @@ class WhatsAppBot {
 
     this.client.on('ready', async () => {
       console.log('✅ WhatsApp Bot listo!');
-      this.isReady = true;
+      // La bandera isReady se activará al final de la inicialización
 
       // 🔑 MULTI-BOT: Capturar número conectado
       try {
@@ -712,6 +723,8 @@ class WhatsAppBot {
     };
 
     // Iniciar el primer procesamiento
+    this.isReady = true;
+    console.log('🚀 Bot completamente inicializado y listo para procesar leads.');
     scheduleNextProcessing();
 
     // 🧹 Limpiar cache de WhatsApp cada 6 horas

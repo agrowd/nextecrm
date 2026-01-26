@@ -1,0 +1,106 @@
+﻿[dotenv@17.2.3] injecting env (10) from .env -- tip: ÔÜÖ´©Å  write to custom object with { processEnv: myObject }
+­ƒº¬ === TEST DE GENERACI├ôN DE MENSAJES ===
+
+­ƒôï Lead de prueba: NC Kinesiolog├¡a Deportiva - Noelia C├íceres
+­ƒñû Generando 4 mensajes con Gemini 2.5-flash...
+
+­ƒñû [GEMINI] Generando 4 mensajes de enganche para NC Kinesiolog├¡a Deportiva - Noelia C├íceres
+node : Error SDK 
+Gemini mensaje 1: 
+[GoogleGenerativeAI 
+Error]: Error 
+fetching from https:/
+/generativelanguage.g
+oogleapis.com/v1beta/
+models/gemini-1.5-fla
+sh-latest:generateCon
+tent: [404 Not 
+Found] models/gemini-
+1.5-flash-latest is 
+not found for API 
+version v1beta, or 
+is not supported for 
+generateContent. 
+Call ListModels to 
+see the list of 
+available models and 
+their supported 
+methods.
+En línea: 1 
+Carácter: 1
++ node test_message_l
+ength.js 2>&1 | 
+Out-File -Encoding 
+utf8 test_lates ...
++ ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (Error S   
+ DK Gemin...porte    
+d methods.:Strin    
+g) [], RemoteExc    
+eption
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+­ƒöä Intentando fallback HTTP...
+Error Gemini mensaje 
+2: 
+[GoogleGenerativeAI 
+Error]: Error 
+fetching from https:/
+/generativelanguage.g
+oogleapis.com/v1beta/
+models/gemini-1.5-fla
+sh-latest:generateCon
+tent: [404 Not 
+Found] models/gemini-
+1.5-flash-latest is 
+not found for API 
+version v1beta, or 
+is not supported for 
+generateContent. 
+Call ListModels to 
+see the list of 
+available models and 
+their supported 
+methods.
+Ô£à [GEMINI] Secuencia de enganche generada: 4 mensajes totales
+­ƒôè Tokens usados: ~0
+
+Ô£à === MENSAJES GENERADOS ===
+
+­ƒôØ MENSAJE 1:
+   Palabras: 20
+   Caracteres: 119
+   Contenido: "Vi NC Kinesiolog├¡a Deportiva - Noelia C├íceres en Maps. Sin web = 100% dependiente de Google. Te muestro c├│mo cambiarlo."
+
+   Ô£à Mensaje parece completo
+---
+
+­ƒôØ MENSAJE 2:
+   Palabras: 16
+   Caracteres: 101
+   Contenido: "Desde 2015 ayudamos a negocios en 5 pa├¡ses a digitalizar sus operaciones con estrategia y tecnolog├¡a."
+
+   Ô£à Mensaje parece completo
+---
+
+­ƒôØ MENSAJE 3:
+   Palabras: 29
+   Caracteres: 162
+   Contenido: "Dise├▒o Web Profesional + SEO T├®cnico b├ísico. Incluye dominio y hosting. Hoy, si no est├ís en Google con una web r├ípida y optimizada, perdes el 80% de los clientes."
+
+   Ô£à Mensaje parece completo
+---
+
+­ƒôØ MENSAJE 4:
+   Palabras: 18
+   Caracteres: 112
+   Contenido: "Cubrimos todo: SEO T├®cnico, Analytics, y Google/Meta Ads. ┬┐Charlamos 5 min para ver qu├® necesita tu negocio hoy?"
+
+   Ô£à Mensaje parece completo
+---
+

@@ -322,13 +322,8 @@ class WhatsAppBot {
   }
 
   async init() {
-    if (process.env.AUTO_START === 'true') {
-      this.log('🚀 AUTO_START detectado. Iniciando automáticamente...');
-      await this.initializeWhatsApp();
-    } else {
-      this.log(`Bot en espera de comando 'start_bot' desde el CRM...`);
-      // Ya no llamamos a initializeWhatsApp aquí automáticamente
-    }
+    this.log(`Bot en espera de comando 'start_bot' desde el CRM...`);
+    // Ya no llamamos a initializeWhatsApp aquí automáticamente
   }
 
   async initializeWhatsApp() {

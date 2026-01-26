@@ -1285,7 +1285,7 @@ function changePage(delta) {
 async function deleteLeadFromList(leadId) {
     if (!confirm('¿Estás seguro de eliminar este lead?')) return;
     try {
-        await fetch(`${API_URL}/lead/${leadId}`, { method: 'DELETE' });
+        await fetch(`${API_URL}/api/lead/${leadId}`, { method: 'DELETE' });
         fetchLeads();
     } catch (e) { alert('Error: ' + e.message); }
 }

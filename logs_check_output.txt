@@ -1,0 +1,83 @@
+﻿Ô£à Connected to MongoDB
+
+ÔØî RECENT ERROR LOGS (Last 50):
+[2026-01-24T18:06:05.585Z] [server] [server]: ALERTA SIN ENVIAR: Bot bot_3 ca├¡do - Conexi├│n perdida - El bot dej├│ de responder
+[2026-01-24T18:05:34.139Z] [server] [server]: ALERTA SIN ENVIAR: Bot bot_2 ca├¡do - Conexi├│n perdida - El bot dej├│ de responder
+[2026-01-24T16:04:28.536Z] [server] [server]: ALERTA SIN ENVIAR: Bot bot_1 ca├¡do - Conexi├│n perdida - El bot dej├│ de responder
+[2026-01-24T15:53:09.400Z] [server] [server]: ALERTA SIN ENVIAR: Bot bot_1 ca├¡do - Conexi├│n perdida - El bot dej├│ de responder
+[2026-01-24T15:45:49.738Z] [server] [server]: ALERTA SIN ENVIAR: Bot bot_1 ca├¡do - Conexi├│n perdida - El bot dej├│ de responder
+[2026-01-24T15:35:01.206Z] [server] [server]: ALERTA SIN ENVIAR: Bot bot_1 ca├¡do - Conexi├│n perdida - El bot dej├│ de responder
+[2026-01-24T14:54:42.882Z] [server] [server]: ALERTA SIN ENVIAR: Bot bot_mksff9ck ca├¡do - Conexi├│n perdida - El bot dej├│ de responder
+[2026-01-22T12:27:14.297Z] [bot] [N/A]: ÔØî Error en secuencia: this.aiGenerator.generatePersonalizedSequence is not a function
+[2026-01-22T12:27:03.069Z] [bot] [N/A]: ÔØî Error en secuencia: this.aiGenerator.generatePersonalizedSequence is not a function
+[2026-01-22T12:26:49.117Z] [bot] [N/A]: ÔØî Error en secuencia: this.aiGenerator.generatePersonalizedSequence is not a function
+[2026-01-22T12:26:06.456Z] [bot] [N/A]: ÔØî Error en secuencia: this.aiGenerator.generatePersonalizedSequence is not a function
+[2026-01-19T16:57:16.167Z] [bot] [N/A]: ÔØî Error en secuencia: Cannot read properties of undefined (reading 'leads')
+[2026-01-19T16:54:10.069Z] [bot] [N/A]: ÔØî Error en secuencia: Cannot read properties of undefined (reading 'leads')
+[2026-01-19T14:25:22.186Z] [bot] [N/A]: ÔØî Error en secuencia: Cannot read properties of undefined (reading 'leads')
+[2026-01-18T21:50:39.467Z] [bot] [N/A]: ÔØî Error en secuencia: Cannot read properties of undefined (reading 'leads')
+[2026-01-18T21:47:29.813Z] [bot] [N/A]: ÔØî Error en secuencia: Cannot read properties of undefined (reading 'leads')
+[2025-12-01T18:39:04.637Z] [bot] [N/A]: [SEND:admin_notification] Todos los reintentos fallaron: Evaluation failed: t
+[2025-11-15T22:10:24.796Z] [bot] [N/A]: ÔØî [SEND_REMAINING_SEQUENCE] Error enviando mensaje 3 a Vales Depilaci├│n definitiva: Evaluation failed: t
+[2025-11-15T22:09:30.642Z] [bot] [N/A]: ÔØî [SEND_REMAINING_SEQUENCE] Error enviando mensaje 3 a Depilaci├│n Definitiva Alma Beauty: Evaluation failed: t
+[2025-11-15T22:07:28.861Z] [bot] [N/A]: ÔØî [SEND_REMAINING_SEQUENCE] Error enviando mensaje 3 a Patricia Depilaci├│n: Evaluation failed: t
+[2025-11-15T22:05:23.644Z] [bot] [N/A]: ÔØî [SEND_REMAINING_SEQUENCE] Error enviando mensaje 3 a Definit Depilaci├│n L├íser Parque Leloir: Evaluation failed: t
+[2025-11-15T22:00:24.178Z] [bot] [N/A]: ÔØî [SEND_REMAINING_SEQUENCE] Error enviando mensaje 3 a Azurita Centro de Est├®tica: Evaluation failed: t
+[2025-11-15T21:59:27.122Z] [bot] [N/A]: ÔØî [SEND_REMAINING_SEQUENCE] Error enviando mensaje 3 a Depilacion Laser CAR: Evaluation failed: t
+[2025-11-15T21:58:24.011Z] [bot] [N/A]: ÔØî [SEND_REMAINING_SEQUENCE] Error enviando mensaje 3 a Betiana estilo: Evaluation failed: t
+[2025-11-15T19:52:55.210Z] [bot] [N/A]: ÔØî [SEND_REMAINING_SEQUENCE] Error enviando mensaje 3 a TAURUS For Men: Evaluation failed: t
+[2025-11-15T19:47:55.098Z] [bot] [N/A]: ÔØî [SEND_REMAINING_SEQUENCE] Error enviando mensaje 3 a D├¿pilier - Est├®tica Premium: Evaluation failed: t
+[2025-11-15T19:26:50.394Z] [bot] [N/A]: ÔØî [SEND_REMAINING_SEQUENCE] Error enviando mensaje 8 a Depilaci├│n Definitiva (Guap├¡simas Depilaci├│n): Evaluation failed: t
+[2025-11-15T19:26:50.283Z] [bot] [N/A]: ÔØî [SEND_REMAINING_SEQUENCE] Error enviando mensaje 7 a Depilaci├│n Definitiva (Guap├¡simas Depilaci├│n): Evaluation failed: t
+[2025-11-15T19:26:50.166Z] [bot] [N/A]: ÔØî [SEND_REMAINING_SEQUENCE] Error enviando mensaje 6 a Depilaci├│n Definitiva (Guap├¡simas Depilaci├│n): Evaluation failed: t
+[2025-11-15T19:26:50.059Z] [bot] [N/A]: ÔØî [SEND_REMAINING_SEQUENCE] Error enviando mensaje 5 a Depilaci├│n Definitiva (Guap├¡simas Depilaci├│n): Evaluation failed: t
+[2025-11-15T19:26:49.953Z] [bot] [N/A]: ÔØî [SEND_REMAINING_SEQUENCE] Error enviando mensaje 4 a Depilaci├│n Definitiva (Guap├¡simas Depilaci├│n): Evaluation failed: t
+[2025-11-15T19:26:49.841Z] [bot] [N/A]: ÔØî [SEND_REMAINING_SEQUENCE] Error enviando mensaje 3 a Depilaci├│n Definitiva (Guap├¡simas Depilaci├│n): Evaluation failed: t
+[2025-11-15T10:56:10.010Z] [bot] [N/A]: ÔØî Error completando verificaci├│n para 5491144276819: Mensaje 1 no entregado despu├®s de retry
+[2025-09-27T18:44:22.116Z] [bot] [N/A]: Error iniciando bot: Protocol error (Network.setUserAgentOverride): Session closed. Most likely the page has been closed.
+   Details: {"error":"Error: Protocol error (Network.setUserAgentOverride): Session closed. Most likely the page has been closed.\n    at CDPSessionImpl.send (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\node_modules\\whatsapp-web.js\\node_modules\\puppeteer-core\\lib\\cjs\\puppeteer\\common\\Connection.js:316:35)\n    at NetworkManager.setUserAgent (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\node_modules\\whatsapp-web.js\\node_modules\\puppeteer-core\\lib\\cjs\\puppeteer\\common\\NetworkManager.js:152:73)\n    at CDPPage.setUserAgent (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\node_modules\\whatsapp-web.js\\node_modules\\puppeteer-core\\lib\\cjs\\puppeteer\\common\\Page.js:949:88)\n    at Client.initialize (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\node_modules\\whatsapp-web.js\\src\\Client.js:300:20)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async WhatsAppBotService.initBot (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\whatsapp-bot-service.js:145:13)\n    at async C:\\Users\\Federico\\Desktop\\rascapp\\server-atlas.js:633:5"}
+[2025-09-27T18:44:22.111Z] [bot] [N/A]: Error iniciando bot: Protocol error (Network.setUserAgentOverride): Session closed. Most likely the page has been closed.
+   Details: {"error":"Error: Protocol error (Network.setUserAgentOverride): Session closed. Most likely the page has been closed.\n    at CDPSessionImpl.send (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\node_modules\\whatsapp-web.js\\node_modules\\puppeteer-core\\lib\\cjs\\puppeteer\\common\\Connection.js:316:35)\n    at NetworkManager.setUserAgent (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\node_modules\\whatsapp-web.js\\node_modules\\puppeteer-core\\lib\\cjs\\puppeteer\\common\\NetworkManager.js:152:73)\n    at CDPPage.setUserAgent (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\node_modules\\whatsapp-web.js\\node_modules\\puppeteer-core\\lib\\cjs\\puppeteer\\common\\Page.js:949:88)\n    at Client.initialize (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\node_modules\\whatsapp-web.js\\src\\Client.js:300:20)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async WhatsAppBotService.initBot (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\whatsapp-bot-service.js:145:13)\n    at async C:\\Users\\Federico\\Desktop\\rascapp\\server-atlas.js:633:5"}
+[2025-09-27T17:50:50.203Z] [bot] [N/A]: Error deteniendo bot: Cannot read properties of null (reading 'close')
+[2025-09-27T16:33:42.359Z] [bot] [N/A]: Error al inicializar el bot: Failed to launch the browser process!
+
+
+TROUBLESHOOTING: https://github.com/puppeteer/puppeteer/blob/main/docs/troubleshooting.md
+
+[2025-09-26T18:56:18.931Z] [bot] [N/A]: Error iniciando bot: waiting for target failed: timeout 30000ms exceeded
+   Details: {"error":"TimeoutError: waiting for target failed: timeout 30000ms exceeded\n    at waitWithTimeout (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\node_modules\\whatsapp-web.js\\node_modules\\puppeteer-core\\lib\\cjs\\puppeteer\\common\\util.js:283:26)\n    at CDPBrowser.waitForTarget (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\node_modules\\whatsapp-web.js\\node_modules\\puppeteer-core\\lib\\cjs\\puppeteer\\common\\Browser.js:341:56)\n    at ChromeLauncher.launch (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\node_modules\\whatsapp-web.js\\node_modules\\puppeteer-core\\lib\\cjs\\puppeteer\\node\\ChromeLauncher.js:100:31)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async Client.initialize (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\node_modules\\whatsapp-web.js\\src\\Client.js:292:23)\n    at async WhatsAppBotService.initBot (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\whatsapp-bot-service.js:145:13)"}
+[2025-09-22T03:08:55.988Z] [bot] [N/A]: Error iniciando bot: waiting for target failed: timeout 30000ms exceeded
+   Details: {"error":"TimeoutError: waiting for target failed: timeout 30000ms exceeded\n    at waitWithTimeout (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\node_modules\\whatsapp-web.js\\node_modules\\puppeteer-core\\lib\\cjs\\puppeteer\\common\\util.js:283:26)\n    at CDPBrowser.waitForTarget (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\node_modules\\whatsapp-web.js\\node_modules\\puppeteer-core\\lib\\cjs\\puppeteer\\common\\Browser.js:341:56)\n    at ChromeLauncher.launch (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\node_modules\\whatsapp-web.js\\node_modules\\puppeteer-core\\lib\\cjs\\puppeteer\\node\\ChromeLauncher.js:100:31)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async Client.initialize (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\node_modules\\whatsapp-web.js\\src\\Client.js:292:23)\n    at async WhatsAppBotService.initBot (C:\\Users\\Federico\\Desktop\\rascapp\\bot\\whatsapp-bot-service.js:145:13)"}
+[2025-08-07T22:09:20.835Z] [bot] [N/A]: ÔØî Error completando verificaci├│n para 5491146424933: Mensaje 1 no entregado despu├®s de retry
+[2025-08-07T22:08:22.099Z] [bot] [N/A]: ÔØî Error completando verificaci├│n para 5491146411601: Mensaje 1 no entregado despu├®s de retry
+[2025-08-07T22:07:12.314Z] [bot] [N/A]: ÔØî Error completando verificaci├│n para 5491146442546: Mensaje 1 no entregado despu├®s de retry
+[2025-08-07T22:05:43.858Z] [bot] [N/A]: ÔØî Error completando verificaci├│n para 5491147126244: Mensaje 1 no entregado despu├®s de retry
+[2025-08-07T21:51:32.213Z] [bot] [N/A]: ÔØî Error completando verificaci├│n para 5491160705655: Mensaje 1 no entregado despu├®s de retry
+[2025-08-07T21:46:53.200Z] [bot] [N/A]: ÔØî Error completando verificaci├│n para 5491145669321: Mensaje 1 no entregado despu├®s de retry
+[2025-08-07T21:42:56.990Z] [bot] [N/A]: ÔØî Error completando verificaci├│n para 5491146828000: Mensaje 1 no entregado despu├®s de retry
+[2025-08-07T21:41:47.486Z] [bot] [N/A]: ÔØî Error completando verificaci├│n para 5491146414793: Mensaje 1 no entregado despu├®s de retry
+[2025-08-07T21:37:24.300Z] [bot] [N/A]: ÔØî Error completando verificaci├│n para 5491122540879: Mensaje 1 no entregado despu├®s de retry
+[2025-08-07T21:35:45.880Z] [bot] [N/A]: ÔØî Error completando verificaci├│n para 5491146440440: Mensaje 1 no entregado despu├®s de retry
+[2025-08-07T21:23:44.665Z] [bot] [N/A]: ÔØî Error completando verificaci├│n para 5491145664721: Mensaje 1 no entregado despu├®s de retry
+
+ÔÜá´©Å RECENT WARNING LOGS (Last 20):
+[2026-01-24T18:18:21.167Z] [bot]: ÔØî 5491145546760 NO tiene WhatsApp registrado
+[2026-01-24T18:18:08.215Z] [bot]: ÔØî 5491147032023 NO tiene WhatsApp registrado
+[2026-01-24T18:12:54.250Z] [bot]: ÔØî 5491147017697 NO tiene WhatsApp registrado
+[2026-01-24T18:12:40.546Z] [bot]: ÔØî 5491145448555 NO tiene WhatsApp registrado
+[2026-01-24T18:12:27.143Z] [bot]: ÔØî 5492243452026 NO tiene WhatsApp registrado
+[2026-01-24T18:09:12.378Z] [bot]: No se pudo cargar configuraci├│n remota: Request failed with status code 404
+[2026-01-24T18:05:59.560Z] [bot]: No se pudo cargar configuraci├│n remota: Request failed with status code 404
+[2026-01-24T18:05:31.268Z] [bot]: No se pudo cargar configuraci├│n remota: Request failed with status code 404
+[2026-01-24T18:05:09.864Z] [bot]: No se pudo cargar configuraci├│n remota: Request failed with status code 404
+[2026-01-24T17:53:12.337Z] [bot]: ÔØî 5491148961289 NO tiene WhatsApp registrado
+[2026-01-24T17:53:00.487Z] [bot]: ÔØî 5491145541849 NO tiene WhatsApp registrado
+[2026-01-24T17:42:22.586Z] [bot]: ÔØî 5491147032634 NO tiene WhatsApp registrado
+[2026-01-24T17:42:10.427Z] [bot]: ÔÜá´©Å Lead Faunaticos no tiene tel├®fono
+[2026-01-24T17:41:40.026Z] [bot]: ÔÜá´©Å El bot ya est├í iniciado.
+[2026-01-24T17:41:25.051Z] [bot]: No se pudo cargar configuraci├│n remota: Request failed with status code 404
+[2026-01-24T17:31:08.517Z] [bot]: ÔØî 5491147831048 NO tiene WhatsApp registrado
+[2026-01-24T17:30:57.124Z] [bot]: ÔÜá´©Å N├║mero inv├ílido: 4551-4576
+[2026-01-24T17:26:21.806Z] [bot]: ÔØî 5491147888065 NO tiene WhatsApp registrado
+[2026-01-24T17:10:45.416Z] [bot]: ÔÜá´©Å Lead Hospital veterinario no tiene tel├®fono
+[2026-01-24T17:10:31.822Z] [bot]: ÔÜá´©Å N├║mero inv├ílido: 7563-6873
