@@ -375,10 +375,16 @@ class WhatsAppBot {
 
     this.client = new Client({
       authStrategy: new LocalAuth({
-        clientId: 'gmaps-leads-bot',
+        clientId: this.instanceId,
         dataPath: sessionsDir
       }),
-      puppeteer: stealthPuppeteerConfig
+      puppeteer: {
+        ...stealthPuppeteerConfig,
+        args: [
+          ...stealthPuppeteerConfig.args,
+          `--user-data-dir=${path.join(sessionsDir, 'browser-' + this.instanceId)}`
+        ]
+      }
     });
     console.log('✅ Cliente configurado con Stealth Mode.');
 
