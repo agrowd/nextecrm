@@ -1,0 +1,74 @@
+﻿[dotenv@17.2.3] injecting env (10) from .env -- tip: ­ƒöæ add access controls to secrets: https://dotenvx.com/ops
+­ƒº¬ === TEST ADVANCED TEMPLATE GENERATOR ===
+
+­ƒôè ESTAD├ìSTICAS:
+   Saludos: 30
+   Intros: 30
+   Hooks: 30
+   Presentaciones: 30
+   Propuestas: 30
+   CTAs: 30
+   COMBINACIONES POSIBLES: 27.000
+
+­ƒÄ» GENERANDO MENSAJES PARA 3 LEADS (2 veces cada uno):
+
+============================================================
+­ƒæñ Lead: Dr. Garc├¡a Traumatolog├¡a
+­ƒÅÀ´©Å Keyword: traumat├│logo
+
+­ƒôØ PRIMERA GENERACI├ôN:
+­ƒÄ» [ADVANCED] Cat: salud | Generados: 4
+   1. "┬íHola! Soy Juan Cruz de Nexte. Vi que Dr. Garc├¡a Traumatolog├¡a est├í bien posicio..."
+   2. "Nexte Marketing viene digitalizando negocios desde 2015...."
+   3. "Web m├®dica profesional con formulario de turnos...."
+   4. "┬┐Te gustar├¡a ver c├│mo quedar├¡a tu web?..."
+
+­ƒôØ SEGUNDA GENERACI├ôN (debe ser diferente):
+­ƒÄ» [ADVANCED] Cat: salud | Generados: 8
+   1. "┬íHola Dr.! Espero que andes bien. Vi Dr. Garc├¡a Traumatolog├¡a y pens├® que podr├¡a..."
+   2. "En Nexte creamos webs y manejamos el marketing digital...."
+   3. "Digitalizamos consultorios: web + recordatorios autom├íticos...."
+   4. "┬┐Te mando el portfolio as├¡ ves ejemplos?..."
+
+   Ô£à DIFERENTE - Variantes funcionando!
+============================================================
+­ƒæñ Lead: La Parrilla de Juan
+­ƒÅÀ´©Å Keyword: restaurante parrilla
+
+­ƒôØ PRIMERA GENERACI├ôN:
+­ƒÄ» [ADVANCED] Cat: gastronomia | Generados: 12
+   1. "Hey amigo/a! ┬┐Todo bien? Me cruc├® con La Parrilla de Juan buscando en Belgrano. ..."
+   2. "Nexte Marketing viene digitalizando negocios desde 2015...."
+   3. "Web + carta digital + reservas online todo junto...."
+   4. "┬┐Te gustar├¡a evaluar opciones?..."
+
+­ƒôØ SEGUNDA GENERACI├ôN (debe ser diferente):
+­ƒÄ» [ADVANCED] Cat: gastronomia | Generados: 16
+   1. "┬íHola amigo/a! Te contacto por algo que vi. Vi tu perfil de La Parrilla de Juan ..."
+   2. "En Nexte nos enfocamos en resultados medibles...."
+   3. "Tu sistema de delivery propio sin pagar a Rappi...."
+   4. "┬┐Te gustar├¡a saber m├ís detalles?..."
+
+   Ô£à DIFERENTE - Variantes funcionando!
+============================================================
+­ƒæñ Lead: Beauty Center Mar├¡a
+­ƒÅÀ´©Å Keyword: peluquer├¡a
+
+­ƒôØ PRIMERA GENERACI├ôN:
+­ƒÄ» [ADVANCED] Cat: belleza | Generados: 20
+   1. "┬íBuenas tardes Beauty! Estuve viendo el rubro y me top├® con Beauty Center Mar├¡a...."
+   2. "En Nexte llevamos +10 a├▒os digitalizando negocios como el tuyo...."
+   3. "Web para sal├│n con fotos y reservas online...."
+   4. "┬┐Te interesa que te cuente m├ís?..."
+
+­ƒôØ SEGUNDA GENERACI├ôN (debe ser diferente):
+­ƒÄ» [ADVANCED] Cat: belleza | Generados: 24
+   1. "┬íHola! ┬┐Me das un minuto? Estuve viendo el rubro y me top├® con Beauty Center Mar..."
+   2. "Nexte: webs, publicidad y estrategia digital...."
+   3. "Web para sal├│n con fotos y reservas online...."
+   4. "┬┐Coordinamos para contarte mejor?..."
+
+   Ô£à DIFERENTE - Variantes funcionando!
+
+============================================================
+Ô£à Total mensajes generados: 24

@@ -1,0 +1,10 @@
+﻿[dotenv@17.2.3] injecting env (10) from .env -- tip: ­ƒùé´©Å backup and recover secrets: https://dotenvx.com/ops
+­ƒôï Listando modelos disponibles de Gemini...
+
+ÔØô gemini-2.5-flash: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/mod
+ÔØô gemini-2.0-flash: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/mod
+ÔØô gemini-1.5-pro: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/mod
+ÔØô gemini-1.5-flash: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/mod
+ÔØô gemini-1.0-pro: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/mod
+ÔØô gemini-pro: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/mod
+ÔØô gemini-pro-vision: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/mod

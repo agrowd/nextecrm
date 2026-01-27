@@ -1,0 +1,13 @@
+{
+  "date": "2026-01-22",
+  "leadsProcessed": 15,
+  "messagesSent": 75,
+  "messagesPerHour": {
+    "10:00": 30,
+    "11:00": 45
+  },
+  "currentDayLimit": 50,
+  "banned": false,
+  "suspiciousActivity": [],
+  "scalingPhase": 1
+}

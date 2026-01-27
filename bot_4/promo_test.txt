@@ -1,0 +1,41 @@
+﻿[dotenv@17.2.3] injecting env (10) from .env -- tip: ­ƒôí add observability to secrets: https://dotenvx.com/ops
+­ƒº¬ === TEST 5 MENSAJES ===
+
+­ƒæñ Lead: Consultorio Dr. Garc├¡a
+
+­ƒÄ» [ADVANCED] Cat: salud | Generados: 5
+­ƒôØ Mensajes generados:
+   1´©ÅÔâú Saludo: "┬íHola! Vi tu negocio y quise contactarte. Estuve revisando n..."
+   2´©ÅÔâú Nexte: "Nexte Marketing viene digitalizando negocios desde 2015...."
+   3´©ÅÔâú Promo: "­ƒÄë Oferta enero para consultorios: web con sistema de turnos..."
+   4´©ÅÔâú Servicios: "­ƒÆí Nuestro cat├ílogo:
+ÔÇó Landing pages desde $80k
+ÔÇó Webs insti..."
+   5´©ÅÔâú CTA: "­ƒñØ ┬┐Ten├®s un rato ahora para charlar? Si no, agendamos."
+
+­ƒô¿ MENSAJES COMPLETOS:
+
+============================================================
+MENSAJE 1/5:
+┬íHola! Vi tu negocio y quise contactarte. Estuve revisando negocios en Palermo y vi Consultorio Dr. Garc├¡a. Los consultorios con web captan 3x m├ís pacientes.
+============================================================
+MENSAJE 2/5:
+Nexte Marketing viene digitalizando negocios desde 2015.
+============================================================
+MENSAJE 3/5:
+­ƒÄë Oferta enero para consultorios: web con sistema de turnos por $150.000.
+============================================================
+MENSAJE 4/5:
+­ƒÆí Nuestro cat├ílogo:
+ÔÇó Landing pages desde $80k
+ÔÇó Webs institucionales desde $150k
+ÔÇó E-commerce desde $250k
+ÔÇó SEO mensual desde $50k
+ÔÇó Ads desde $30k + inversi├│n
+ÔÇó CM desde $75k/mes
+============================================================
+MENSAJE 5/5:
+­ƒñØ ┬┐Ten├®s un rato ahora para charlar? Si no, agendamos.
+
+============================================================
+Ô£à Total: 5 mensajes generados

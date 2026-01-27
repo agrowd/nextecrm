@@ -1,0 +1,88 @@
+﻿[dotenv@17.2.3] injecting env (10) from .env -- tip: ÔÜÖ´©Å  enable debug logging with { debug: true }
+­ƒº¬ === TEST PLANTILLAS INTELIGENTES ===
+
+
+============================================================
+­ƒôï Lead: NC Kinesiolog├¡a Deportiva - Noelia C├íceres
+­ƒÅÀ´©Å Keyword: kinesiolog├¡a
+­ƒÄ» [TEMPLATE] Categor├¡a detectada: salud para NC Kinesiolog├¡a Deportiva - Noelia C├íceres
+Ô£à [TEMPLATE] Secuencia generada: 4 mensajes para NC Kinesiolog├¡a Deportiva - Noelia C├íceres
+­ƒôè Total mensajes generados: 4
+
+­ƒôØ Mensaje 1 (154 chars):
+   "┬íHola! Soy Juan Cruz de Nexte Marketing. Vi que NC Kinesiolog├¡a Deportiva tiene buenas rese├▒as pero not├® que no tienen p├ígina web. ┬┐Pensaron en tener una?"
+
+­ƒôØ Mensaje 2 (127 chars):
+   "Llevamos 10 a├▒os digitalizando consultorios. Entendemos que necesitan soluciones simples que ahorren tiempo y capten pacientes."
+
+­ƒôØ Mensaje 3 (131 chars):
+   "Ofrecemos: Web m├®dica profesional con secci├│n de especialidades, equipo, turnos y mapa. Precio promocional: $150.000 todo incluido."
+
+­ƒôØ Mensaje 4 (91 chars):
+   "Si quer├®s, te mando el link de una web que hicimos para un consultorio similar. ┬┐Te parece?"
+
+============================================================
+­ƒôï Lead: La Parrilla de Juan - Restaurante
+­ƒÅÀ´©Å Keyword: restaurante parrilla
+­ƒÄ» [TEMPLATE] Categor├¡a detectada: gastronomia para La Parrilla de Juan - Restaurante
+Ô£à [TEMPLATE] Secuencia generada: 4 mensajes para La Parrilla de Juan - Restaurante
+­ƒôè Total mensajes generados: 8
+
+­ƒôØ Mensaje 1 (154 chars):
+   "┬íHola Restaurante! Vi La Parrilla de Juan en Google Maps. ┬┐Tienen carta digital con QR? Hoy es casi obligatorio y mejora mucho la experiencia del cliente."
+
+­ƒôØ Mensaje 2 (112 chars):
+   "Desde 2015 digitalizamos restaurantes. Entendemos que necesitan soluciones que generen ventas sin perder tiempo."
+
+­ƒôØ Mensaje 3 (106 chars):
+   "Pack Restaurante: P├ígina web + carta QR + formulario de reservas + bot├│n WhatsApp. Precio ├║nico: $150.000."
+
+­ƒôØ Mensaje 4 (107 chars):
+   "┬┐Charlamos? Te cuento c├│mo otros restaurantes dejaron de pagar comisiones a Rappi/PedidosYa con web propia."
+
+============================================================
+­ƒôï Lead: Beauty Salon Mar├¡a
+­ƒÅÀ´©Å Keyword: peluquer├¡a
+­ƒÄ» [TEMPLATE] Categor├¡a detectada: belleza para Beauty Salon Mar├¡a
+Ô£à [TEMPLATE] Secuencia generada: 4 mensajes para Beauty Salon Mar├¡a
+­ƒôè Total mensajes generados: 12
+
+­ƒôØ Mensaje 1 (126 chars):
+   "┬íBuen d├¡a! Encontr├® Beauty Salon Mar├¡a en Recoleta. Los salones con web propia y turnos online tienen 40% menos cancelaciones."
+
+­ƒôØ Mensaje 2 (119 chars):
+   "Desde 2015 digitalizamos salones. Entendemos que necesitan soluciones lindas visualmente y pr├ícticas para el d├¡a a d├¡a."
+
+­ƒôØ Mensaje 3 (108 chars):
+   "Ofrecemos: Web est├®tica con fotos de trabajos, equipo, servicios con precios y mapa. $150.000 todo incluido."
+
+­ƒôØ Mensaje 4 (93 chars):
+   "Si quer├®s, hacemos una videollamada de 10 min para mostrarte c├│mo queda el sistema de turnos."
+
+============================================================
+­ƒôï Lead: Ferreter├¡a El Tornillo
+­ƒÅÀ´©Å Keyword: ferreter├¡a
+­ƒÄ» [TEMPLATE] Categor├¡a detectada: comercio para Ferreter├¡a El Tornillo
+Ô£à [TEMPLATE] Secuencia generada: 4 mensajes para Ferreter├¡a El Tornillo
+­ƒôè Total mensajes generados: 16
+
+­ƒôØ Mensaje 1 (141 chars):
+   "┬íHola! Soy Juan Cruz de Nexte Marketing. Vi que Ferreter├¡a El Tornillo tiene buenas rese├▒as pero sin web profesional. ┬┐Pensaron en tener una?"
+
+­ƒôØ Mensaje 2 (105 chars):
+   "Nos especializamos en digitalizaci├│n de negocios. Hacemos desde webs hasta campa├▒as de Google y Meta Ads."
+
+­ƒôØ Mensaje 3 (111 chars):
+   "Promo web: Sitio completo + dominio .com.ar + hosting 1 a├▒o + SEO para aparecer en Google. $150.000 pago ├║nico."
+
+­ƒôØ Mensaje 4 (95 chars):
+   "┬┐Charlamos 5 minutos? Te cuento c├│mo trabajan otros negocios de tu rubro con presencia digital."
+
+============================================================
+­ƒôè ESTAD├ìSTICAS:
+{
+  messagesGenerated: 16,
+  categoriesDetected: { salud: 1, gastronomia: 1, belleza: 1, comercio: 1 },
+  templatesAvailable: 4,
+  categoriesAvailable: 8
+}

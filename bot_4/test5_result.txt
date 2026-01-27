@@ -1,0 +1,41 @@
+﻿[dotenv@17.2.3] injecting env (10) from .env -- tip: ÔÜÖ´©Å  load multiple .env files with { path: ['.env.local', '.env'] }
+­ƒº¬ === TEST 5 MENSAJES ===
+
+­ƒæñ Lead: Consultorio Dr. Garc├¡a
+
+­ƒÄ» [ADVANCED] Cat: salud | Generados: 5
+­ƒôØ Mensajes generados:
+   1´©ÅÔâú Saludo: "┬íBuen d├¡a Consultorio! Encontr├® Consultorio Dr. Garc├¡a y not..."
+   2´©ÅÔâú Nexte: "Somos Nexte Marketing, especialistas en web y marketing digi..."
+   3´©ÅÔâú Promo: "­ƒÅÑ PROMO SALUD 2025: Web + turnos online + WhatsApp por $150..."
+   4´©ÅÔâú Servicios: "­ƒÆí Nuestro cat├ílogo:
+ÔÇó Landing pages desde $80k
+ÔÇó Webs insti..."
+   5´©ÅÔâú CTA: "­ƒÄ» ┬┐Agendamos para hoy a la tarde o ma├▒ana a la ma├▒ana?"
+
+­ƒô¿ MENSAJES COMPLETOS:
+
+============================================================
+MENSAJE 1/5:
+┬íBuen d├¡a Consultorio! Encontr├® Consultorio Dr. Garc├¡a y not├® que no tienen presencia web. Una web te permite mostrar especialidades y equipo.
+============================================================
+MENSAJE 2/5:
+Somos Nexte Marketing, especialistas en web y marketing digital.
+============================================================
+MENSAJE 3/5:
+­ƒÅÑ PROMO SALUD 2025: Web + turnos online + WhatsApp por $150k.
+============================================================
+MENSAJE 4/5:
+­ƒÆí Nuestro cat├ílogo:
+ÔÇó Landing pages desde $80k
+ÔÇó Webs institucionales desde $150k
+ÔÇó E-commerce desde $250k
+ÔÇó SEO mensual desde $50k
+ÔÇó Ads desde $30k + inversi├│n
+ÔÇó CM desde $75k/mes
+============================================================
+MENSAJE 5/5:
+­ƒÄ» ┬┐Agendamos para hoy a la tarde o ma├▒ana a la ma├▒ana?
+
+============================================================
+Ô£à Total: 5 mensajes generados

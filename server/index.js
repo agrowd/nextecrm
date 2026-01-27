@@ -1576,133 +1576,6 @@ app.get('/api/stats/bots', async (req, res) => {
   }
 });
 
-// GET /api/stats/realtime - Estadísticas en tiempo real para el dashboard
-app.get('/api/stats/realtime', async (req, res) => {
-  try {
-    const now = new Date();
-    const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-
-    // Leads en cola (pending + queued)
-    const leadsInQueue = await Lead.countDocuments({ status: { $in: ['pending', 'queued'] } });
-    const pendingLeads = await Lead.countDocuments({ status: 'pending' });
-    const queuedLeads = await Lead.countDocuments({ status: 'queued' });
-
-    // Mensajes enviados hoy (total)
-    const messagesToday = await Message.countDocuments({
-      sentAt: { $gte: todayStart }
-    });
-
-    // Mensajes por estado hoy
-    const deliveredToday = await Message.countDocuments({
-      sentAt: { $gte: todayStart },
-      status: { $in: ['delivered', 'read'] }
-    });
-
-    const failedToday = await Message.countDocuments({
-      sentAt: { $gte: todayStart },
-      status: 'failed'
-    });
-
-    // Mensajes enviados en la última hora
-    const messagesLastHour = await Message.countDocuments({
-      sentAt: { $gte: oneHourAgo }
-    });
-
-    // Último mensaje enviado
-    const lastMessage = await Message.findOne({})
-      .sort({ sentAt: -1 })
-      .select('sentAt leadName phone instanceId status');
-
-    // Leads contactados hoy (donde el mensaje llegó)
-    const leadsContactedToday = await Lead.countDocuments({
-      lastContactAt: { $gte: todayStart },
-      status: { $in: ['contacted', 'interested', 'not_interested'] }
-    });
-
-    // Leads donde NO llegó el mensaje
-    const leadsFailedToday = await Lead.countDocuments({
-      lastContactAt: { $gte: todayStart },
-      $or: [
-        { phoneBounced: true },
-        { phoneInvalid: true }
-      ]
-    });
-
-    // Mensajes por bot hoy
-    const messagesByBotToday = await Message.aggregate([
-      {
-        $match: { sentAt: { $gte: todayStart } }
-      },
-      {
-        $group: {
-          _id: '$instanceId',
-          total: { $sum: 1 },
-          delivered: {
-            $sum: { $cond: [{ $in: ['$status', ['delivered', 'read']] }, 1, 0] }
-          },
-          failed: {
-            $sum: { $cond: [{ $eq: ['$status', 'failed'] }, 1, 0] }
-          }
-        }
-      },
-      { $sort: { total: -1 } }
-    ]);
-
-    // Bots activos (conectados via WebSocket)
-    const activeBots = Array.from(botStatuses.entries())
-      .filter(([_, status]) => status.status === 'ready')
-      .map(([id, status]) => ({
-        instanceId: id,
-        wid: status.wid,
-        lastSeen: status.lastSeen
-      }));
-
-    res.json({
-      success: true,
-      stats: {
-        queue: {
-          total: leadsInQueue,
-          pending: pendingLeads,
-          queued: queuedLeads
-        },
-        messages: {
-          today: messagesToday,
-          deliveredToday: deliveredToday,
-          failedToday: failedToday,
-          lastHour: messagesLastHour,
-          lastMessage: lastMessage ? {
-            time: lastMessage.sentAt,
-            timeAgo: Math.round((Date.now() - new Date(lastMessage.sentAt).getTime()) / 1000 / 60) + ' min',
-            leadName: lastMessage.leadName,
-            phone: lastMessage.phone,
-            bot: lastMessage.instanceId,
-            status: lastMessage.status
-          } : null
-        },
-        leads: {
-          contactedToday: leadsContactedToday,
-          failedToday: leadsFailedToday
-        },
-        bots: {
-          active: activeBots.length,
-          list: activeBots,
-          todayStats: messagesByBotToday.map(b => ({
-            instanceId: b._id || 'unknown',
-            messagestoday: b.total,
-            delivered: b.delivered,
-            failed: b.failed
-          }))
-        },
-        timestamp: new Date().toISOString()
-      }
-    });
-  } catch (error) {
-    console.error('Error obteniendo estadísticas en tiempo real:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // 🤖 Aliases para control de bots (compatibilidad sin /api)
 app.post('/bot/:instanceId/start', (req, res) => res.redirect(307, `/api/bot/${req.params.instanceId}/start`));
 app.post('/bot/:instanceId/stop', (req, res) => res.redirect(307, `/api/bot/${req.params.instanceId}/stop`));
@@ -2003,80 +1876,20 @@ app.delete('/api/lead/:id', async (req, res) => {
     await Message.deleteMany({ leadId: id });
 
     res.json({ success: true, message: 'Lead eliminado' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
-});
-
-// GET /api/bots/list - Listar todos los bots disponibles (Sincronizado con PM2)
-app.get('/api/bots/list', async (req, res) => {
-  try {
-    const baseDir = path.resolve(__dirname, '..');
-
-    // Obtener lista de procesos PM2
-    let pm2List = [];
-    try {
-      const { stdout } = await new Promise((resolve, reject) => {
-        exec('npx pm2 jlist', (err, stdout) => {
-          if (err) return reject(err);
-          resolve({ stdout });
-        });
-      });
-      pm2List = JSON.parse(stdout);
-    } catch (e) {
-      console.warn('Error leyendo PM2 list:', e.message);
-    }
-
-    const items = await fs.readdir(baseDir);
-    const bots = [];
-
-    for (const item of items) {
-      if (item.startsWith('bot')) {
-        const botPath = path.join(baseDir, item);
-        try {
-          const stat = await fs.stat(botPath);
-          if (stat.isDirectory()) {
-            try {
-              await fs.access(path.join(botPath, 'index.js'));
-
-              // Buscar estado real en PM2
-              const pm2Process = pm2List.find(p => p.name === item);
-              const memory = pm2Process ? Math.round(pm2Process.monit.memory / 1024 / 1024) : 0;
-
-              // Prioridad de estado: PM2 > Memoria interna > Offline
-              let finalStatus = 'offline';
-              if (pm2Process) {
-                finalStatus = pm2Process.pm2_env.status; // online, stopped, errored
-              } else if (botStatuses.has(item)) {
-                finalStatus = botStatuses.get(item).status;
-              }
-
-              // FIX: Omitir bot_1 fantasma y el bot de plantilla
-              if ((item === 'bot_1' || item === 'bot') && finalStatus === 'offline' && !pm2Process) {
-                // Skip ghost bot_1/bot
-              } else {
-                bots.push({
-                  instanceId: item,
-                  path: botPath,
-                  status: finalStatus,
-                  pm2_status: pm2Process ? pm2Process.pm2_env.status : 'stopped',
-                  memory: memory + 'MB',
-                  lastSeen: botStatuses.get(item)?.lastSeen || null
-                });
-              }
             } catch (e) { }
           }
         } catch (e) { }
       }
     }
 
-    res.json({
-      success: true,
-      bots: bots.sort((a, b) => a.instanceId.localeCompare(b.instanceId))
-    });
+res.json({
+  success: true,
+  bots: bots.sort((a, b) => a.instanceId.localeCompare(b.instanceId))
+});
   } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+  res.status(500).json({ error: error.message });
+}
 });
 
 // GET /api/stats/realtime - Estadísticas en tiempo real para el dashboard (FIX 305 leads issue)
