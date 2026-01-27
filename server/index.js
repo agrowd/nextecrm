@@ -1881,14 +1881,7 @@ app.delete('/api/lead/:id', async (req, res) => {
   }
 });
 
-res.json({
-  success: true,
-  bots: bots.sort((a, b) => a.instanceId.localeCompare(b.instanceId))
-});
-  } catch (error) {
-  res.status(500).json({ error: error.message });
-}
-});
+
 
 // GET /api/stats/realtime - Estadísticas en tiempo real para el dashboard (FIX 305 leads issue)
 app.get('/api/stats/realtime', async (req, res) => {
