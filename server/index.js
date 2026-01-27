@@ -1936,7 +1936,7 @@ app.get('/api/stats/realtime', async (req, res) => {
     // Para simplificar, "sesión actual" se considera desde el 'startedAt' registrado en botStatuses
     const botRealtime = [];
     for (const [instanceId, status] of botStatuses.entries()) {
-      const startedAt = status.startedAt || todayStart;
+      const startedAt = status.startedAt || today;
 
       const sessionMessages = await Message.countDocuments({
         instanceId,
