@@ -3580,7 +3580,7 @@ io.on('connection', (socket) => {
   console.log(`🔌 Nueva conexión socket: ${socket.id}`);
 
   // 1. Identificación (Dashboard o Bot)
-  socket.on('identify', (data) => {
+  socket.on('identify', async (data) => {
     const { type, instanceId } = data;
 
     if (type === 'bot') {
