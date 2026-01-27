@@ -1876,12 +1876,10 @@ app.delete('/api/lead/:id', async (req, res) => {
     await Message.deleteMany({ leadId: id });
 
     res.json({ success: true, message: 'Lead eliminado' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-            } catch (e) { }
-          }
-        } catch (e) { }
-      }
-    }
+});
 
 res.json({
   success: true,
