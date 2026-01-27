@@ -147,7 +147,7 @@ function initSocket() {
         renderBotControls();
     });
 
-    socket.on('realtime_message', (data) => handleIncomingRealtimeMessage(data));
+    socket.on('new_message', (data) => handleIncomingRealtimeMessage(data));
     socket.on('realtime_bot_log', (data) => appendConsoleLog(data));
     socket.on('scraper_status_update', (scrapers) => {
         currentState.scrapers = scrapers;
@@ -343,35 +343,122 @@ async function fetchRealtimeStats() {
             // Update contactados today
             const rtContactados = getEl('rtContactados');
             if (rtContactados) rtContactados.textContent = stats.leads.contactedToday || 0;
+            const s = data.stats;
+            if (getEl('rtLeadsQueue')) getEl('rtLeadsQueue').innerText = s.queue.total || 0;
+            if (getEl('rtMessagesToday')) getEl('rtMessagesToday').innerText = s.messages.today || 0;
+            if (getEl('rtDelivered')) getEl('rtDelivered').innerText = s.messages.deliveredToday || 0;
+            if (getEl('rtFailed')) getEl('rtFailed').innerText = s.messages.failedToday || 0;
+            if (getEl('rtContactados')) getEl('rtContactados').innerText = s.leads.contactedToday || 0;
+            if (getEl('rtLeadsFailed')) getEl('rtLeadsFailed').innerText = s.leads.failedToday || 0;
 
-            // Update leads failed
-            const rtLeadsFailed = getEl('rtLeadsFailed');
-            if (rtLeadsFailed) rtLeadsFailed.textContent = stats.leads.failedToday || 0;
-
-            // Update last message
-            const rtLast = getEl('rtLastMessage');
-            const rtLastInfo = getEl('rtLastMessageInfo');
-            if (stats.messages.lastMessage) {
-                const lastTime = new Date(stats.messages.lastMessage.time);
-                if (rtLast) rtLast.textContent = lastTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                if (rtLastInfo) rtLastInfo.textContent = `${stats.messages.lastMessage.bot} → ${stats.messages.lastMessage.leadName?.substring(0, 15) || 'Lead'}...`;
-            } else {
-                if (rtLast) rtLast.textContent = '--:--';
-                if (rtLastInfo) rtLastInfo.textContent = 'Sin mensajes aún';
+            if (s.businessHours && getEl('statBizHours')) {
+                getEl('statBizHours').innerText = `${s.businessHours.start} a ${s.businessHours.end}`;
             }
 
-            // Update per-bot daily stats dinamically
-            if (stats.bots.todayStats) {
-                stats.bots.todayStats.forEach(b => {
-                    const el = getEl(`${b.instanceId}Today`);
-                    if (el) el.textContent = b.messagestoday;
-                });
+            if (s.lastMessage) {
+                const last = s.lastMessage;
+                if (getEl('rtLastMessage')) getEl('rtLastMessage').innerText = new Date(last.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                if (getEl('rtLastMessageInfo')) getEl('rtLastMessageInfo').innerText = `${last.instanceId} → ${last.leadName || 'Lead'}`;
             }
+
+            // Renderizado dinámico de tarjetas de bots
+            renderBotSessionCards(s.bots);
+
+            // Actualizar historial histórico
+            fetchBotHistory();
         }
     } catch (e) { console.error('Error fetching realtime stats:', e); }
 }
 
 // --- FETCH BOTS ---
+async function renderBotSessionCards(bots) {
+    const container = getEl('perBotStatsContainer');
+    if (!container) return;
+
+    const botColors = { 'bot_1': '#00a884', 'bot_2': '#7e57c2', 'bot_3': '#ff9800', 'bot_4': '#2196f3' };
+
+    // Si no hay bots activos, mostrar placeholder
+    if (!bots || bots.length === 0) {
+        container.innerHTML = '<div style="color: #666; font-size: 13px; text-align: center; width: 100%;">Esperando conexión de bots...</div>';
+        return;
+    }
+
+    container.innerHTML = bots.map(bot => {
+        const color = botColors[bot.instanceId] || '#00bcd4';
+        const startStr = bot.startedAt ? new Date(bot.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
+        return `
+            <div class="bot-daily-card" style="background: #111b21; border: 1px solid ${color}40; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 32px; height: 32px; background: ${color}20; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: ${color};">
+                        ${bot.instanceId.split('_')[1] || '1'}
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 11px; color: #8696a0; text-transform: uppercase;">${bot.instanceId.replace('_', ' ')}</div>
+                        <div style="font-size: 10px; color: ${bot.status === 'ready' ? '#25d366' : '#ff9800'}; font-weight: 600;">${bot.status.toUpperCase()}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 10px; color: #666;">Iniciado</div>
+                        <div style="font-size: 11px; color: #8696a0;">${startStr}</div>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 5px; border-top: 1px solid #2f3b4350; padding-top: 10px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 18px; font-weight: 700; color: #fff;">${bot.sessionLeads}</div>
+                        <div style="font-size: 9px; color: #8696a0; text-transform: uppercase;">Leads hoy</div>
+                    </div>
+                    <div style="text-align: center; border-left: 1px solid #2f3b4350;">
+                        <div style="font-size: 18px; font-weight: 700; color: #fff;">${bot.sessionMessages}</div>
+                        <div style="font-size: 9px; color: #8696a0; text-transform: uppercase;">Mensajes</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+async function fetchBotHistory() {
+    try {
+        const res = await fetchAPI('/api/stats/history');
+        const data = await res.json();
+        if (data.success) {
+            const tbody = getEl('botHistoryTableBody');
+            if (!tbody) return;
+
+            if (!data.history || data.history.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #666;">Sin datos históricos aún.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.history.map(h => {
+                const numbersStr = h.numbers.length > 0 ? h.numbers.join(', ') : '<span style="color:#666">Ninguno</span>';
+                const lastSeen = h.lastSeenAt ? new Date(h.lastSeenAt).toLocaleString() : 'N/A';
+
+                // Formatear logs de desconexión (mostrar los últimos 2 motivos)
+                const logsStr = h.disconnectionLogs && h.disconnectionLogs.length > 0
+                    ? h.disconnectionLogs.slice(-2).map(l => `<div style="font-size:10px; color:#ff9800;">• ${l.reason} (${new Date(l.timestamp).toLocaleDateString()})</div>`).join('')
+                    : '<span style="color:#666; font-size:10px;">Sin registros</span>';
+
+                return `
+                    <tr style="border-top: 1px solid #2f3b43;">
+                        <td style="padding: 15px; font-weight: bold; color: #00a884;">${h.instanceId.toUpperCase()}</td>
+                        <td style="padding: 15px;">
+                            <span style="background: ${h.logoutCount > 5 ? '#f44336' : '#202c33'}; padding: 4px 8px; border-radius: 4px;">
+                                ${h.logoutCount}
+                            </span>
+                        </td>
+                        <td style="padding: 15px; font-weight: bold;">${h.totalMessages || 0}</td>
+                        <td style="padding: 15px; font-size: 11px; font-family: monospace; max-width: 200px; word-break: break-all;">
+                            ${numbersStr}
+                        </td>
+                        <td style="padding: 15px;">${logsStr}</td>
+                        <td style="padding: 15px; font-size: 11px; color: #8696a0;">${lastSeen}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    } catch (e) { console.error('Error fetching bot history:', e); }
+}
+
 async function fetchBotList() {
     try {
         const res = await fetchAPI('/bots/list');
@@ -887,13 +974,53 @@ function updateBotFilters() {
 }
 
 function handleIncomingRealtimeMessage(data) {
-    const { from, to, body, timestamp, instanceId } = data;
-    const phone = from === 'me' ? to.split('@')[0] : from.split('@')[0];
-    if (!currentState.conversations[phone]) { fetchConversations(); return; }
+    const { from, to, body, content, sentAt, timestamp, instanceId, fromMe, leadName } = data;
+
+    // El servidor puede enviar body o content, y sentAt o timestamp
+    const msgContent = body || content || '';
+    const msgTime = sentAt || timestamp || new Date();
+
+    // Normalizar teléfono
+    let phone;
+    if (fromMe === true || from === 'me') {
+        phone = (to || '').split('@')[0].replace(/\D/g, '');
+    } else {
+        phone = (from || '').split('@')[0].replace(/\D/g, '');
+    }
+
+    if (!phone) return;
+
+    if (!currentState.conversations[phone]) {
+        // Si es un chat nuevo, refrescar lista
+        fetchConversations();
+        return;
+    }
+
     const chat = currentState.conversations[phone];
-    chat.messages.push({ phone, content: body, sentAt: new Date(timestamp), fromMe: from === 'me', instanceId });
-    chat.lastMessage = body; chat.lastTime = new Date(timestamp);
-    if (currentState.activeChatPhone === phone) renderMessages(phone);
+
+    // Evitar duplicados visuales si el mensaje ya llegó por polling o evento previo
+    const isDuplicate = chat.messages.some(m =>
+        m.content === msgContent &&
+        Math.abs(new Date(m.sentAt) - new Date(msgTime)) < 2000
+    );
+
+    if (isDuplicate) return;
+
+    chat.messages.push({
+        phone,
+        content: msgContent,
+        sentAt: msgTime,
+        fromMe: fromMe === true || from === 'me',
+        instanceId,
+        leadName: leadName || chat.name
+    });
+
+    chat.lastMessage = msgContent;
+    chat.lastTime = msgTime;
+
+    if (currentState.activeChatPhone === phone) {
+        renderMessages(phone);
+    }
     renderChatList();
 }
 
@@ -2201,16 +2328,6 @@ async function fetchGlobalConfig() {
 }
 
 async function saveGlobalConfig() {
-    const tgl = getEl('schedEnabled');
-    const start = getEl('schedStartTime');
-    const end = getEl('schedEndTime');
-    const tz = getEl('schedTimezone');
-    const rnd = getEl('schedRandomness');
-
-    const max = getEl('limitMaxDaily');
-    const cool = getEl('limitCooloff');
-    const type = getEl('humanTypingSpeed');
-
     const newSettings = {
         schedule: {
             enabled: tgl ? tgl.checked : false,

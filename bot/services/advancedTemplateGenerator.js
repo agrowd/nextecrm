@@ -181,36 +181,16 @@ class AdvancedTemplateGenerator {
 
         // PROPUESTAS DE VALOR - PROMO INICIO 2025 (Variantes anti-spam, mismos precios)
         this.propuestas = [
-            "🎉 PROMOS 2025:\n• Web: $20.000 + dominio $14.000 (2 meses free)\n• Medición Full: $75.000\n• CM: $75.000/mes (Pack trimestral)",
-            "🚀 Oportunidad Enero:\n• Sitio Web: $20.000 iniciales + dominio\n• Setup Analytics: $75.000 fijo\n• Manejo Redes: $75.000 mensuales x3",
-            "💥 PACK INICIO:\n• Tu Web: $20k + dominio (Hosting gratis 2 meses)\n• Datos y Métricas: $75k único pago\n• Community Manager: $75k por mes",
-            "🎯 Oferta Especial:\n• Diseño Web: $20.000 + costo dominio\n• Auditoría Medición: $75.000\n• Gestión Redes: $75.000 mensual (promo 3 meses)",
-            "⚡ PLAN 2025:\n• Web completa: $20k + $14k dominio\n• Pack Medición: $75k final\n• CM y Contenido: $75k al mes x3",
-            "🔥 Promo Digital:\n• Desarrollo Web: $20.000 (luego $20k/mes)\n• Configuración GA4: $75.000\n• Redes Sociales: $75.000/mes x 3 meses",
-            "✨ Propuesta Enero:\n• Web Pro: $20k + dominio $14k\n• Kit Medición: $75k\n• CM Completo: $75k mensual",
-            "🎁 Beneficio 2025:\n• Web: $20.000 (2 meses bonificados)\n• Analytics + GTM: $75.000\n• Community Pack: $75.000 mensual",
-            "💪 Arrancá con todo:\n• Web: $20k base + dominio\n• Medición: $75k setup\n• CM: $75k/mes (ahorro real)",
-            "🌟 Promo Año Nuevo:\n• Web nueva: $20.000 + dominio\n• Medición total: $75.000\n• Redes: $75.000 por mes",
-            "🚀 Pack Aceleración:\n• Web: $20k + dominio\n• Métricas: $75k\n• CM: $75k mensual (3 meses)",
-            "🎉 Oferta Limitada:\n• Web: $20.000 + $14.000 (dominio)\n• Medición Avanzada: $75.000\n• Community: $75.000/mes x3",
-            "💥 Tu negocio online:\n• Web: $20k inicio (hosting free 2 meses)\n• Analytics: $75k\n• Redes: $75k mensual",
-            "⭐ Promo Exclusiva:\n• Sitio: $20.000 + dominio\n• Setup Datos: $75.000\n• Social Media: $75.000/mes x3",
-            "🔥 Digital 2025:\n• Web: $20k + dominio\n• Medición: $75k\n• CM: $75k mensual (plan trimestral)",
-            "✨ Pack Crecimiento:\n• Web: $20.000 (+ $14k dominio)\n• Auditoría: $75.000\n• Gestión RRSS: $75.000/mes",
-            "🎯 Objetivo Venta:\n• Web: $20k + dominio\n• Tracking: $75k\n• Contenido Redes: $75k mes",
-            "💪 Plan Despegue:\n• Web: $20.000 base\n• Config Medición: $75.000\n• Community: $75.000 mensual",
-            "🌟 Solución Total:\n• Web: $20k + dominio\n• Analytics: $75k\n• CM: $75k por mes (x3)",
-            "🎁 Promo Lanzamiento:\n• Web: $20.000 + dominio\n• Medición: $75.000\n• Redes: $75.000 mensual",
-            "⚡ Pack Enero:\n• Web: $20k + dominio\n• Métricas: $75k\n• CM: $75k/mes",
-            "🚀 Impulso Digital:\n• Web: $20.000 + dominio\n• Setup GA4: $75.000\n• Social: $75.000/mes x3",
-            "🎉 Promo Verano:\n• Web: $20k + dominio\n• Medición: $75k\n• CM: $75k mensual",
-            "💥 Todo en uno:\n• Web: $20.000 + dominio\n• Datos: $75.000\n• Redes: $75.000/mes",
-            "⭐ Pack Pyme:\n• Web: $20k (2 meses free)\n• Medición: $75k\n• CM: $75k mensual",
-            "🔥 Oferta Web+Redes:\n• Web: $20k + dominio\n• Analytics: $75k\n• CM: $75k/mes x3",
-            "✨ Año Nuevo:\n• Web: $20.000 + dominio\n• Medición: $75.000\n• CM: $75.000 mes",
-            "🎯 Plan Acción:\n• Web: $20k + dominio\n• Tracking: $75k\n• CM: $75k mensual",
-            "💪 Promo Full:\n• Web: $20.000 + dominio\n• Medición: $75.000\n• Redes: $75.000/mes",
-            "🌟 Pack Digital:\n• Web: $20k + dominio\n• Analytics: $75k\n• CM: $75k mensual"
+            "🎉 PROMOCIONES 2025:\n• Sitio Web: $20.000 inicial + costo de dominio de $14.000 (te bonificamos 2 meses de hosting y mantenimiento para que arranques con todo).\n• Medición Full: $75.000 (setup completo de Analytics y métricas).\n• Manejo de Redes Sociales: $75.000 por mes (promoción válida contratando un pack trimestral de gestión de contenido).",
+            "🚀 Oportunidad Enero 2025:\n• Diseño de Sitio Web: $20.000 de pago inicial + dominio (el primer paso para tu independencia digital).\n• Setup de Analytics y Datos: $75.000 pago único.\n• Manejo de Redes Sociales: $75.000 mensuales (explicamos todo el manejo y estrategia en un plan de 3 meses).",
+            "💥 PACK LANZAMIENTO DIGITAL:\n• Tu Web Pro: $20k inicial + dominio (Hosting bonificado por 60 días).\n• Medición de Conversiones: $75k pago final.\n• Gestión de Redes Sociales: $75k por mes (plan trimestral de manejo integral).",
+            "🎯 Oferta Especial Año Nuevo:\n• Desarrollo Web: $20.000 inicial + $14k dominio.\n• Auditoría y Métricas: $75.000 setup completo.\n• Manejo de Redes Sociales: $75.000 mensual (mejoramos tu presencia con un manejo profesional de 3 meses).",
+            "⚡ ESTRATEGIA 2025:\n• Web Autoadministrable: $20k + dominio (dominá tu presencia online).\n• Pack de Medición GA4: $75k total.\n• Gestión de Contenidos Sociales: $75k al mes (promoción por contrato de 3 meses de manejo).",
+            "🔥 Promo Digital Nexte:\n• Tu Página Web: $20.000 inicial (luego $20k/mes de mantenimiento).\n• Configuración de Métricas: $75.000 pago único.\n• Manejo de Redes Sociales: $75.000 por mes (plan integral de manejo por 3 meses).",
+            "✨ Propuesta Integral:\n• Web Corporativa: $20k inicial + $14k por el dominio.\n• Kit de Datos y Medición: $75k setup.\n• Manejo de Redes Sociales: $75.000 mensuales (incluye toda la gestión de contenido trimestral).",
+            "🎁 Beneficios 2025:\n• Sitio Web: $20.000 inicial (con 2 meses bonificados de soporte).\n• Analytics + GTM: $75.000 setup.\n• Community Manager & Gestión: $75.000 mensual (pack de manejo 3 meses).",
+            "💪 Crecimiento Digital:\n• Tu Propia Web: $20k base + dominio.\n• Medición de Resultados: $75k pago único.\n• Manejo de Redes Sociales: $75.000/mes (estrategia de gestión trimestral).",
+            "🌟 Promo Nexte Marketing:\n• Web Profesional: $20.000 + dominio.\n• Medición y Tracking: $75.000.\n• Manejo de Redes Sociales: $75.000 por mes (gestión completa de 3 meses)."
         ];
 
         // RESPUESTA PARA BOT AUTOMÁTICO (Venta de Bot)

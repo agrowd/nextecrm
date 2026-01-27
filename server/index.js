@@ -42,6 +42,7 @@ const log = (message, level = 'info', component = 'server', details = null, lead
 const Lead = require('./models/Lead');
 const Message = require('./models/Message');
 const Log = require('./models/Log');
+const BotInstance = require('./models/BotInstance');
 const Config = require('./models/Config');
 const TemplateVariant = require('./models/TemplateVariant');
 // MongoDB es la fuente principal de datos
@@ -2120,23 +2121,72 @@ app.get('/api/stats/realtime', async (req, res) => {
         messagestoday: b.count
       }));
 
+    // Obtener configuración para mostrar horarios
+    const configDoc = await Config.findOne({ key: 'global_bot_settings' });
+    const bizHours = {
+      start: configDoc?.settings?.businessHours?.start || process.env.BUSINESS_HOURS_START || '09:00',
+      end: configDoc?.settings?.businessHours?.end || process.env.BUSINESS_HOURS_END || '18:00'
+    };
+
+    // Mensajes y leads por bot (detallado para la sesión actual)
+    // Para simplificar, "sesión actual" se considera desde el 'startedAt' registrado en botStatuses
+    const botRealtime = [];
+    for (const [instanceId, status] of botStatuses.entries()) {
+      const startedAt = status.startedAt || todayStart;
+
+      const sessionMessages = await Message.countDocuments({
+        instanceId,
+        sentAt: { $gte: startedAt }
+      });
+
+      const sessionLeads = await Lead.countDocuments({
+        contactedByInstance: instanceId,
+        lastContactAt: { $gte: startedAt }
+      });
+
+      botRealtime.push({
+        instanceId,
+        status: status.status,
+        sessionMessages,
+        sessionLeads,
+        startedAt
+      });
+    }
+
     res.json({
       success: true,
       stats: {
-        queue: { total: totalQueue, pending, queued },
-        leads: { contactedToday, failedToday },
+        queue: { total: totalQueue, pending: pending, queued: queued },
         messages: {
           today: messagesToday,
           deliveredToday,
           failedToday,
-          lastMessage: lastMessage ? {
-            time: lastMessage.sentAt,
-            bot: lastMessage.instanceId,
-            leadName: lastMessage.leadName
-          } : null
+          lastMessage
         },
-        bots: { todayStats }
+        leads: { contactedToday, failedToday },
+        businessHours: bizHours,
+        bots: botRealtime
       }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/stats/history - Historial acumulado de bots (Logouts y Números usados)
+app.get('/api/stats/history', async (req, res) => {
+  try {
+    const history = await BotInstance.find({}).sort({ instanceId: 1 }).lean();
+    res.json({
+      success: true,
+      history: history.map(h => ({
+        instanceId: h.instanceId,
+        logoutCount: h.logoutCount || 0,
+        numbers: h.usedPhoneNumbers || [],
+        totalMessages: h.totalMessagesSent || 0,
+        lastSeenAt: h.lastSeenAt,
+        disconnectionLogs: h.disconnectionLogs || []
+      }))
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -2777,6 +2827,20 @@ app.post('/api/messages', async (req, res) => {
     // Crear mensaje
     const message = new Message(messageData);
     await message.save();
+
+    // Actualizar historial del bot (conteo histórico total)
+    try {
+      const { instanceId } = messageData; // Asumiendo que instanceId viene en messageData
+      if (instanceId) {
+        await BotInstance.findOneAndUpdate(
+          { instanceId },
+          { $inc: { totalMessagesSent: 1 } },
+          { upsert: true }
+        );
+      }
+    } catch (err) {
+      console.error('Error actualizando totalMessagesSent:', err);
+    }
 
     // Actualizar estadísticas del lead
     await Lead.findByIdAndUpdate(messageData.leadId, {
@@ -3524,17 +3588,26 @@ io.on('connection', (socket) => {
       connectedBots.set(instanceId, socket.id);
 
       // Inicializar status si no existe
-      if (!botStatuses.has(instanceId)) {
-        botStatuses.set(instanceId, { status: 'online', lastSeen: Date.now() });
-      } else {
-        const current = botStatuses.get(instanceId);
-        current.status = 'online';
-        current.lastSeen = Date.now();
-        botStatuses.set(instanceId, current);
-      }
+      const prevStatus = botStatuses.get(instanceId) || {};
+      botStatuses.set(instanceId, {
+        status: 'online',
+        lastSeen: new Date(),
+        socketId: socket.id,
+        startedAt: prevStatus.startedAt || new Date()
+      });
 
-      // Notificar a dashboards
-      io.emit('bot_list_update', Array.from(botStatuses.entries()));
+      // Actualizar historial del bot
+      try {
+        await BotInstance.findOneAndUpdate(
+          { instanceId },
+          {
+            $set: { lastSeenAt: new Date() }
+          },
+          { upsert: true }
+        );
+      } catch (err) {
+        console.error('Error actualizando historial de bot:', err);
+      }
     } else if (type === 'dashboard') {
       console.log(`📊 Dashboard conectado: ${socket.id}`);
       // Enviar estado actual de todos los bots al dashboard nuevo
@@ -3546,11 +3619,13 @@ io.on('connection', (socket) => {
   socket.on('bot_qr', (data) => {
     const { instanceId, qr } = data;
     console.log(`📱 QR Recibido de ${instanceId}`);
-    const status = botStatuses.get(instanceId) || {};
-    status.status = 'qr_required';
-    status.qr = qr;
-    status.lastSeen = Date.now();
-    botStatuses.set(instanceId, status);
+    const currentStatus = botStatuses.get(instanceId) || {};
+    botStatuses.set(instanceId, {
+      ...currentStatus,
+      status: 'qr_required',
+      qr: qr,
+      lastSeen: new Date()
+    });
     io.emit('bot_status_update', { instanceId, status: 'qr_required', qr });
   });
 
@@ -3567,6 +3642,19 @@ io.on('connection', (socket) => {
     botStatuses.set(instanceId, status);
     io.emit('bot_status_update', { instanceId, status: 'ready', wid });
 
+    // Registrar WID en historial
+    if (wid) {
+      try {
+        await BotInstance.findOneAndUpdate(
+          { instanceId },
+          { $addToSet: { usedPhoneNumbers: wid } },
+          { upsert: true }
+        );
+      } catch (err) {
+        console.error('Error registrando WID:', err);
+      }
+    }
+
     // Si el bot estaba offline y ahora está listo, enviar notificación al admin
     if (wasOffline) {
       await sendAdminStartupNotification(instanceId);
@@ -3581,6 +3669,29 @@ io.on('connection', (socket) => {
     status.lastSeen = Date.now();
     botStatuses.set(instanceId, status);
     io.emit('bot_status_update', { instanceId, status: 'online' });
+  });
+
+  // Relevo de desconexión con motivo (para estudio de spam/baneos)
+  socket.on('bot_disconnection', async (data) => {
+    const { instanceId, reason } = data;
+    console.log(`🔌 Notificado motivo de desconexión de ${instanceId}: ${reason}`);
+
+    try {
+      await BotInstance.findOneAndUpdate(
+        { instanceId },
+        {
+          $push: {
+            disconnectionLogs: {
+              reason: reason || 'Unknown',
+              timestamp: new Date()
+            }
+          }
+        },
+        { upsert: true }
+      );
+    } catch (err) {
+      console.error('Error registrando motivo de desconexión:', err);
+    }
   });
 
   // Relevo de mensajes en tiempo real
@@ -3642,33 +3753,37 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', async () => {
-    // Buscar si era un bot y limpiar
-    for (const [id, sId] of connectedBots.entries()) {
-      if (sId === socket.id) {
-        console.log(`🔌 Bot ${id} cerró conexión socket`);
-        const status = botStatuses.get(id) || {};
-        const previousStatus = status.status;
-        status.status = 'offline';
-        status.disconnectedAt = new Date();
-        botStatuses.set(id, status);
-
-        io.emit('bot_status_update', { instanceId: id, status: 'offline' });
-        connectedBots.delete(id);
-
-        // 🚨 ALERTA: Enviar notificación WhatsApp si el bot estaba activo
-        if (previousStatus === 'ready' || previousStatus === 'online') {
-          await sendCrashAlert(id, 'Conexión perdida - El bot dejó de responder');
-        }
-
-        // Emitir sonido en el dashboard
-        io.emit('bot_crash_alert', {
-          instanceId: id,
-          reason: 'Conexión perdida',
-          timestamp: new Date().toISOString()
-        });
-
+    let disconnectedBotId = null;
+    for (const [id, sid] of connectedBots.entries()) {
+      if (sid === socket.id) {
+        disconnectedBotId = id;
         break;
       }
+    }
+
+    if (disconnectedBotId) {
+      console.log(`🔌 Bot ${disconnectedBotId} desconectado`);
+
+      try {
+        await BotInstance.findOneAndUpdate(
+          { instanceId: disconnectedBotId },
+          { $inc: { logoutCount: 1 } },
+          { upsert: true }
+        );
+      } catch (err) {
+        console.error('Error incrementando logouts:', err);
+      }
+
+      connectedBots.delete(disconnectedBotId);
+      const current = botStatuses.get(disconnectedBotId);
+      if (current) {
+        botStatuses.set(disconnectedBotId, {
+          ...current,
+          status: 'offline',
+          lastSeen: new Date()
+        });
+      }
+      io.emit('bot_disconnected', { instanceId: disconnectedBotId });
     }
   });
 });

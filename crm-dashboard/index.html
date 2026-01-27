@@ -133,9 +133,18 @@
                         <div class="stat-icon" style="background: #7e57c2;"><span class="material-icons">send</span>
                         </div>
                         <div class="stat-info">
-                            <h3>Msj Enviados</h3>
+                            <h3>Historial</h3>
                             <p class="stat-value" id="statMessages">-</p>
-                            <span class="stat-sub">Total histórico</span>
+                            <span class="stat-sub">Msj totales</span>
+                        </div>
+                    </div>
+                    <div class="stat-card" id="businessHoursCard">
+                        <div class="stat-icon" style="background: #ff9800;"><span class="material-icons">schedule</span>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Horario Comercial</h3>
+                            <p class="stat-value" id="statBizHours" style="font-size: 18px;">--:-- a --:--</p>
+                            <span class="stat-sub">Configurado</span>
                         </div>
                     </div>
                     <div class="stat-card" id="scraperStatusCard" style="border-color: #444;">
@@ -185,40 +194,36 @@
                 </div>
 
                 <!-- PER-BOT DAILY STATS -->
-                <div class="per-bot-stats"
-                    style="margin-top: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
-                    <div class="bot-daily-card" id="bot1DailyCard"
-                        style="background: #111b21; border: 1px solid #00a88440; border-radius: 10px; padding: 15px; display: flex; align-items: center; gap: 15px;">
-                        <div
-                            style="width: 40px; height: 40px; background: #00a88420; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                            <span style="color: #00a884; font-weight: 700;">B1</span>
-                        </div>
-                        <div>
-                            <div style="font-size: 24px; font-weight: 700; color: #fff;" id="bot1Today">0</div>
-                            <div style="font-size: 11px; color: #8696a0;">mensajes hoy</div>
-                        </div>
+                <div class="per-bot-stats" id="perBotStatsContainer"
+                    style="margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                    <!-- Bot cards will be injected dynamically or updated here -->
+                </div>
+
+                <!-- TAB: Historial de Bots -->
+                <div style="margin-top: 30px;">
+                    <div class="section-header">
+                        <h2>📖 Historial Acumulado (Logouts y Números)</h2>
                     </div>
-                    <div class="bot-daily-card" id="bot2DailyCard"
-                        style="background: #111b21; border: 1px solid #7e57c240; border-radius: 10px; padding: 15px; display: flex; align-items: center; gap: 15px;">
-                        <div
-                            style="width: 40px; height: 40px; background: #7e57c220; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                            <span style="color: #7e57c2; font-weight: 700;">B2</span>
-                        </div>
-                        <div>
-                            <div style="font-size: 24px; font-weight: 700; color: #fff;" id="bot2Today">0</div>
-                            <div style="font-size: 11px; color: #8696a0;">mensajes hoy</div>
-                        </div>
-                    </div>
-                    <div class="bot-daily-card" id="bot3DailyCard"
-                        style="background: #111b21; border: 1px solid #ff980040; border-radius: 10px; padding: 15px; display: flex; align-items: center; gap: 15px;">
-                        <div
-                            style="width: 40px; height: 40px; background: #ff980020; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                            <span style="color: #ff9800; font-weight: 700;">B3</span>
-                        </div>
-                        <div>
-                            <div style="font-size: 24px; font-weight: 700; color: #fff;" id="bot3Today">0</div>
-                            <div style="font-size: 11px; color: #8696a0;">mensajes hoy</div>
-                        </div>
+                    <div style="background: #111b21; border-radius: 12px; border: 1px solid #2f3b43; overflow: hidden;">
+                        <table style="width: 100%; border-collapse: collapse; color: #e9edef;">
+                            <thead style="background: #202c33;">
+                                <tr style="text-align: left;">
+                                    <th style="padding: 15px;">Instancia</th>
+                                    <th style="padding: 15px;">Logouts (Total)</th>
+                                    <th style="padding: 15px;">Msj Totales</th>
+                                    <th style="padding: 15px;">Números Usados (WIDs)</th>
+                                    <th style="padding: 15px;">Motivos (Logs)</th>
+                                    <th style="padding: 15px;">Última Conexión</th>
+                                </tr>
+                            </thead>
+                            <tbody id="botHistoryTableBody">
+                                <!-- Data injected dynamically -->
+                                <tr>
+                                    <td colspan="4" style="padding: 20px; text-align: center; color: #666;">Cargando
+                                        historial...</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -794,138 +799,124 @@
 
             <!-- VISTA 7: CONFIGURACIÓN GLOBAL -->
             <section id="view-settings" class="view-section">
-                <header class="section-header">
-                    <h1>Configuración de Flota y Horarios</h1>
-                    <button class="action-btn" onclick="saveGlobalConfig()"
-                        style="background:var(--accent); color:#fff; border:none; padding:10px 20px; border-radius:6px; cursor:pointer; font-weight:600;">
-                        <span class="material-icons"
-                            style="vertical-align:middle; font-size:18px; margin-right:5px;">save</span> Guardar Cambios
-                    </button>
-                </header>
-
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
-
-                    <!-- 1. SCHEDULE CARD -->
-                    <div style="background: #111b21; padding: 25px; border-radius: 12px; border: 1px solid #2f3b43;">
-                        <div
-                            style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                            <h3 style="color: #e9edef; font-size: 18px; display:flex; align-items:center; gap:10px;">
-                                <span class="material-icons" style="color:#00a884;">schedule</span> Programación Horaria
-                            </h3>
-                            <label class="switch">
-                                <input type="checkbox" id="schedEnabled">
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom:20px;">
-                            <div>
-                                <label style="display:block; color:#8696a0; font-size:12px; margin-bottom:5px;">Hora
-                                    Inicio</label>
-                                <input type="time" id="schedStartTime"
-                                    style="width:100%; background:#202c33; border:1px solid #2f3b43; color:#fff; padding:10px; border-radius:6px;">
-                            </div>
-                            <div>
-                                <label style="display:block; color:#8696a0; font-size:12px; margin-bottom:5px;">Hora
-                                    Fin</label>
-                                <input type="time" id="schedEndTime"
-                                    style="width:100%; background:#202c33; border:1px solid #2f3b43; color:#fff; padding:10px; border-radius:6px;">
-                            </div>
-                        </div>
-
-                        <div style="margin-bottom:20px;">
-                            <label style="display:block; color:#8696a0; font-size:12px; margin-bottom:5px;">Zona
-                                Horaria</label>
-                            <select id="schedTimezone"
-                                style="width:100%; background:#202c33; border:1px solid #2f3b43; color:#fff; padding:10px; border-radius:6px;">
-                                <option value="America/Argentina/Buenos_Aires">🇦🇷 Argentina (Buenos Aires)</option>
-                                <option value="America/Santiago">🇨🇱 Chile (Santiago)</option>
-                                <option value="America/Bogota">🇨🇴 Colombia (Bogotá)</option>
-                                <option value="UTC">🌍 UTC</option>
-                            </select>
-                        </div>
-
-                        <div style="background:#202c33; padding:15px; border-radius:8px;">
-                            <label
-                                style="display:flex; justify-content:space-between; color:#e9edef; font-size:14px; margin-bottom:10px;">
-                                <span>Aleatoriedad (Inicio/Fin)</span>
-                                <span style="color:#00a884; font-weight:bold;"><span id="schedRandomVal">15</span>
-                                    min</span>
-                            </label>
-                            <input type="range" id="schedRandomness" min="0" max="60" value="15"
-                                style="width:100%; accent-color:#00a884;"
-                                oninput="document.getElementById('schedRandomVal').innerText = this.value">
-                            <p style="color:#8696a0; font-size:11px; margin-top:5px;">
-                                El sistema variará el horario inicial y final +/- estos minutos diariamente.
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- 2. LIMITS & BEHAVIOR CARD -->
-                    <div style="background: #111b21; padding: 25px; border-radius: 12px; border: 1px solid #2f3b43;">
-                        <h3
-                            style="color: #e9edef; font-size: 18px; margin-bottom: 20px; display:flex; align-items:center; gap:10px;">
-                            <span class="material-icons" style="color:#34b7f1;">speed</span> Límites y Comportamiento
+                <div style="background: #111b21; padding: 25px; border-radius: 12px; border: 1px solid #2f3b43;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                        <h3 style="color: #e9edef; font-size: 18px; display:flex; align-items:center; gap:10px;">
+                            <span class="material-icons" style="color:#00a884;">schedule</span> Programación Horaria
                         </h3>
+                        <label class="switch">
+                            <input type="checkbox" id="schedEnabled">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
 
-                        <div style="margin-bottom:20px;">
-                            <label
-                                style="display:flex; justify-content:space-between; color:#e9edef; font-size:14px; margin-bottom:10px;">
-                                <span>Máximo Leads por Día</span>
-                                <span style="color:#34b7f1; font-weight:bold;" id="limitMaxDailyVal">200</span>
-                            </label>
-                            <input type="range" id="limitMaxDaily" min="50" max="1000" step="10" value="200"
-                                style="width:100%; accent-color:#34b7f1;"
-                                oninput="document.getElementById('limitMaxDailyVal').innerText = this.value">
-                        </div>
-
-                        <div style="margin-bottom:20px;">
-                            <label
-                                style="display:flex; justify-content:space-between; color:#e9edef; font-size:14px; margin-bottom:10px;">
-                                <span>Periodo de "Cool-down" (Descanso)</span>
-                                <span style="color:#34b7f1; font-weight:bold;" id="limitCooloffVal">15</span> min
-                            </label>
-                            <input type="range" id="limitCooloff" min="5" max="60" value="15"
-                                style="width:100%; accent-color:#34b7f1;"
-                                oninput="document.getElementById('limitCooloffVal').innerText = this.value">
-                            <p style="color:#8696a0; font-size:11px; margin-top:5px;">
-                                Tiempo de espera extra si se detectan errores consecutivos.
-                            </p>
-                        </div>
-
-                        <div style="margin-bottom:20px; background:#202c33; padding:15px; border-radius:8px;">
-                            <label
-                                style="display:flex; justify-content:space-between; color:#e9edef; font-size:14px; margin-bottom:10px;">
-                                <span>Velocidad de Escritura (Humana)</span>
-                                <span style="color:#34b7f1; font-weight:bold;">x<span
-                                        id="humanTypingVal">1.0</span></span>
-                            </label>
-                            <input type="range" id="humanTypingSpeed" min="0.5" max="2.0" step="0.1" value="1.0"
-                                style="width:100%; accent-color:#34b7f1;"
-                                oninput="document.getElementById('humanTypingVal').innerText = this.value">
-                            <p style="color:#8696a0; font-size:11px; margin-top:5px;">
-                                1.0 = Normal. Menor es más lento (más humano). Mayor es más rápido.
-                            </p>
-                        </div>
-
-                        <hr style="border:0; border-top:1px solid #2f3b43; margin:20px 0;">
-
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom:20px;">
                         <div>
-                            <h4 style="color:#e9edef; font-size:14px; margin-bottom:10px;">🏷️ Sincronización Automática
-                            </h4>
-                            <div
-                                style="display:flex; align-items:center; gap:10px; background:rgba(0,168,132,0.1); padding:10px; border-radius:6px; color:#00a884; font-size:13px;">
-                                <span class="material-icons" style="font-size:20px;">sync</span>
-                                <span>
-                                    Sincronización de etiquetas activa.<br>
-                                    <span style="font-size:11px; opacity:0.8;">Se chequea cada 5 minutos.</span>
-                                </span>
-                            </div>
+                            <label style="display:block; color:#8696a0; font-size:12px; margin-bottom:5px;">Hora
+                                Inicio</label>
+                            <input type="time" id="schedStartTime"
+                                style="width:100%; background:#202c33; border:1px solid #2f3b43; color:#fff; padding:10px; border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="display:block; color:#8696a0; font-size:12px; margin-bottom:5px;">Hora
+                                Fin</label>
+                            <input type="time" id="schedEndTime"
+                                style="width:100%; background:#202c33; border:1px solid #2f3b43; color:#fff; padding:10px; border-radius:6px;">
                         </div>
                     </div>
 
+                    <div style="margin-bottom:20px;">
+                        <label style="display:block; color:#8696a0; font-size:12px; margin-bottom:5px;">Zona
+                            Horaria</label>
+                        <select id="schedTimezone"
+                            style="width:100%; background:#202c33; border:1px solid #2f3b43; color:#fff; padding:10px; border-radius:6px;">
+                            <option value="America/Argentina/Buenos_Aires">🇦🇷 Argentina (Buenos Aires)</option>
+                            <option value="America/Santiago">🇨🇱 Chile (Santiago)</option>
+                            <option value="America/Bogota">🇨🇴 Colombia (Bogotá)</option>
+                            <option value="UTC">🌍 UTC</option>
+                        </select>
+                    </div>
+
+                    <div style="background:#202c33; padding:15px; border-radius:8px;">
+                        <label
+                            style="display:flex; justify-content:space-between; color:#e9edef; font-size:14px; margin-bottom:10px;">
+                            <span>Aleatoriedad (Inicio/Fin)</span>
+                            <span style="color:#00a884; font-weight:bold;"><span id="schedRandomVal">15</span>
+                                min</span>
+                        </label>
+                        <input type="range" id="schedRandomness" min="0" max="60" value="15"
+                            style="width:100%; accent-color:#00a884;"
+                            oninput="document.getElementById('schedRandomVal').innerText = this.value">
+                        <p style="color:#8696a0; font-size:11px; margin-top:5px;">
+                            El sistema variará el horario inicial y final +/- estos minutos diariamente.
+                        </p>
+                    </div>
                 </div>
-        </main>
+
+                <!-- 2. LIMITS & BEHAVIOR CARD -->
+                <div style="background: #111b21; padding: 25px; border-radius: 12px; border: 1px solid #2f3b43;">
+                    <h3
+                        style="color: #e9edef; font-size: 18px; margin-bottom: 20px; display:flex; align-items:center; gap:10px;">
+                        <span class="material-icons" style="color:#34b7f1;">speed</span> Límites y Comportamiento
+                    </h3>
+
+                    <div style="margin-bottom:20px;">
+                        <label
+                            style="display:flex; justify-content:space-between; color:#e9edef; font-size:14px; margin-bottom:10px;">
+                            <span>Máximo Leads por Día</span>
+                            <span style="color:#34b7f1; font-weight:bold;" id="limitMaxDailyVal">200</span>
+                        </label>
+                        <input type="range" id="limitMaxDaily" min="50" max="1000" step="10" value="200"
+                            style="width:100%; accent-color:#34b7f1;"
+                            oninput="document.getElementById('limitMaxDailyVal').innerText = this.value">
+                    </div>
+
+                    <div style="margin-bottom:20px;">
+                        <label
+                            style="display:flex; justify-content:space-between; color:#e9edef; font-size:14px; margin-bottom:10px;">
+                            <span>Periodo de "Cool-down" (Descanso)</span>
+                            <span style="color:#34b7f1; font-weight:bold;" id="limitCooloffVal">15</span> min
+                        </label>
+                        <input type="range" id="limitCooloff" min="5" max="60" value="15"
+                            style="width:100%; accent-color:#34b7f1;"
+                            oninput="document.getElementById('limitCooloffVal').innerText = this.value">
+                        <p style="color:#8696a0; font-size:11px; margin-top:5px;">
+                            Tiempo de espera extra si se detectan errores consecutivos.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom:20px; background:#202c33; padding:15px; border-radius:8px;">
+                        <label
+                            style="display:flex; justify-content:space-between; color:#e9edef; font-size:14px; margin-bottom:10px;">
+                            <span>Velocidad de Escritura (Humana)</span>
+                            <span style="color:#34b7f1; font-weight:bold;">x<span id="humanTypingVal">1.0</span></span>
+                        </label>
+                        <input type="range" id="humanTypingSpeed" min="0.5" max="2.0" step="0.1" value="1.0"
+                            style="width:100%; accent-color:#34b7f1;"
+                            oninput="document.getElementById('humanTypingVal').innerText = this.value">
+                        <p style="color:#8696a0; font-size:11px; margin-top:5px;">
+                            1.0 = Normal. Menor es más lento (más humano). Mayor es más rápido.
+                        </p>
+                    </div>
+
+                    <hr style="border:0; border-top:1px solid #2f3b43; margin:20px 0;">
+
+                    <div>
+                        <h4 style="color:#e9edef; font-size:14px; margin-bottom:10px;">🏷️ Sincronización Automática
+                        </h4>
+                        <div
+                            style="display:flex; align-items:center; gap:10px; background:rgba(0,168,132,0.1); padding:10px; border-radius:6px; color:#00a884; font-size:13px;">
+                            <span class="material-icons" style="font-size:20px;">sync</span>
+                            <span>
+                                Sincronización de etiquetas activa.<br>
+                                <span style="font-size:11px; opacity:0.8;">Se chequea cada 5 minutos.</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+    </div>
+    </main>
     </div>
     <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
     <script src="app.js?v=2.1"></script>

@@ -520,6 +520,12 @@ class WhatsAppBot {
       console.log('🔌 WhatsApp desconectado:', reason);
       this.isReady = false;
 
+      // Notificar al servidor el motivo de la desconexión para estadísticas de historial
+      this.socket.emit('bot_disconnection', {
+        instanceId: this.instanceId,
+        reason: reason
+      });
+
       // EVITAR CRASH EBUSY: No destruir cliente inmediatamente si es LOGOUT temporal
       if (reason === 'LOGOUT') {
         console.log('⚠️ Detectado LOGOUT - Intentando reconexión suave en 10s...');
