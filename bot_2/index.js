@@ -382,7 +382,7 @@ class WhatsAppBot {
         ...stealthPuppeteerConfig,
         args: [
           ...stealthPuppeteerConfig.args,
-          `--user-data-dir=${path.join(sessionsDir, 'browser-' + this.instanceId)}`
+
         ]
       }
     });
