@@ -49,6 +49,7 @@ COPY package*.json ./
 COPY bot/package*.json ./bot/
 COPY bot_2/package*.json ./bot_2/
 COPY bot_3/package*.json ./bot_3/ 
+COPY bot_4/package*.json ./bot_4/
 COPY server/package*.json ./server/
 
 # Instalar dependencias del root
@@ -58,6 +59,7 @@ RUN npm install
 RUN npm cache clean --force && cd bot && npm install --legacy-peer-deps
 RUN cd bot_2 && npm install
 RUN cd bot_3 && npm install
+RUN cd bot_4 && npm install
 RUN cd server && npm install
 
 # Instalar PM2 y serve global
