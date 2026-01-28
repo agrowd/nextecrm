@@ -463,7 +463,7 @@ class WhatsAppBot {
       };
 
       console.log('⏱️ Inicializando Rate Limiter...');
-      this.rateLimiter = new IntelligentRateLimiter();
+      this.rateLimiter = new IntelligentRateLimiter(this.instanceId);
 
       console.log('👤 Human Behavior Simulator: ACTIVO');
       console.log('📊 Response Analyzer: ACTIVO');

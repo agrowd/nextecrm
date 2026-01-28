@@ -9,7 +9,8 @@ const path = require('path');
  * Estrategia: Escalado gradual para evitar bans
  */
 class IntelligentRateLimiter {
-    constructor() {
+    constructor(instanceId = 'global') {
+        this.instanceId = instanceId;
         // Límites ajustables
         this.limits = {
             daily: {
@@ -29,7 +30,7 @@ class IntelligentRateLimiter {
             }
         };
 
-        this.statsFile = path.join(__dirname, '../stats/daily-limits.json');
+        this.statsFile = path.join(__dirname, `../stats/daily-limits-${this.instanceId}.json`);
         this.stats = {
             date: new Date().toISOString().split('T')[0],
             leadsProcessed: 0,
@@ -182,9 +183,7 @@ class IntelligentRateLimiter {
             };
         }
 
-        // 4. Verificar límite por hora (DESHABILITADO para testing)
-        // Para re-habilitar en producción, descomentar este bloque
-        /*
+        // 4. Verificar límite por hora
         const hourKey = `${hour}:00`;
         const hourlyCount = this.stats.messagesPerHour[hourKey] || 0;
         const hourlyLimit = this.getHourlyLimit(hour, schedule);
@@ -199,7 +198,6 @@ class IntelligentRateLimiter {
                 nextAvailable: new Date(now.setHours(hour + 1, 0, 0, 0))
             };
         }
-        */
 
         // 5. Verificar si estamos baneados
         if (this.stats.banned) {
