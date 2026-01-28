@@ -348,7 +348,7 @@ class WhatsAppBot {
     // ✅ CONFIGURACIÓN PUPPETEER ESTABILIZADA
     // Se han eliminado flags experimentales que causaban crashes
     const stealthPuppeteerConfig = {
-      headless: process.env.HEADLESS === 'true' ? "new" : false,
+      headless: process.env.HEADLESS === 'true' ? "shell" : false,
       executablePath: process.env.CHROME_PATH || undefined,
       bypassCSP: true, // 🛡️ FIX CRÍTICO: Evita "Execution context was destroyed"
       ignoreHTTPSErrors: true,
@@ -360,8 +360,8 @@ class WhatsAppBot {
         '--no-first-run',
         '--no-zygote',
         '--disable-gpu',
-        '--disable-gpu',
-        '--disable-extensions'
+        '--disable-extensions',
+        '--disable-web-security'
       ],
       defaultViewport: null,
       timeout: 60000
