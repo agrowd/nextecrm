@@ -25,3 +25,4 @@ services:
       - /app/bot_3/node_modules
       - ./bot_4:/app/bot_4
       - /app/bot_4/node_modules
+    shm_size: '2gb'
