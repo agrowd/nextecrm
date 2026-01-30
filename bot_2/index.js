@@ -378,12 +378,16 @@ class WhatsAppBot {
         clientId: this.instanceId,
         dataPath: sessionsDir
       }),
+      // ? FIX CR?TICO: Usar versi?n espec?fica de WA Web para evitar hangs en 'ready'
+      webVersionCache: {
+        type: "remote",
+        remotePath: "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html",
+      },
       puppeteer: {
         ...stealthPuppeteerConfig,
         args: [
           ...stealthPuppeteerConfig.args,
-
-        ]
+        ] // Removed the duplicate user-data-dir which was not in bot_2/index.js previously shown but standardizing it
       }
     });
     console.log('✅ Cliente configurado con Stealth Mode.');
