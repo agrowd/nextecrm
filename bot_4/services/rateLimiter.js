@@ -9,7 +9,8 @@ const path = require('path');
  * Estrategia: Escalado gradual para evitar bans
  */
 class IntelligentRateLimiter {
-    constructor() {
+    constructor(instanceId = 'global') {
+        this.instanceId = instanceId;
         // Límites ajustables
         this.limits = {
             daily: {
@@ -29,7 +30,7 @@ class IntelligentRateLimiter {
             }
         };
 
-        this.statsFile = path.join(__dirname, '../stats/daily-limits.json');
+        this.statsFile = path.join(__dirname, `../stats/daily-limits-${this.instanceId}.json`);
         this.stats = {
             date: new Date().toISOString().split('T')[0],
             leadsProcessed: 0,
@@ -182,24 +183,11 @@ class IntelligentRateLimiter {
             };
         }
 
-        // 4. Verificar límite por hora (DESHABILITADO para testing)
-        // Para re-habilitar en producción, descomentar este bloque
-        /*
-        const hourKey = `${hour}:00`;
-        const hourlyCount = this.stats.messagesPerHour[hourKey] || 0;
-        const hourlyLimit = this.getHourlyLimit(hour, schedule);
-
-        if (hourlyCount >= hourlyLimit) {
-            return {
-                allowed: false,
-                reason: 'hourly_limit_reached',
-                message: `Límite por hora alcanzado: ${hourlyCount}/${hourlyLimit} mensajes`,
-                used: hourlyCount,
-                limit: hourlyLimit,
-                nextAvailable: new Date(now.setHours(hour + 1, 0, 0, 0))
-            };
-        }
-        */
+        // 4. Límite por hora DESHABILITADO - Solo límite diario activo
+        // const hourKey = `${hour}:00`;
+        // const hourlyCount = this.stats.messagesPerHour[hourKey] || 0;
+        // const hourlyLimit = this.getHourlyLimit(hour, schedule);
+        // Ahora no hay pausa horaria - el bot trabaja hasta completar el límite diario
 
         // 5. Verificar si estamos baneados
         if (this.stats.banned) {

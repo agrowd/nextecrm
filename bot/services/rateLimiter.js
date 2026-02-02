@@ -183,21 +183,11 @@ class IntelligentRateLimiter {
             };
         }
 
-        // 4. Verificar límite por hora
-        const hourKey = `${hour}:00`;
-        const hourlyCount = this.stats.messagesPerHour[hourKey] || 0;
-        const hourlyLimit = this.getHourlyLimit(hour, schedule);
-
-        if (hourlyCount >= hourlyLimit) {
-            return {
-                allowed: false,
-                reason: 'hourly_limit_reached',
-                message: `Límite por hora alcanzado: ${hourlyCount}/${hourlyLimit} mensajes`,
-                used: hourlyCount,
-                limit: hourlyLimit,
-                nextAvailable: new Date(now.setHours(hour + 1, 0, 0, 0))
-            };
-        }
+        // 4. Límite por hora DESHABILITADO - Solo límite diario activo
+        // const hourKey = `${hour}:00`;
+        // const hourlyCount = this.stats.messagesPerHour[hourKey] || 0;
+        // const hourlyLimit = this.getHourlyLimit(hour, schedule);
+        // Ahora no hay pausa horaria - el bot trabaja hasta completar el límite diario
 
         // 5. Verificar si estamos baneados
         if (this.stats.banned) {
