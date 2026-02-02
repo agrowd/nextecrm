@@ -10,7 +10,7 @@ const MessageSchema = new mongoose.Schema({
   type: {
     type: String,
     default: 'text',
-    enum: ['oferta_servicio', 'respuesta_automatica', 'mensaje_manual', 'verificacion', 'text', 'image', 'audio', 'video', 'document', 'system', 'chat', 'e2e_notification', 'ptt', 'call_log', 'unknown']
+    enum: ['oferta_servicio', 'respuesta_automatica', 'mensaje_manual', 'verificacion', 'text', 'image', 'audio', 'video', 'document', 'system', 'chat', 'e2e_notification', 'ptt', 'call_log', 'notification_template', 'unknown']
   },
   status: {
     type: String,
