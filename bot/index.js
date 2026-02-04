@@ -378,11 +378,8 @@ class WhatsAppBot {
         clientId: this.instanceId,
         dataPath: sessionsDir
       }),
-      // ? FIX CR?TICO: Usar versi?n espec?fica de WA Web para evitar hangs en 'ready'
-      webVersionCache: {
-        type: "remote",
-        remotePath: "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html",
-      },
+      // webVersionCache removido - la URL 2.2412.54 ya no existe (404)
+      // whatsapp-web.js usará la versión por defecto
       puppeteer: {
         ...stealthPuppeteerConfig,
         args: [
