@@ -23,7 +23,7 @@ const ConfigSchema = new mongoose.Schema({
         schedule: {
             enabled: { type: Boolean, default: false },
             startTime: { type: String, default: '09:00' }, // HH:MM
-            endTime: { type: String, default: '18:00' },   // HH:MM
+            endTime: { type: String, default: '21:00' },   // HH:MM
             timezone: { type: String, default: 'America/Argentina/Buenos_Aires' },
             randomness: { type: Number, default: 10 }, // +/- minutes
             days: { type: [Number], default: [1, 2, 3, 4, 5] }, // 0=Sun, 1=Mon...

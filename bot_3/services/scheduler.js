@@ -42,7 +42,7 @@ class Scheduler {
 
         // Parse Start/End
         const [startH, startM] = (this.config.startTime || '09:00').split(':').map(Number);
-        const [endH, endM] = (this.config.endTime || '18:00').split(':').map(Number);
+        const [endH, endM] = (this.config.endTime || '21:00').split(':').map(Number);
 
         const startTime = now.set({ hour: startH, minute: startM, second: 0 });
         const endTime = now.set({ hour: endH, minute: endM, second: 0 });
