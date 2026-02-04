@@ -11,6 +11,8 @@ const path = require('path');
 class IntelligentRateLimiter {
     constructor(instanceId = 'global') {
         this.instanceId = instanceId;
+        this._initialized = false;
+
         // Límites ajustables
         this.limits = {
             daily: {
@@ -32,7 +34,7 @@ class IntelligentRateLimiter {
 
         this.statsFile = path.join(__dirname, `../stats/daily-limits-${this.instanceId}.json`);
         this.stats = {
-            date: new Date().toISOString().split('T')[0],
+            date: this.getArgentinaDate(),
             leadsProcessed: 0,
             messagesSent: 0,
             messagesPerHour: {},
@@ -63,7 +65,28 @@ class IntelligentRateLimiter {
             }
         };
 
-        this.loadStats();
+        // Inicializar stats de forma asíncrona
+        this._initPromise = this.loadStats();
+    }
+
+    /**
+     * Obtener fecha en zona horaria Argentina (UTC-3)
+     */
+    getArgentinaDate() {
+        const now = new Date();
+        // Argentina es UTC-3, restar 3 horas y obtener la fecha
+        const argentinaTime = new Date(now.getTime() - (3 * 60 * 60 * 1000));
+        return argentinaTime.toISOString().split('T')[0];
+    }
+
+    /**
+     * Asegurar que stats están cargados antes de usarlos
+     */
+    async ensureInitialized() {
+        if (!this._initialized) {
+            await this._initPromise;
+            this._initialized = true;
+        }
     }
 
     async loadStats() {
@@ -71,20 +94,33 @@ class IntelligentRateLimiter {
             const statsDir = path.dirname(this.statsFile);
             await fs.mkdir(statsDir, { recursive: true });
 
-            const today = new Date().toISOString().split('T')[0];
+            const today = this.getArgentinaDate();
             const data = await fs.readFile(this.statsFile, 'utf8');
             const stats = JSON.parse(data);
 
-            // Resetear si es un nuevo día
+            console.log(`📊 [RateLimiter] Cargando stats: fecha archivo=${stats.date}, fecha hoy ARG=${today}`);
+            console.log(`📊 [RateLimiter] Stats archivo: ${stats.leadsProcessed}/${stats.currentDayLimit} leads`);
+
+            // Resetear si es un nuevo día (hora Argentina)
             if (stats.date !== today) {
-                console.log('📅 Nuevo día - Reseteando estadísticas');
+                console.log('📅 Nuevo día (hora Argentina) - Reseteando estadísticas');
+                // Guardar leadsProcessed del día anterior para logging
+                const yesterdayLeads = stats.leadsProcessed;
+                const yesterdayLimit = stats.currentDayLimit;
+
+                this.stats = stats; // Cargar primero para que adjustDailyLimit funcione
                 this.resetDailyStats();
                 this.adjustDailyLimit(); // Incrementar límite si escalamos
+
+                console.log(`📅 Ayer: ${yesterdayLeads}/${yesterdayLimit} leads | Hoy: 0/${this.stats.currentDayLimit}`);
             } else {
                 this.stats = stats;
+                console.log(`📊 [RateLimiter] Mismo día, continuando: ${this.stats.leadsProcessed}/${this.stats.currentDayLimit} leads`);
             }
+
+            await this.saveStats(); // Guardar después de cualquier cambio
         } catch (error) {
-            // Archivo no existe
+            console.log(`📊 [RateLimiter] Archivo no existe, creando nuevo con fecha ${this.getArgentinaDate()}`);
             await this.saveStats();
         }
     }
@@ -98,18 +134,21 @@ class IntelligentRateLimiter {
     }
 
     resetDailyStats() {
-        const previousLimit = this.stats.currentDayLimit;
+        const previousLimit = this.stats.currentDayLimit || 50;
+        const previousPhase = this.stats.scalingPhase || 1;
 
         this.stats = {
-            date: new Date().toISOString().split('T')[0],
+            date: this.getArgentinaDate(),
             leadsProcessed: 0,
             messagesSent: 0,
             messagesPerHour: {},
             currentDayLimit: previousLimit, // Mantener límite del día anterior
             banned: false,
             suspiciousActivity: [],
-            scalingPhase: this.stats.scalingPhase || 1
+            scalingPhase: previousPhase
         };
+
+        console.log(`🔄 [RateLimiter] Stats reseteados: 0/${previousLimit} leads para ${this.stats.date}`);
     }
 
     /**
@@ -139,6 +178,9 @@ class IntelligentRateLimiter {
      * Verificar si podemos enviar mensajes ahora
      */
     async canSendNow() {
+        // Asegurar que stats están cargados
+        await this.ensureInitialized();
+
         const now = new Date();
         const hour = now.getHours();
         const day = now.getDay();
