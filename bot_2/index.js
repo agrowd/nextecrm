@@ -406,14 +406,17 @@ class WhatsAppBot {
 
     this.client.on('loading_screen', (percent, message) => {
       console.log(`⏳ [${this.instanceId}] Loading screen: ${percent}% - ${message}`);
+      console.log(`🔍 [DEBUG] loading_screen event fired at ${new Date().toISOString()}`);
     });
 
     this.client.on('state_changed', (state) => {
       console.log(`📶 [${this.instanceId}] Estado de WhatsApp: ${state}`);
+      console.log(`🔍 [DEBUG] state_changed to ${state} at ${new Date().toISOString()}`);
     });
 
     this.client.on('ready', async () => {
       console.log(`✅ [${this.instanceId}] WhatsApp Bot listo!`);
+      console.log(`🔍 [DEBUG] ready event FIRED at ${new Date().toISOString()}`);
       // La bandera isReady se activará al final de la inicialización
 
       // 🔑 MULTI-BOT: Capturar número conectado
@@ -512,6 +515,8 @@ class WhatsAppBot {
 
     this.client.on('authenticated', () => {
       console.log('🔐 WhatsApp autenticado');
+      console.log(`🔍 [DEBUG] authenticated event at ${new Date().toISOString()}`);
+      console.log(`🔍 [DEBUG] Waiting for 'ready' event...`);
     });
 
     this.client.on('auth_failure', (msg) => {
