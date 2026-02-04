@@ -378,17 +378,17 @@ class WhatsAppBot {
         clientId: this.instanceId,
         dataPath: sessionsDir
       }),
-      // 🔧 FIX CRÍTICO: Deshabilitar webVersionCache temporalmente para usar versión real de WhatsApp
-      // El cache puede estar devolviendo una versión incompatible
-      // webVersionCache: {
-      //   type: "remote",
-      //   remotePath: "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html",
-      // },
+      // 🔧 FIX CRÍTICO: Usar versión específica de WA Web para evitar hangs en 'ready'
+      webVersionCache: {
+        type: "remote",
+        remotePath: "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html",
+      },
       puppeteer: {
         ...stealthPuppeteerConfig,
         args: [
           ...stealthPuppeteerConfig.args,
-        ] // Removed the duplicate user-data-dir which was not in bot_2/index.js previously shown but standardizing it
+          `--user-data-dir=${path.join(sessionsDir, 'browser-' + this.instanceId)}`
+        ]
       }
     });
     console.log('✅ Cliente configurado con Stealth Mode.');
