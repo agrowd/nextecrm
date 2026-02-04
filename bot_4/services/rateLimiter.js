@@ -80,6 +80,25 @@ class IntelligentRateLimiter {
     }
 
     /**
+     * Obtener hora actual en zona horaria Argentina (UTC-3)
+     */
+    getArgentinaHour() {
+        const now = new Date();
+        // Argentina es UTC-3
+        const argentinaTime = new Date(now.getTime() - (3 * 60 * 60 * 1000));
+        return argentinaTime.getUTCHours();
+    }
+
+    /**
+     * Obtener día de la semana en Argentina (0=Dom, 6=Sab)
+     */
+    getArgentinaDay() {
+        const now = new Date();
+        const argentinaTime = new Date(now.getTime() - (3 * 60 * 60 * 1000));
+        return argentinaTime.getUTCDay();
+    }
+
+    /**
      * Asegurar que stats están cargados antes de usarlos
      */
     async ensureInitialized() {
@@ -181,9 +200,9 @@ class IntelligentRateLimiter {
         // Asegurar que stats están cargados
         await this.ensureInitialized();
 
-        const now = new Date();
-        const hour = now.getHours();
-        const day = now.getDay();
+        // Usar hora de Argentina (UTC-3) en lugar de UTC del servidor
+        const hour = this.getArgentinaHour();
+        const day = this.getArgentinaDay();
 
         // 1. Verificar horario laboral
         const schedule = (day === 0 || day === 6) ?
