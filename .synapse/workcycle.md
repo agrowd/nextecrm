@@ -23,23 +23,46 @@
   ```
 - **Commit:** `6eeea0f`
 
-### 3. Updated Ariadne Memory (This Action)
-- Creado `errores.md` con log de errores
-- Actualizado `decisions.md` con D-10 (timezone fix)
-- Actualizado este archivo `workcycle.md`
+### 3. Anti-Spam URLs in Templates (MSG 3)
+- **Problema:** URLs como `www.tunegocio.com.ar` pueden ser marcadas como spam.
+- **Solución:** Reemplazado por `tunegocio punto com punto ar` y removidas comillas de URL.
+- **Commit:** `912a752`
+
+### 4. Anniversary Promo & Urgency (MSG 3 & 5)
+- **Cambio:** Agregada mención "ANIVERSARIO: SOLO HOY" en Propuestas y CTAs.
+- **Objetivo:** Generar urgencia y justificar el descuento.
+- **Commit:** `912a752`
 
 ## VPS Deploy Commands (Para el Usuario)
 ```bash
 cd /srv/rascafull
 git pull
-rm -rf /srv/rascafull/bot_2/sessions
 docker compose down
 docker compose build --no-cache
 docker compose up -d
 docker compose logs -f
 ```
 
+### 5. Smart Sleep Loop (Zero Dead Time)
+- **Problema:** El bot dormía intervalos random de 15m aunque el RateLimiter pidiera esperar solo 2m.
+- **Solución:** Implementado `Smart Loop` en `startLeadProcessing` que duerme el tiempo EXACTO (`nextAvailable - now`) + pequeño jitter.
+- **Script:** `update-sleep-logic.js`
+
+### 6. Fix Phone Validator (Double Prefix)
+- **Problema:** Números válidos eran rechazados porque el validador forzaba `549` incluso si ya lo tenían (ej: `549 + 54911...` = 15 dígitos).
+- **Solución:** Detectar si ya empieza con `549` o `54` y limpiarlo antes de formatear.
+- **Script:** `update-validator.js`
+
 ## Decisions Locked This Session
 - **D-02 UPDATED:** Use git master for whatsapp-web.js (not npm)
 - **D-09 UPDATED:** npm v1.34.6 does NOT fix WAPhoneUtils
 - **D-10 NEW:** Timezone bug fixed in rateLimiter.js
+- **D-12 NEW:** Anti-Spam URLs implemented
+- **D-13 NEW:** Anniversary Promo urgency added
+- **D-14 NEW:** Smart Sleep Loop (Exact Wait Times)
+- **D-15 NEW:** Validator Fix (Prevent Double Prefix)
+
+### 7. Recovery Script (recover-leads.js)
+- **Objetivo:** Analizar la DB y corregir leads que quedaron como `failed` o `phoneInvalid` por el bug del doble prefijo.
+- **Script:** `/gmaps-leads-scraper/server/recover-leads.js`
+- **Backup:** Solo modifica leads inválidos y los pone en `pending`.

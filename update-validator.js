@@ -1,10 +1,16 @@
-function cleanAndFormatArgentinianNumber(raw) {
+const fs = require('fs');
+const path = require('path');
+
+const botFolders = ['bot', 'bot_2', 'bot_3', 'bot_4'];
+const baseDir = process.argv[2] || '.';
+
+const newValidatorContent = `function cleanAndFormatArgentinianNumber(raw) {
     let num = raw.replace(/[^0-9]/g, ''); // Solo números
 
     // 1️⃣ DETECCIÓN DE FORMATO INTERNACIONAL YA EXISTENTE
     // Si ya empieza con 549 y tiene longitud correcta (13), devolverlo directo
     if (num.startsWith('549') && num.length === 13) {
-        console.log(`✅ Número ya formateado detectado: ${num}`);
+        console.log(\`✅ Número ya formateado detectado: \${num}\`);
         return { valid: true, formatted: num };
     }
 
@@ -40,20 +46,31 @@ function cleanAndFormatArgentinianNumber(raw) {
 
     // 5️⃣ UNIR TODO CON FORMATO INTERNACIONAL (54 + 9 + codigo + numero)
     // El 9 indica móvil internacionalmente para Argentina
-    const final = `549${code}${rest}`;
+    const final = \`549\${code}\${rest}\`;
 
     // 6️⃣ VALIDACIÓN FINAL
     // Estándar: 13 dígitos total (3 pais + 10 numero)
     // Aceptamos 12 por si acaso alguna zona rara, pero <12 es error.
     if (final.length < 12 || final.length > 14) {
-        console.log(`❌ Número inválido tras formateo: ${final} (original: ${raw})`);
+        console.log(\`❌ Número inválido tras formateo: \${final} (original: \${raw})\`);
         return { valid: false, formatted: null, error: 'Longitud inválida' };
     }
     
-    console.log(`✅ Número formateado: ${final} (original: ${raw})`);
+    console.log(\`✅ Número formateado: \${final} (original: \${raw})\`);
     return { valid: true, formatted: final };
 }
 
 module.exports = {
     cleanAndFormatArgentinianNumber
 };
+`;
+
+botFolders.forEach(folder => {
+    const filePath = path.join(baseDir, folder, 'services', 'phoneValidator.js');
+    if (fs.existsSync(filePath)) {
+        fs.writeFileSync(filePath, newValidatorContent, 'utf8');
+        console.log(`✅ Updated: ${filePath}`);
+    } else {
+        console.log(`⚠️ File not found: ${filePath}`);
+    }
+});
