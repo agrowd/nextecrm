@@ -378,8 +378,10 @@ class WhatsAppBot {
         clientId: this.instanceId,
         dataPath: sessionsDir
       }),
-      // webVersionCache removido - la URL 2.2412.54 ya no existe (404)
-      // whatsapp-web.js usará la versión por defecto
+      // webVersionCache: { 
+      //   type: 'remote',
+      //   remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2410.1.html',
+      // },
       puppeteer: {
         ...stealthPuppeteerConfig,
         args: [
@@ -412,6 +414,16 @@ class WhatsAppBot {
     this.client.on('state_changed', (state) => {
       console.log(`📶 [${this.instanceId}] Estado de WhatsApp: ${state}`);
       console.log(`🔍 [DEBUG] state_changed to ${state} at ${new Date().toISOString()}`);
+    });
+
+    this.client.on('authenticated', () => {
+      console.log(`🔐 [${this.instanceId}] Authenticated event fired!`);
+      // Intentar capturar logs del navegador si es posible
+      if (this.client.pupPage) {
+        console.log('🔧 [DEBUG] Attaching to browser console...');
+        this.client.pupPage.on('console', msg => console.log('🌍 [BROWSER LOG]:', msg.text()));
+        this.client.pupPage.on('pageerror', err => console.log('🌍 [BROWSER ERROR]:', err));
+      }
     });
 
     this.client.on('ready', async () => {
