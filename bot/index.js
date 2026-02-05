@@ -135,13 +135,13 @@ class WhatsAppBot {
 
         "Con diez años de trabajo, entendemos tanto las necesidades de un nutricionista como las de un fabricante de acero inoxidable. Unimos publicidad efectiva, páginas sencillas y mensajes automáticos que nutren la relación con el cliente. Así el crecimiento se ve y se siente en el día a día."
       ],
-      // Mensaje 3 - Promo Web Express (más claro)
+      // Mensaje 3 - Promo Web Express (más claro + URGENCIA)
       [
-        "🚀 Te ofrecemos un sitio web completo por $150.000: incluye diseño personalizado, dominio .com, hosting por 1 año y adaptado a tu marca. Si no tenés marca, te la diseñamos. Todo en 2 días!",
-        "💻 Sitio web completo por $150.000: diseño personalizado, dominio .com, hosting por 1 año y adaptado a tu marca, aparecerá en Google. Si no tenés marca, te la creamos. Listo en 2 días!",
-        "⚡ Sitio web completo por $150.000: diseño personalizado, dominio .com, hosting por 1 año y adaptado a tu marca, aparecerá en Google. Si no tenés marca, te la diseñamos. En 2 días!",
-        "🎯 Sitio web completo por $150.000: diseño personalizado, dominio .com, hosting por 1 año y adaptado a tu marca, aparecerá en Google. Si no tenés marca, te la creamos. Listo en 2 días!",
-        "🌟 Sitio web completo por $150.000: diseño personalizado, dominio .com, hosting por 1 año y adaptado a tu marca, aparecerá en Google. Si no tenés marca, te la diseñamos. En 2 días!"
+        "🚀 🔥 ESPECIAL ANIVERSARIO (SOLO POR HOY): Te ofrecemos un sitio web completo por $150.000. Incluye diseño personalizado, dominio .com, hosting por 1 año y adaptado a tu marca. Si no tenés marca, te la diseñamos. ¡Todo listo en 2 días!",
+        "💻 🔥 ESPECIAL ANIVERSARIO (SOLO POR HOY): Sitio web completo por $150.000. Diseño personalizado, dominio .com, hosting 1 año y adaptado a tu marca. Si no tenés marca, te la creamos. ¡Listo en 2 días!",
+        "⚡ 🔥 ESPECIAL ANIVERSARIO (SOLO POR HOY): Sitio web completo por $150.000. Diseño personalizado, dominio .com, hosting 1 año y branding básico. ¡En 2 días tu negocio online!",
+        "🎯 🔥 ESPECIAL ANIVERSARIO (SOLO POR HOY): Web completa por $150.000. Incluye todo: diseño, dominio, hosting y branding. Una oferta única para digitalizarte YA. ¡Listo en 2 días!",
+        "🌟 🔥 ESPECIAL ANIVERSARIO (SOLO POR HOY): Sitio web completo por $150.000 con todo incluido. Diseño premium, dominio y hosting. Aprovechá esta oportunidad única para tener tu web en 2 días."
       ],
       // Mensaje 4 - Plan Web Premium (más claro)
       [
@@ -151,15 +151,13 @@ class WhatsAppBot {
         "✨ Para negocios que quieren destacar: sitio web premium por $500.000 con diseño exclusivo, animaciones avanzadas y optimizado para Google. Incluye branding completo.",
         "💎 Para negocios que quieren destacar: sitio web premium por $500.000 con diseño exclusivo, animaciones avanzadas y optimizado para Google. Incluye branding completo."
       ],
-      // Mensaje 5 - Servicios (más claro)
+      // Mensaje 5 - Servicios (más claro + URGENCIA ODONTÓLOGOS)
       [
-        `También hacemos: publicidad en Google para que te encuentren, manejo de redes sociales, bots de WhatsApp automáticos y todo lo que necesites para digitalizar tu negocio. **Preparamos un Pack 360° exclusivo para odontólogos**: página web, dominio .com o .ar, Google Ads para aparecer primero, chatbot dental, recordatorios automáticos y más. Es una plataforma hecha a medida, cómoda, flexible y con acompañamiento personalizado para optimizar resultados (CRO). Convierte consultas en pacientes y mide cada peso invertido. Si preferís, también podemos hacerte una cotización gratuita y personalizada según lo que necesites.`,
-        `Tenemos **un Pack 360° pensado para odontólogos** que incluye todo: página web, dominio .com o .com.ar, Google Ads para aparecer primero, chatbot dental, recordatorios automáticos y más. Es una plataforma hecha a medida, cómoda, flexible y con acompañamiento personalizado para que optimices cada peso invertido (CRO). Si preferís, también podemos hacerte una cotización gratuita y personalizada según lo que necesites.`,
-        `Ofrecemos **un pack integral 360° para odontólogos**: web, dominio .com o .com.ar, Google Ads para aparecer primero, chatbot dental, recordatorios automáticos y mucho más. Todo hecho a medida, cómodo, flexible y con acompañamiento personalizado para mejorar tus resultados (CRO). Si tu clínica necesita algo diferente, te hacemos una cotización gratuita y a medida para digitalizar tu negocio.`,
-        `Además ofrecemos: publicidad en Google para que te encuentren, manejo de redes sociales, bots de WhatsApp automáticos y todo lo que necesites para digitalizar tu negocio. **Nuestro Pack 360° para odontólogos** incluye web, dominio .com o .ar, Google Ads para aparecer primero, chatbot dental, recordatorios automáticos y más. Es una plataforma hecha a medida, cómoda, flexible y con acompañamiento personalizado (CRO). Si querés, te cotizamos gratis lo que necesites.`,
-        `También brindamos: publicidad en Google para que te encuentren, manejo de redes sociales, bots de WhatsApp automáticos y todo lo que necesites para digitalizar tu negocio. **El Pack 360° para odontólogos** incluye web, dominio .com o .ar, Google Ads para aparecer primero, chatbot dental, recordatorios automáticos y más. Todo hecho a medida, cómodo, flexible y con acompañamiento personalizado (CRO). Si preferís, te hacemos una cotización gratuita y a medida.`,
-        `Además trabajamos en: publicidad en Google para que te encuentren, manejo de redes sociales, bots de WhatsApp automáticos y todo lo que necesites para digitalizar tu negocio. **Nuestro Pack 360° exclusivo para odontólogos** incluye web, dominio .com o .ar, Google Ads para aparecer primero, chatbot dental, recordatorios automáticos y más. Es una plataforma hecha a medida, cómoda, flexible y con acompañamiento personalizado (CRO). Si querés, te cotizamos gratis lo que necesites.`,
-        `También ofrecemos: publicidad en Google para que te encuentren, manejo de redes sociales, bots de WhatsApp automáticos y todo lo que necesites para digitalizar tu negocio. **El Pack 360° para odontólogos** incluye web, dominio .com o .ar, Google Ads para aparecer primero, chatbot dental, recordatorios automáticos y más. Todo hecho a medida, cómodo, flexible y con acompañamiento personalizado (CRO). Si preferís, te hacemos una cotización gratuita y a medida.`
+        `🔥 ESPECIAL ANIVERSARIO: Preparamos un Pack 360° exclusivo para odontólogos con DESCUENTO SOLO POR HOY. Incluye: página web, dominio .com, Google Ads para aparecer primero y chatbot de turnos. Plataforma a medida, flexible y con acompañamiento para que no gastes de más. Si te interesa, respondeme AHORA para congelar el precio.`,
+        `🔥 ESPECIAL ANIVERSARIO: Tenemos un Pack 360° para odontólogos con PRECIO CONGELADO SOLO POR HOY. Todo incluido: web, dominio, Google Ads y sistema de turnos. Es una solución completa para llenar el consultorio. Si querés aprovechar la promo aniversario, avisame ya.`,
+        `🔥 ESPECIAL ANIVERSARIO: Pack integral 360° para odontólogos (Web + Ads + Turnos). Una oferta única SOLO POR HOY para digitalizar tu consultorio al mejor precio del año. Todo hecho a medida y con soporte real. ¿Te paso la info completa antes de que termine el día?`,
+        `🔥 ESPECIAL ANIVERSARIO: Hacemos publicidad, redes y bots, pero hoy destacamos nuestro Pack 360° para Odontólogos con BENEFICIO EXCLUSIVO. Web profesional, Google Ads y Chatbot de reservas. Si querés potenciar tu consultorio, esta es la oportunidad.`,
+        `🔥 ESPECIAL ANIVERSARIO: Pack 360° Odontólogos (Web + Ads + Chatbot). Tecnología de punta para tu consultorio a un precio irrepetible SOLO POR HOY. Aumentá tus pacientes y simplificá tu agenda. Si te interesa, decime y te cuento más sin compromiso.`
       ],
       // Mensaje 6 - Servicios específicos (más humano)
       [
@@ -692,15 +690,15 @@ class WhatsAppBot {
     }
   }
 
-    startLeadProcessing() {
+  startLeadProcessing() {
     console.log('[SMART LOOP] 🚀 Iniciando ciclo de procesamiento inteligente...');
-    
+
     // Función de ciclo inteligente (reemplaza a scheduleNextProcessing)
     const smartLoop = async () => {
       // 1. Evitar superposición
       if (this.isProcessing) {
         console.log('[SMART LOOP] ⏳ Ya existe proceso activo. Reintentando en 30s...');
-        this.processingTimer = setTimeout(smartLoop, 30000); 
+        this.processingTimer = setTimeout(smartLoop, 30000);
         return;
       }
 
@@ -708,55 +706,55 @@ class WhatsAppBot {
       // Esto nos permite dormir el tiempo EXACTO si estamos limitados
       try {
         const rateStatus = await this.rateLimiter.canSendNow();
-        
+
         if (!rateStatus.allowed) {
-            const now = Date.now();
-            let waitTime = 3600000; // Default 1 hora (para daily limit o fallo)
-            let reason = rateStatus.reason || 'unknown';
+          const now = Date.now();
+          let waitTime = 3600000; // Default 1 hora (para daily limit o fallo)
+          let reason = rateStatus.reason || 'unknown';
 
-            if (rateStatus.nextAvailable) {
-                const targetTime = new Date(rateStatus.nextAvailable).getTime();
-                waitTime = Math.max(0, targetTime - now);
-                // Agregar jitter humano (10-30 seg) para no ser robótico al despertar
-                waitTime += (Math.random() * 20000) + 10000;
-                reason = 'outside_business_hours';
-            } else if (rateStatus.reason === 'daily_limit_reached') {
-                 // Si alcanzamos límite diario, checkear cada 1 hora por si resetean manual
-                 waitTime = 60 * 60 * 1000; 
-            }
+          if (rateStatus.nextAvailable) {
+            const targetTime = new Date(rateStatus.nextAvailable).getTime();
+            waitTime = Math.max(0, targetTime - now);
+            // Agregar jitter humano (10-30 seg) para no ser robótico al despertar
+            waitTime += (Math.random() * 20000) + 10000;
+            reason = 'outside_business_hours';
+          } else if (rateStatus.reason === 'daily_limit_reached') {
+            // Si alcanzamos límite diario, checkear cada 1 hora por si resetean manual
+            waitTime = 60 * 60 * 1000;
+          }
 
-            // Log detallado
-            const waitMin = (waitTime / 60000).toFixed(1);
-            console.log(`[SMART LOOP] ⏸️ Rate Limit (${reason}). Durmiendo ${waitMin} min hasta próxima ventana.`);
-            
-            this.processingTimer = setTimeout(smartLoop, waitTime);
-            return;
+          // Log detallado
+          const waitMin = (waitTime / 60000).toFixed(1);
+          console.log(`[SMART LOOP] ⏸️ Rate Limit (${reason}). Durmiendo ${waitMin} min hasta próxima ventana.`);
+
+          this.processingTimer = setTimeout(smartLoop, waitTime);
+          return;
         }
 
         // 3. Ejecutar procesamiento (Rate Limit OK)
         // await processNextLead maneja su propio try/catch interno pero lo envolvemos por seguridad
-        await this.processNextLead(); 
+        await this.processNextLead();
 
       } catch (e) {
-         console.error('[SMART LOOP] ❌ Error crítico en ciclo:', e);
+        console.error('[SMART LOOP] ❌ Error crítico en ciclo:', e);
       }
 
       // 4. Calcular próximo ciclo (Normal)
       // Si procesamos (o intentamos), dormimos un intervalo "humano" de polling
       // Base: valor del .env (default 5 min)
-      
+
       const baseInterval = this.interval || 300000;
-      
+
       // Factor aleatorio (0.8x a 1.2x) - Menos varianza que antes (0.5-2.0 era mucho)
-      const factor = 0.8 + (Math.random() * 0.4); 
+      const factor = 0.8 + (Math.random() * 0.4);
       // Jitter pequeño (-30s a +60s)
       const jitter = (Math.random() * 90000) - 30000;
-      
+
       let nextDelay = Math.floor((baseInterval * factor) + jitter);
       // Mínimo 2 minutos siempre para no saturar si baseInterval es bajo
       nextDelay = Math.max(120000, nextDelay);
 
-      console.log(`[SMART LOOP] ✅ Ciclo finalizado. Próximo chequeo en ${(nextDelay/60000).toFixed(1)} min`);
+      console.log(`[SMART LOOP] ✅ Ciclo finalizado. Próximo chequeo en ${(nextDelay / 60000).toFixed(1)} min`);
       this.processingTimer = setTimeout(smartLoop, nextDelay);
     };
 

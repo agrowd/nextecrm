@@ -56,6 +56,7 @@ docker compose logs -f
   1. Updated Validator regex.
   2. Updated `fix-all-leads.js` to DELETE duplicates instead of crashing.
   3. Updated scripts to load `.env` correctly from `server/` to access Atlas URI.
+- **Result:** Script successfully processed 4595 leads, fixing/cleaning 2427 of them. System is healthy.
 
 ### 6. Fix Phone Validator (Double Prefix)
 - **Problema:** Números válidos eran rechazados porque el validador forzaba `549` incluso si ya lo tenían (ej: `549 + 54911...` = 15 dígitos).
