@@ -65,31 +65,35 @@ async function fixAll() {
                 // If different, we update.
 
                 if (currentNumeric !== result.formatted) {
-                    fixed++;
-                    if (fixed <= 5) console.log(`\n✨ FIXING: ${doc.phone} -> ${result.formatted} (Status: ${doc.status})`);
+                    // CHECK FOR DUPLICATES to avoid E11000
+                    const distinctDupe = await Lead.findOne({
+                        name: doc.name,
+                        phone: result.formatted,
+                        _id: { $ne: doc._id } // Don't match self (though unlikely since phone is different)
+                    });
 
-                    bulkOps.push({
-                        updateOne: {
-                            filter: { _id: doc._id },
-                            update: {
-                                $set: {
-                                    phone: result.formatted,
-                                    // Only reset status if it was failed/invalid? 
-                                    // User said "todos los que estan mal".
-                                    // If status is 'contacted' but number was ugly, we update phone but keep status?
-                                    // But if number was wrong, maybe we couldn't contact them properly?
-                                    // Safer: Update phone. If status was specific error, reset to pending.
-                                    // If status was pending/processing/queued, keep (or reset to pending to be safe).
-                                    // If status was contacted/interested, KEEP status (don't spam again).
+                    if (distinctDupe) {
+                        fixed++;
+                        console.log(`\n🗑️ DUPLICATE FOUND: "${doc.name}" already exists with ${result.formatted}. Deleting this old entry (${doc.phone}).`);
+                        bulkOps.push({
+                            deleteOne: { filter: { _id: doc._id } }
+                        });
+                    } else {
+                        fixed++;
+                        if (fixed <= 50) console.log(`\n✨ FIXING: ${doc.phone} -> ${result.formatted} (Status: ${doc.status})`);
 
-                                    // Logic:
-                                    // If status in [failed, check_failed, no_whatsapp, invalid], set to pending.
-                                    // Else, just update phone.
-                                    ...(['failed', 'check_failed', 'no_whatsapp', 'paused'].includes(doc.status) || doc.phoneInvalid ? { status: 'pending', phoneInvalid: false, validationError: '' } : {})
+                        bulkOps.push({
+                            updateOne: {
+                                filter: { _id: doc._id },
+                                update: {
+                                    $set: {
+                                        phone: result.formatted,
+                                        ...(['failed', 'check_failed', 'no_whatsapp', 'paused', 'contacted'].includes(doc.status) || doc.phoneInvalid ? { status: 'pending', phoneInvalid: false, validationError: '' } : {})
+                                    }
                                 }
                             }
-                        }
-                    });
+                        });
+                    }
                 }
             }
 
