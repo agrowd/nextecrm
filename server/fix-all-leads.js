@@ -32,9 +32,9 @@ const Lead = mongoose.model('Lead', LeadSchema);
 
 async function fixAll() {
     try {
-        let uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/gmaps-leads-scraper';
-        // if (uri.includes('mongodb://mongo:')) uri = uri.replace('mongodb://mongo:', 'mongodb://localhost:');
-        console.log('ℹ️ Running in Docker Mode (keeping mongo: host)');
+        // HARDCODED FOR DOCKER EXECUTION
+        let uri = 'mongodb://mongo:27017/gmaps-leads-scraper';
+        console.log('ℹ️ Running in Docker Mode (Using mongodb://mongo:...)');
 
         console.log('🔍 Connecting to:', uri);
         await mongoose.connect(uri);
