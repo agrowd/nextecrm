@@ -32,8 +32,9 @@ async function recoverLeads() {
     try {
         console.log('🔍 Connecting to MongoDB...');
         // Default found in server/index.js usually
-        let uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/gmaps-leads';
-        // NOTE: Default might be 'gmaps-leads-scraper' or just 'gmaps-leads'
+        let uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/gmaps-leads-scraper';
+        // if (uri.includes('mongodb://mongo:')) uri = uri.replace('mongodb://mongo:', 'mongodb://localhost:');
+        console.log('ℹ️ Running in Docker Mode (keeping mongo: host)');
 
         console.log(`ℹ️ Trying URI: ${uri}`);
         await mongoose.connect(uri);
