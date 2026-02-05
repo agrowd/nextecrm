@@ -354,8 +354,8 @@ class IntelligentRateLimiter {
      * Objetivo: 12-15 mensajes/hora = 1 lead (4 msg) cada 16-20 minutos
      */
     getSmartDelay() {
-        const hour = new Date().getHours();
-        const day = new Date().getDay();
+        const hour = this.getArgentinaHour();
+        const day = this.getArgentinaDay();
         const schedule = (day === 0 || day === 6) ?
             this.businessHours.weekend : this.businessHours.weekday;
 
@@ -399,31 +399,37 @@ class IntelligentRateLimiter {
     }
 
     getNextBusinessHour() {
+        // Usar hora Argentina (UTC-3) para cálculos
         const now = new Date();
-        const hour = now.getHours();
-        const day = now.getDay();
+        const argentinaHour = this.getArgentinaHour();
+        const argentinaDay = this.getArgentinaDay();
 
-        const schedule = (day === 0 || day === 6) ?
+        const schedule = (argentinaDay === 0 || argentinaDay === 6) ?
             this.businessHours.weekend : this.businessHours.weekday;
 
-        // Si es hoy pero temprano (ej: es 4am y abrimos 9am)
-        if (hour < schedule.start) {
-            const next = new Date(now);
-            next.setHours(schedule.start, 0, 0, 0);
+        // Si estamos antes del horario de inicio (ej: 7am Argentina, abrimos 9am)
+        if (argentinaHour < schedule.start) {
+            // Crear fecha para hoy a la hora de apertura en Argentina
+            const hoursUntilOpen = schedule.start - argentinaHour;
+            const next = new Date(now.getTime() + hoursUntilOpen * 60 * 60 * 1000);
+            next.setMinutes(0, 0, 0);
             return next;
         }
 
-        // Si ya pasó hoy, programar para mañana
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
+        // Si ya cerró hoy (ej: 22:00 Argentina, cerramos 21:00), programar para mañana
+        // Calcular horas hasta las 00:00 Argentina, luego sumar hora de apertura
+        const hoursUntilMidnight = 24 - argentinaHour;
+        const tomorrowMidnight = new Date(now.getTime() + hoursUntilMidnight * 60 * 60 * 1000);
 
         // Verificar horario de mañana
-        const nextDay = tomorrow.getDay();
-        const nextSchedule = (nextDay === 0 || nextDay === 6) ?
+        const tomorrowArgentinaDay = (argentinaDay + 1) % 7;
+        const nextSchedule = (tomorrowArgentinaDay === 0 || tomorrowArgentinaDay === 6) ?
             this.businessHours.weekend : this.businessHours.weekday;
 
-        tomorrow.setHours(nextSchedule.start, 0, 0, 0);
-        return tomorrow;
+        // Mañana a la hora de apertura en Argentina
+        const next = new Date(tomorrowMidnight.getTime() + nextSchedule.start * 60 * 60 * 1000);
+        next.setMinutes(0, 0, 0);
+        return next;
     }
 
     /**
