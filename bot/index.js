@@ -156,45 +156,9 @@ class WhatsAppBot {
         "🌟 *FEBRERO 2025 - OFERTAS NEXTE*\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n*A) WEB PROFESIONAL* → $75.000\nDiseño, dominio, hosting, seguridad, cambios x1 año, soporte.\nRenovación: $25.000/trimestre.\n\n*B) GOOGLE + SEO* → $75.000\nAnalytics, Search Console, Maps, SEO, indexación día 1.\n\n*C) REDES SOCIALES* → $75.000/mes\nContenido, diseños, publicación, respuestas, reportes.\n\n*D) BOT INTELIGENTE* → $200.000 + servidor\nWhatsApp 24hs, turnos, validación de pagos, panel. 6 meses de ajustes.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎁 *COMBO: $320.000* + mensuales\nAhorro de $30.000.\n\n🎯 Todo para convertir contactos en ventas.",
 
         "🏆 *SERVICIOS NEXTE - PROMO FEBRERO*\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🌐 *WEB:* $75.000 (1 pago)\nIncluye: diseño, dominio, hosting, SSL, cambios 1 año, soporte.\nRenovación: $25k cada 3 meses.\n\n📍 *GOOGLE:* $75.000 (1 pago)\nIncluye: Analytics, Search Console, Maps, SEO, indexación.\n\n📱 *REDES:* $75.000/mes\nIncluye: contenido, diseños, publicación, respuestas, reportes.\n\n🤖 *BOT:* $200.000 + servidor mensual\nIncluye: atención 24hs, turnos, validación pagos, panel. 6 meses de ajustes.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎁 *PACK:* $320.000 + mensuales (-$30k)\n\n🎯 Foco en resultados: más clientes para vos."
-      ],
-      // Mensaje 4 - Plan Web Premium (más claro)
-      [
-        "💎 Para negocios que quieren destacar: sitio web premium por $500.000 con diseño exclusivo, animaciones avanzadas y optimizado para Google. Incluye branding completo.",
-        "🏆 Para negocios que quieren destacar: sitio web premium por $500.000 con diseño exclusivo, animaciones avanzadas y optimizado para Google. Incluye branding completo.",
-        "⭐ Para negocios que quieren destacar: sitio web premium por $500.000 con diseño exclusivo, animaciones avanzadas y optimizado para Google. Incluye branding completo.",
-        "✨ Para negocios que quieren destacar: sitio web premium por $500.000 con diseño exclusivo, animaciones avanzadas y optimizado para Google. Incluye branding completo.",
-        "💎 Para negocios que quieren destacar: sitio web premium por $500.000 con diseño exclusivo, animaciones avanzadas y optimizado para Google. Incluye branding completo."
-      ],
-      // Mensaje 4 - Plan Web Premium (más claro)
-      [
-        "Te cuento que podemos hacer publicidad para que aparezcas en Google, manejo de redes sociales, bots de WhatsApp que te respondan todo automáticamente y la promo de 150.000 por un sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te hacemos el branding también.",
-        "Mirá, podemos hacer publicidad para que te encuentren en Google, manejo de redes sociales, bots de WhatsApp que contesten automáticamente y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te diseñamos todo.",
-        "Te comento que hacemos publicidad para Google, manejo de redes sociales, bots de WhatsApp automáticos y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te hacemos el branding.",
-        "Podemos hacer publicidad para que aparezcas en Google, manejo de redes sociales, bots de WhatsApp que contesten solos y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te diseñamos todo.",
-        "Te cuento que hacemos publicidad para Google, manejo de redes sociales, bots de WhatsApp automáticos y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te hacemos el branding también.",
-        "Mirá, podemos hacer publicidad para que te encuentren en Google, manejo de redes sociales, bots de WhatsApp que te respondan todo automáticamente y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te diseñamos todo.",
-        "Te comento que hacemos publicidad para que aparezcas en Google, manejo de redes sociales, bots de WhatsApp automáticos y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te hacemos el branding.",
-        "Podemos hacer publicidad para Google, manejo de redes sociales, bots de WhatsApp que contesten solos y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te diseñamos todo.",
-        "Te cuento que hacemos publicidad para que te encuentren en Google, manejo de redes sociales, bots de WhatsApp que te respondan todo automáticamente y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te hacemos el branding también.",
-        "Mirá, podemos hacer publicidad para que aparezcas en Google, manejo de redes sociales, bots de WhatsApp automáticos y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te diseñamos todo."
-      ],
-      // Mensaje 7 - CTA
-      [
-        "Visitá https://nextemarketing.com para ver ejemplos.",
-        "Visitá https://nextemarketing.com para ver ejemplos.",
-        "Visitá https://nextemarketing.com para ver ejemplos.",
-        "Visitá https://nextemarketing.com para ver ejemplos.",
-        "Visitá https://nextemarketing.com para ver ejemplos."
-      ],
-
-      // Mensaje 8 - Cierre
-      [
-        "Cualquier consulta, estoy disponible",
-        "Cualquier pregunta, estoy disponible",
-        "Cualquier duda, estoy disponible",
-        "Cualquier consulta, estoy disponible",
-        "Cualquier pregunta, estoy disponible"
       ]
+      // NOTA: Los mensajes se generan dinámicamente desde bot/services/advancedTemplateGenerator.js
+      // Este array no se usa directamente para enviar mensajes
 
     ];
 
