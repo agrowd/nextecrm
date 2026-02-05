@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const path = require('path');
-const envPath = path.resolve(__dirname, '../bot/.env');
+const envPath = path.resolve(__dirname, '.env');
+console.log('Loading .env from:', envPath);
 require('dotenv').config({ path: envPath });
 
 function cleanAndFormatArgentinianNumber(raw) {
@@ -32,9 +33,12 @@ const Lead = mongoose.model('Lead', LeadSchema);
 
 async function fixAll() {
     try {
-        // HARDCODED FOR DOCKER EXECUTION
-        let uri = 'mongodb://mongo:27017/gmaps-leads-scraper';
-        console.log('ℹ️ Running in Docker Mode (Using mongodb://mongo:...)');
+        let uri = process.env.MONGODB_URI;
+        if (!uri) {
+            console.warn('⚠️ MONGODB_URI not found in .env, falling back to local docker default');
+            uri = 'mongodb://mongo:27017/gmaps-leads-scraper';
+        }
+        console.log('ℹ️ URI:', uri.includes('@') ? '*** HIDDEN ATLAS CREDENTIALS ***' : uri);
 
         console.log('🔍 Connecting to:', uri);
         await mongoose.connect(uri);
