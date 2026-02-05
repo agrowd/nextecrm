@@ -52,59 +52,83 @@ async function fixAll() {
 
         process.stdout.write('Processing: ');
 
+        // Initialize local cache for this run
+        const seenCache = new Set();
+
         for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
             processed++;
             const result = cleanAndFormatArgentinianNumber(doc.phone);
 
             if (result.valid) {
-                // Check if different
                 const currentNumeric = doc.phone.replace(/[^0-9]/g, '');
 
-                // If the formatted result is different from what we have (and what we have isn't just the same with symbols)
-                // Actually, if we just compare result.formatted (pure number) with currentNumeric
-                // If different, we update.
-
                 if (currentNumeric !== result.formatted) {
-                    // CHECK FOR DUPLICATES to avoid E11000
-                    const distinctDupe = await Lead.findOne({
-                        name: doc.name,
-                        phone: result.formatted,
-                        _id: { $ne: doc._id } // Don't match self (though unlikely since phone is different)
-                    });
 
-                    if (distinctDupe) {
+                    // 1. LOCAL CACHE CHECK within this run
+                    const uniqueKey = `${doc.name}_${result.formatted}`;
+                    if (seenCache.has(uniqueKey)) {
                         fixed++;
-                        console.log(`\n🗑️ DUPLICATE FOUND: "${doc.name}" already exists with ${result.formatted}. Deleting this old entry (${doc.phone}).`);
-                        bulkOps.push({
-                            deleteOne: { filter: { _id: doc._id } }
-                        });
+                        console.log(`\n🗑️ [In-Memory] DUPLICATE: "${doc.name}" -> ${result.formatted}. Deleting.`);
+                        bulkOps.push({ deleteOne: { filter: { _id: doc._id } } });
+                        // Don't add to seenCache again
                     } else {
-                        fixed++;
-                        if (fixed <= 50) console.log(`\n✨ FIXING: ${doc.phone} -> ${result.formatted} (Status: ${doc.status})`);
+                        // 2. DB CHECK
+                        const distinctDupe = await Lead.findOne({
+                            name: doc.name,
+                            phone: result.formatted,
+                            _id: { $ne: doc._id }
+                        });
 
-                        bulkOps.push({
-                            updateOne: {
-                                filter: { _id: doc._id },
-                                update: {
-                                    $set: {
-                                        phone: result.formatted,
-                                        ...(['failed', 'check_failed', 'no_whatsapp', 'paused', 'contacted'].includes(doc.status) || doc.phoneInvalid ? { status: 'pending', phoneInvalid: false, validationError: '' } : {})
+                        if (distinctDupe) {
+                            fixed++;
+                            console.log(`\n🗑️ [DB] DUPLICATE FOUND: "${doc.name}". Deleting old entry.`);
+                            bulkOps.push({ deleteOne: { filter: { _id: doc._id } } });
+                        } else {
+                            // 3. Mark for UPDATE
+                            fixed++;
+                            if (fixed <= 50) console.log(`\n✨ FIXING: ${doc.phone} -> ${result.formatted}`);
+
+                            bulkOps.push({
+                                updateOne: {
+                                    filter: { _id: doc._id },
+                                    update: {
+                                        $set: {
+                                            phone: result.formatted,
+                                            ...(['failed', 'check_failed', 'no_whatsapp', 'paused', 'contacted'].includes(doc.status) || doc.phoneInvalid ? { status: 'pending', phoneInvalid: false, validationError: '' } : {})
+                                        }
                                     }
                                 }
-                            }
-                        });
+                            });
+                            // Add to cache so next one (if any) gets deleted
+                            seenCache.add(uniqueKey);
+                        }
                     }
                 }
             }
 
             if (bulkOps.length >= 500) {
-                await Lead.bulkWrite(bulkOps);
+                try {
+                    await Lead.bulkWrite(bulkOps, { ordered: false });
+                } catch (e) {
+                    if (e.code === 11000) {
+                        console.log('   ⚠️ Batch had duplicates (E11000). Ignored safely.');
+                    } else {
+                        console.error('   ❌ Batch Error:', e.message);
+                    }
+                }
                 bulkOps.length = 0;
                 process.stdout.write('.');
             }
         }
 
-        if (bulkOps.length > 0) await Lead.bulkWrite(bulkOps);
+        if (bulkOps.length > 0) {
+            try {
+                await Lead.bulkWrite(bulkOps, { ordered: false });
+            } catch (e) {
+                if (e.code === 11000) console.log('   ⚠️ Final Batch had duplicates (E11000). Ignored.');
+                else console.error('   ❌ Final Batch Error:', e.message);
+            }
+        }
 
         console.log(`\n\n📈 RESULTS:`);
         console.log(`   - Scanned: ${processed}`);

@@ -15,3 +15,5 @@
 | D-13 | **Anniversary Promo & Urgency** | Add "SOLO HOY" urgency to promos for anniversary, and offer calls in CTAs to increase conversion. | 🟢 ACTIVE |
 | D-14 | **Smart Sleep Loop (No Dead Time)** | Replaced random sleep interval with `RateLimiter.canSendNow()` polling. Bot sleeps exactly `nextAvailable - now` ms. Reduces 30min dead times to 0. | 🔒 LOCKED |
 | D-15 | **Robust Phone Validator** | Changed validator to detect if number already starts with `549` or `54` before adding prefix. Fixes bug where valid numbers became invalid (15 digits). | 🔒 LOCKED |
+| D-16 | **Auto-Delete Duplicates in Fix Scripts** | When a fix script (like `fix-all-leads.js`) tries to update a phone number to one that ALREADY exists, it DELETES the redundant entry instead of erroring out. Prioritizes clean data over keeping garbage. | 🔒 LOCKED |
+| D-17 | **Scripts Load Local .env** | Maintenance scripts must load `.env` from their local directory (`server/.env`) to access production keys (Atlas), overriding default localhost fallbacks used for dev. | 🔒 LOCKED |

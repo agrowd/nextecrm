@@ -3,7 +3,8 @@
 ## [Unreleased] - 2026-02-05
 ### Added
 - **Smart Sleep Loop:** Bot now sleeps exact duration required by RateLimiter instead of random polling. Zero dead time.
-- **Recovery Scripts:** `server/recover-leads.js` and `fix-all-leads.js` to repair DB data.
+- **Recovery Scripts:** `server/recover-leads.js` and `fix-all-leads.js` to repair DB data (includes Duplicate auto-deletion).
+- **Environment:** Scripts now auto-detect Docker vs Local to use correct Atlas URI.
 
 ### Fixed
 - **Phone Validator Bug:** Fixed double-prefix issue where valid `549` numbers were getting another `549` added.

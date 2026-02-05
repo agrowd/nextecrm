@@ -48,6 +48,15 @@ docker compose logs -f
 - **Solución:** Implementado `Smart Loop` en `startLeadProcessing` que duerme el tiempo EXACTO (`nextAvailable - now`) + pequeño jitter.
 - **Script:** `update-sleep-logic.js`
 
+### 6. Fix for Validator & DB Repair (CRITICAL)
+- **Problem:** Validator was corrupting valid numbers by double-prefixing.
+- **Problem 2:** Fix script crashed on `E11000 duplicate key` when correcting numbers to an existing phone.
+- **Problem 3:** Scripts failed in Docker due to local URI default vs Atlas requirement.
+- **Solution:** 
+  1. Updated Validator regex.
+  2. Updated `fix-all-leads.js` to DELETE duplicates instead of crashing.
+  3. Updated scripts to load `.env` correctly from `server/` to access Atlas URI.
+
 ### 6. Fix Phone Validator (Double Prefix)
 - **Problema:** Números válidos eran rechazados porque el validador forzaba `549` incluso si ya lo tenían (ej: `549 + 54911...` = 15 dígitos).
 - **Solución:** Detectar si ya empieza con `549` o `54` y limpiarlo antes de formatear.
