@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-// New propuestas templates with ANNIVERSARY discount + NO URL SPAM
+// 1. PROPUESTAS: Anniversary discount + Anti-Spam URL
 const newPropuestas = [
     `🎉 *PROMO FEBRERO 2025 + DESCUENTO ANIVERSARIO*
 
@@ -458,6 +458,30 @@ Tu página "tunegocio punto com punto ar" (puede ser .com o como prefieras)
 🎯 Todo orientado a conseguirte más clientes.`
 ];
 
+// 2. CTAs: Anniversary legacy + Call to Action
+const newCtas = [
+    "Si te interesa aprovechar el descuento de aniversario que aplica solo hoy, avisame y lo coordinamos. Cualquier duda estoy a disposición para explicarte.",
+    "Recordá que el precio de aniversario es solo por hoy. Si te interesa, podemos hacer una llamada rápida y te explico todo.",
+    "Si querés aprovechar la promo de aniversario, avísame y vemos cómo avanzar. Estoy a disposición para una llamada o lo que necesites.",
+    "El descuento de aniversario aplica solo hoy. Si te sirve alguna opción, coordinamos una charla y te cuento más.",
+    "Aprovechá el precio de aniversario que es solo por hoy. Cualquier cosa, hacemos una llamada y te explico en detalle.",
+    "Si te interesa alguna promo de aniversario (solo hoy), avisame. Podemos coordinar una llamada breve para ver tu caso.",
+    "Recordá que estos precios son por el aniversario y solo aplican hoy. Estoy a disposición si querés que te explique algo.",
+    "Si te copa alguna opción y querés aprovechar el aniversario, avisame. Charlamos por llamada o como te quede cómodo.",
+    "El descuento de aniversario es solo por hoy. Si necesitás más info, hacemos una videollamada y te muestro ejemplos.",
+    "Si querés aprovechar la promo de aniversario, estoy disponible para una llamada rápida. Sin compromiso.",
+    "Estos precios de aniversario aplican solo hoy. Cualquier consulta, coordinamos llamada y te explico mejor.",
+    "Si te interesa algo y querés el precio de aniversario (solo hoy), avisame. Estoy para ayudarte.",
+    "Aprovechá el aniversario porque estos precios son solo por hoy. Podemos charlar cuando quieras.",
+    "Si te sirve alguna promo, recordá que el descuento de aniversario es solo hoy. Estoy a tu disposición.",
+    "El precio de aniversario aplica únicamente hoy. Si te interesa, coordinamos llamada y te cuento todo.",
+    "Si querés aprovechar el aniversario, avisame y vemos cómo seguir. Puedo explicarte todo por llamada.",
+    "Recordá que estos precios especiales son por nuestro aniversario y solo hoy. Estoy para lo que necesites.",
+    "Si te interesa avanzar con alguna promo de aniversario, hacemos una llamada breve. Es solo por hoy.",
+    "El descuento de aniversario es exclusivo de hoy. Avisame si querés que te explique mejor alguna opción.",
+    "Si querés aprovechar los precios de aniversario (solo hoy), estoy a disposición para charlar."
+];
+
 // Bot folders to update
 const botFolders = ['bot', 'bot_2', 'bot_3', 'bot_4'];
 const baseDir = process.argv[2] || '.';
@@ -472,35 +496,65 @@ botFolders.forEach(folder => {
 
     let content = fs.readFileSync(filePath, 'utf8');
 
-    // Find the propuestas array and replace it
-    const startMarker = '// MSG 3: PROPUESTAS DE VALOR';
-    const endMarker = '// RESPUESTA PARA BOT AUTOMÁTICO';
+    // --- UPDATE PROPUESTAS ---
+    const startProp = '// MSG 3: PROPUESTAS DE VALOR';
+    const endProp = '// RESPUESTA PARA BOT AUTOMÁTICO';
 
-    const startIdx = content.indexOf(startMarker);
-    const endIdx = content.indexOf(endMarker);
+    const startIdxProp = content.indexOf(startProp);
+    const endIdxProp = content.indexOf(endProp);
 
-    if (startIdx === -1 || endIdx === -1) {
-        console.log(`⚠️ Markers not found in: ${filePath}`);
-        return;
-    }
-
-    // Build new propuestas section
-    const escapedPropuestas = newPropuestas.map(p => {
-        return JSON.stringify(p);
-    });
-
-    const newSection = `// MSG 3: PROPUESTAS DE VALOR - PROMO FEBRERO 2025 + DESCUENTO ANIVERSARIO (Anti-Spam URL)
+    if (startIdxProp !== -1 && endIdxProp !== -1) {
+        const escapedPropuestas = newPropuestas.map(p => JSON.stringify(p));
+        const newSectionProp = `// MSG 3: PROPUESTAS DE VALOR - PROMO FEBRERO 2025 + DESCUENTO ANIVERSARIO (Anti-Spam URL)
         this.propuestas = [
             ${escapedPropuestas.join(',\n\n            ')}
         ];
 
         `;
+        content = content.substring(0, startIdxProp) + newSectionProp + content.substring(endIdxProp);
+        console.log(`✅ Updated Propuestas in: ${filePath}`);
+    } else {
+        console.log(`⚠️ Propuestas markers not found in: ${filePath}`);
+    }
 
-    // Replace content
-    const newContent = content.substring(0, startIdx) + newSection + content.substring(endIdx);
+    // --- UPDATE CTAs ---
+    const startCta = '// MSG 5: CTAs SUAVES';
+    const endCta = '// ============ TEMPLATES POR CATEGORÍA ============'; // Assuming this is next section
 
-    fs.writeFileSync(filePath, newContent, 'utf8');
-    console.log(`✅ Updated: ${filePath}`);
+    const startIdxCta = content.indexOf(startCta);
+    // Find end based on content knowledge or regex if needed, but let's try finding the next section header
+    let endIdxCta = content.indexOf(endCta);
+
+    // If exact header string changed, fallback to searching for keywords
+    if (endIdxCta === -1) {
+        endIdxCta = content.indexOf('this.categoryKeywords = {');
+        // Backtrack to find the comment line usually above it
+        if (endIdxCta !== -1) {
+            // Just insert before this line, effectively keeping the previous structure
+        }
+    }
+
+    if (startIdxCta !== -1 && endIdxCta !== -1) {
+        // Find the actual previous newline before end marker to be clean
+        const actualEndIdx = content.lastIndexOf('\n', endIdxCta);
+
+        const escapedCtas = newCtas.map(c => JSON.stringify(c));
+        const newSectionCta = `// MSG 5: CTAs SUAVES - Con mención ANIVERSARIO + Llamada/Explicación
+        this.ctasReunion = [
+            ${escapedCtas.join(',\n            ')}
+        ];
+
+        `;
+
+        // We replace from startCta up to endIdxCta (preserving endIdxCta content)
+        content = content.substring(0, startIdxCta) + newSectionCta + content.substring(endIdxCta);
+        console.log(`✅ Updated CTAs in: ${filePath}`);
+    } else {
+        console.log(`⚠️ CTA markers not found in: ${filePath}. Start: ${startIdxCta}, End: ${endIdxCta}`);
+        // Fallback: try to replace known array content if markers fail?
+    }
+
+    fs.writeFileSync(filePath, content, 'utf8');
 });
 
-console.log('\\n🎉 All files updated with anti-spam URL format!');
+console.log('\\n🎉 All files updated with Anti-Spam URL + Anniversary CTAs!');
