@@ -37,6 +37,16 @@ const ResponseAnalyzer = require('./services/responseAnalyzer');
 const StealthBrowserManager = require('./services/stealthBrowser');
 const Scheduler = require('./services/scheduler');
 
+// Helper: Timestamp en zona horaria Argentina
+const argTime = () => {
+  return new Date().toLocaleString('es-AR', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false
+  }).replace(',', '');
+};
+
 class WhatsAppBot {
   constructor() {
     this.client = null;
@@ -736,7 +746,7 @@ class WhatsAppBot {
 
   // Función para loggear
   log(message, level = 'info', details = null, leadId = null) {
-    const timestamp = new Date().toISOString();
+    const timestamp = argTime(); // 🇦🇷 Hora Argentina
     console.log(`[${timestamp}] ${message}`);
 
     // Enviar log al backend
@@ -801,6 +811,9 @@ class WhatsAppBot {
             await this.updateLeadStatus(lead.id, 'contacted', lead.name);
             this.consecutiveAttempts = 0;
             this.lastProcessedLead = null;
+
+            // 🔧 FIX: Liberar el flag ANTES de pasar al siguiente
+            this.isProcessing = false;
 
             // Pasar inmediatamente al siguiente
             setTimeout(() => {
