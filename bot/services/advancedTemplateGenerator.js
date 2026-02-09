@@ -310,7 +310,7 @@ class AdvancedTemplateGenerator {
         this.stats = { generated: 0 };
 
         // Cargar desde DB (Asincrónico, se llenará gradualmente)
-        this.fetchTemplates();
+        // this.fetchTemplates(); // DESHABILITADO TEMPORALMENTE: Usar hardcoded Feb 2025
     }
 
     async fetchTemplates() {
