@@ -46,3 +46,12 @@ Este archivo documenta errores encontrados y sus soluciones para NO repetirlos.
 **Solución:** Limpiar manualmente: `rm -rf /srv/rascafull/bot_2/sessions` + `docker compose restart`
 **Decisión:** D-03 LOCKED (no copiar `.wwebjs_auth` al Dockerfile)
 **Estado:** ✅ DOCUMENTED
+
+---
+
+## ERR-05: `daily-limits.json` location confusion (2026-02-06)
+**Síntoma:** `docker exec` failed finding `/app/bot/stats/daily-limits-bot_1.json`.
+**Root Cause:** The `rateLimiter.js` logic defaults to `global` instanceId unless explicitly overridden in constructor. The file is actually named `daily-limits.json` (without `global` prefix in some versions, or `daily-limits-global.json`).
+**Discovery:** Actual file on VPS was `daily-limits.json` inside `/app/bot/stats`.
+**Solución:** Always check `ls /app/bot/stats` before assuming filename.
+**Estado:** ✅ DOCUMENTED

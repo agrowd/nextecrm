@@ -72,7 +72,23 @@ docker compose logs -f
 - **D-14 NEW:** Smart Sleep Loop (Exact Wait Times)
 - **D-15 NEW:** Validator Fix (Prevent Double Prefix)
 
-### 7. Recovery Script (recover-leads.js)
+### 7. Code Synchronization (CRITICAL)
+- **Problem:** `bot_2` runs from `bot_2/` folder, but fixes were applied to `bot/`.
+- **Solution:** Copied `bot/services/whatsappChecker.js` (with Retry V2) to `bot_2/`, `bot_3/`, and `bot_4/`.
+- **Commit:** `sync-bots`
+
+### 8. Manual Stats Reset (Bot 1)
+- **Problem:** Bot 1 stopped at 50/50 leads, but user reported only 22 sent (likely counted from previous tests).
+- **Solution:** Manually reset `leadsProcessed` to 22 via `docker exec`.
+- **Discovery:** Stats file is `/app/bot/stats/daily-limits.json` (global), NOT `daily-limits-bot_1.json`.
+
+### 9. Zombie Leads Recovery (CRITICAL)
+- **Problem:** User reported `0` pending leads but database had ~4800 total.
+- **Diagnosis:** 3285 leads were stuck in `processing` and 5 in `queued` (zombies from previous crash/restart).
+- **Solution:** Created `recover.js` script to reset `processing/queued` -> `pending`.
+- **Result:** **3290 leads recovered** and available for processing.
+
+### 10. Recovery Script (recover-leads.js)
 - **Objetivo:** Analizar la DB y corregir leads que quedaron como `failed` o `phoneInvalid` por el bug del doble prefijo.
 - **Script:** `/gmaps-leads-scraper/server/recover-leads.js`
 - **Backup:** Solo modifica leads inválidos y los pone en `pending`.

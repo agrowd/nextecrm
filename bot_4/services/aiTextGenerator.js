@@ -207,9 +207,8 @@ class AITextGenerator {
             return [
                 `¡Hola! Vi ${lead.name} en Google Maps. ¿Tienen página web? Hoy es fundamental para captar clientes.`,
                 `Desde 2015 en Nexte Marketing ayudamos a negocios a tener presencia digital profesional.`,
-                `🎉 PROMO 2025: Web profesional + dominio + hosting por $150.000. Todo adaptado a celular.`,
-                `📋 Hacemos: Webs, SEO, Google Ads, Meta Ads, Community Manager, Software a medida.`,
-                `📞 ¿Querés que te llame ahora o agendamos una reunión?`
+                `🎉 PROMO ANIVERSARIO 2025: Web profesional completa por $50.000 (pagando hoy, precio normal $75.000).`,
+                `📞 ¿Querés que te llame ahora o agendamos una reunión? En nuestra web tenemos más servicios y nos adaptamos a vos.`
             ];
         }
     }
