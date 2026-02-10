@@ -375,7 +375,6 @@ class WhatsAppBot {
     }
 
     // 🧹 LIMPIEZA AUTOMÁTICA DE BLOQUEOS (Profile Auto-Cleanup)
-    const sessionsDir = path.join(__dirname, 'sessions');
     try {
       if (ProfileManager && typeof ProfileManager.cleanProfileLocks === 'function') {
         const profilePath = path.join(sessionsDir, 'browser-' + this.instanceId);
