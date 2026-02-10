@@ -14,7 +14,7 @@
     "dotenv": "^17.2.2",
     "luxon": "^3.7.2",
     "node-cron": "^4.2.1",
-    "puppeteer": "^24.22.3",
+    "puppeteer": "^22.15.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "qrcode-terminal": "^0.12.0",
