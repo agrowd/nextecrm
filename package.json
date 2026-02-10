@@ -14,7 +14,9 @@
     "install:all": "npm install && cd extension && npm install && cd ../server && npm install && cd ../bot && npm install",
     "start": "concurrently \"npm run server:start\" \"npm run bot:start\"",
     "server:start": "node server/index.js",
-    "bot:start": "node bot/index.js"
+    "bot:start": "node bot/index.js",
+    "sync:bots": "node scripts/sync-bots.js",
+    "fix:messages": "node scripts/fix-message-formatting.js"
   },
   "keywords": [
     "google-maps",
