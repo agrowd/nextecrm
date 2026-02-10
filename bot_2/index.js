@@ -377,12 +377,19 @@ class WhatsAppBot {
 
     // 🧹 LIMPIEZA AUTOMÁTICA DE BLOQUEOS (Profile Auto-Cleanup)
     try {
+      const dbgProfilePath = path.join(sessionsDir, 'browser-' + this.instanceId);
+      console.log(`🧹 [DEBUG] Intentando limpiar perfil en: ${dbgProfilePath}`);
+      console.log(`ℹ️ [DEBUG] SessionsDir: ${sessionsDir}, InstanceId: ${this.instanceId}`);
+
       if (ProfileManager && typeof ProfileManager.cleanProfileLocks === 'function') {
-        const profilePath = path.join(sessionsDir, 'browser-' + this.instanceId);
         ProfileManager.cleanProfileLocks(sessionsDir, this.instanceId);
+        console.log('✅ [DEBUG] Función cleanProfileLocks ejecutada sin errores lanzados.');
+      } else {
+        console.error('❌ [DEBUG] ProfileManager o cleanProfileLocks NO definido.');
       }
     } catch (e) {
       console.warn('⚠️ Error cleaning profile locks:', e.message);
+      console.error(e);
     }
 
     this.client = new Client({
