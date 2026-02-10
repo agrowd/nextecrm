@@ -380,6 +380,13 @@ class WhatsAppChecker {
         return { valid: false, method: 'quick_error_retry', error: 'connection_error' };
       }
 
+      // 🛡️ DETECCIÓN DE SESIÓN MUERTA: detached Frame / Target closed
+      // Estos errores significan que Chrome/Puppeteer crasheó, NO que el número es inválido
+      if (error.message.includes('detached') || error.message.includes('Target closed') || error.message.includes('Session closed')) {
+        console.error(`🔥 [quickVerify] SESIÓN MUERTA detectada: ${error.message}`);
+        return { valid: false, method: 'session_dead', error: error.message };
+      }
+
       return { valid: false, method: 'quick_error', error: error.message };
     }
   }

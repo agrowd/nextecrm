@@ -325,10 +325,41 @@ class WhatsAppChecker {
   /**
    * Verificación rápida sin envío de mensajes
    */
+  /**
+   * Verificación rápida sin envío de mensajes con estrategia Robust-Retry
+   */
   async quickVerify(phoneNumber) {
     try {
-      // Intentar verificación con manejo robusto de errores
-      const isRegistered = await this.client.isRegisteredUser(phoneNumber);
+      // Estrategia 1: isRegisteredUser con Reintentos (Flaky en algunas versiones)
+      let isRegistered = false;
+      let attempts = 0;
+      const maxAttempts = 2; // Intentar 2 veces máximo
+
+      while (attempts < maxAttempts) {
+        try {
+          isRegistered = await this.client.isRegisteredUser(phoneNumber);
+          break; // Éxito, salir del loop
+        } catch (err) {
+          attempts++;
+          console.log(`⚠️ Falló isRegisteredUser (${phoneNumber}) intento ${attempts}: ${err.message}`);
+          if (attempts < maxAttempts) await this.sleep(1000); // Wait 1s before retry
+        }
+      }
+
+      // Estrategia 2: Fallback a getNumberId (Más costoso pero más seguro)
+      if (!isRegistered) {
+        // A veces isRegisteredUser da falso negativo, probamos getNumberId
+        console.log(`⚠️ isRegisteredUser dio false para ${phoneNumber}, probando getNumberId...`);
+        try {
+          const profile = await this.client.getNumberId(phoneNumber);
+          if (profile && profile._serialized) {
+            console.log(`✅ Recuperado con getNumberId: ${phoneNumber}`);
+            isRegistered = true;
+          }
+        } catch (e) {
+          console.log(`❌ getNumberId también falló: ${e.message}`);
+        }
+      }
 
       if (!isRegistered) {
         return { valid: false, method: 'quick_not_registered' };
@@ -344,12 +375,16 @@ class WhatsAppChecker {
 
     } catch (error) {
       // 🛡️ MANEJO ESPECÍFICO DE ERROR: [comms] sendIq called before startComms
-      // Este error indica desconexión transitoria de wwebjs/puppeteer
       if (error.message.includes('sendIq called before startComms')) {
         console.log(`⚠️ Error de conexión en quickVerify (${phoneNumber}) - Asumiendo desconexión temporal`);
-        // Opcional: Podríamos retornar { valid: false, reason: 'retry_later' }
-        // Pero para no bloquear, si falla la verificación, asumimos que NO es válido por seguridad
         return { valid: false, method: 'quick_error_retry', error: 'connection_error' };
+      }
+
+      // 🛡️ DETECCIÓN DE SESIÓN MUERTA: detached Frame / Target closed
+      // Estos errores significan que Chrome/Puppeteer crasheó, NO que el número es inválido
+      if (error.message.includes('detached') || error.message.includes('Target closed') || error.message.includes('Session closed')) {
+        console.error(`🔥 [quickVerify] SESIÓN MUERTA detectada: ${error.message}`);
+        return { valid: false, method: 'session_dead', error: error.message };
       }
 
       return { valid: false, method: 'quick_error', error: error.message };

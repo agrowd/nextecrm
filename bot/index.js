@@ -764,6 +764,21 @@ class WhatsAppBot {
 
       } catch (e) {
         console.error('[SMART LOOP] ❌ Error crítico en ciclo:', e);
+
+        // 🔥 Si la sesión murió, intentar reiniciar WhatsApp automáticamente
+        if (e.message && e.message.includes('SESSION_DEAD')) {
+          console.error('[SMART LOOP] 🔄 Sesión muerta detectada. Intentando reiniciar WhatsApp...');
+          try {
+            await this.client.destroy();
+            console.log('[SMART LOOP] 🔧 Cliente destruido. Reinicializando en 30 segundos...');
+            await new Promise(r => setTimeout(r, 30000));
+            await this.client.initialize();
+            console.log('[SMART LOOP] ✅ Cliente reinicializado. Esperando ready...');
+          } catch (restartErr) {
+            console.error('[SMART LOOP] ❌ Error reiniciando:', restartErr.message);
+            console.error('[SMART LOOP] ⏸️ El bot necesita reinicio manual (pm2 restart)');
+          }
+        }
       }
 
       // 4. Calcular próximo ciclo (Normal)
@@ -1080,6 +1095,14 @@ class WhatsAppBot {
       console.log(`      ℹ️ Resultado QuickVerify:`, JSON.stringify(quickCheck));
 
       if (!quickCheck.valid) {
+        // 🔥 DETECCIÓN DE SESIÓN MUERTA: No marcar leads como inválidos si el browser crasheó
+        if (quickCheck.method === 'session_dead') {
+          console.error(`      🔥 SESIÓN MUERTA detectada en QuickVerify. NO marcando lead como inválido.`);
+          console.error(`      🔥 Error: ${quickCheck.error}`);
+          this.log(`🔥 Sesión muerta detectada durante QuickVerify. Abortando procesamiento.`, 'error');
+          // NO actualizamos el estado del lead - dejamos que se vuelva a intentar
+          throw new Error(`SESSION_DEAD: ${quickCheck.error}`);
+        }
         console.log(`      ❌ Número NO registrado en WhatsApp.`);
         this.log(`❌ ${phoneNumber} NO tiene WhatsApp registrado`, 'warn', null, lead.id);
         this.statsTracker.trackLead(lead, 'invalid', { method: 'quick_verify' });
