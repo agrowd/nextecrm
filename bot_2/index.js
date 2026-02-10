@@ -375,6 +375,17 @@ class WhatsAppBot {
       console.log(`🛡️ Usando Proxy: ${process.env.PROXY_SERVER}`);
     }
 
+    // 🧹 LIMPIEZA AUTOMÁTICA DE BLOQUEOS (Profile Auto-Cleanup)
+    const sessionsDir = path.join(__dirname, 'sessions');
+    try {
+      if (ProfileManager && typeof ProfileManager.cleanProfileLocks === 'function') {
+        const profilePath = path.join(sessionsDir, 'browser-' + this.instanceId);
+        ProfileManager.cleanProfileLocks(sessionsDir, this.instanceId);
+      }
+    } catch (e) {
+      console.warn('⚠️ Error cleaning profile locks:', e.message);
+    }
+
     this.client = new Client({
       authStrategy: new LocalAuth({
         clientId: this.instanceId,
