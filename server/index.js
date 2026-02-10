@@ -158,9 +158,53 @@ app.get('/next', async (req, res) => {
     const pendingCount = await Lead.countDocuments({ status: 'pending' });
     const totalCount = await Lead.countDocuments({});
 
-    // 2. Buscar siguiente lead pendiente (FIFO)
-    const lead = await Lead.findOneAndUpdate(
-      { status: 'pending' },
+    // 2. ESTRATEGIA DE DISTRIBUCIÓN "SOFT SHARDING" (Modulo-based)
+    // Extraer número de bot (ej: "bot_3" -> 3)
+    let instanceNum = 1; // Default a 1
+    if (instanceId && instanceId.match(/bot_(\d+)/)) {
+      instanceNum = parseInt(instanceId.match(/bot_(\d+)/)[1], 10);
+    }
+
+    /*
+      Lógica de Sharding:
+      Total Bots (Asumidos): 4
+      Bot 1 prefiere: ...1, ...5, ...9 (mod 4 == 0) -> Ajustamos (instanceNum - 1)
+      Bot 2 prefiere: ...2, ...6, ...0 (mod 4 == 1)
+      Bot 3 prefiere: ...3, ...7       (mod 4 == 2)
+      Bot 4 prefiere: ...4, ...8       (mod 4 == 3)
+    */
+    const TOTAL_BOTS = 4;
+    const targetRemainder = (instanceNum - 1) % TOTAL_BOTS;
+
+    let lead = null;
+
+    // A) INTENTO 1: Buscar lead PREFERIDO (Sticky/Shard)
+    // Regex para terminar en dígito que cumpla condicion MOD
+    // No es trivial hacer MOD en query regex, así que usamos terminación simple aproximada
+    // Para simplificar y ser rápidos, usamos $regex con terminaciones específicas
+    let suffixes = [];
+    for (let i = 0; i <= 9; i++) {
+      if (i % TOTAL_BOTS === targetRemainder) {
+        suffixes.push(i.toString());
+      }
+    }
+    // Ej Bot 1 (target 0): [0, 4, 8]
+    // Ej Bot 3 (target 2): [2, 6] ... espera, mod 4:
+    // 0%4=0, 1%4=1, 2%4=2, 3%4=3, 4%4=0, 5%4=1...
+    // Bot 1 (num-1=0): 0, 4, 8
+    // Bot 2 (num-1=1): 1, 5, 9
+    // Bot 3 (num-1=2): 2, 6
+    // Bot 4 (num-1=3): 3, 7
+
+    const regexSuffix = `(${suffixes.join('|')})$`; // Ej: "(1|5|9)$"
+
+    console.log(`🤖 Bot ${instanceId} buscando preferencia (terminados en ${suffixes.join(',')})...`);
+
+    lead = await Lead.findOneAndUpdate(
+      {
+        status: 'pending',
+        phone: { $regex: regexSuffix }
+      },
       {
         $set: {
           status: 'processing',
@@ -170,6 +214,23 @@ app.get('/next', async (req, res) => {
       },
       { sort: { createdAt: 1 }, new: true }
     );
+
+    // B) INTENTO 2: FALLBACK (Cualquier lead)
+    // Si no encontró "su" lead, toma cualquiera para no quedarse quieto
+    if (!lead) {
+      console.log(`⚠️ Bot ${instanceId} no encontró leads preferidos. Usando Fallback...`);
+      lead = await Lead.findOneAndUpdate(
+        { status: 'pending' },
+        {
+          $set: {
+            status: 'processing',
+            contactedByInstance: instanceId || 'unknown',
+            lastContactAt: new Date()
+          }
+        },
+        { sort: { createdAt: 1 }, new: true }
+      );
+    }
 
     if (!lead) {
       return res.json({
