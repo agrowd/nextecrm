@@ -64,7 +64,10 @@ class HumanBehaviorSimulator {
             totalTime += this.randomBetween(1500, 4000);
         }
 
-        return Math.round(totalTime);
+        // 🛡️ CAP MÁXIMO: Mensajes largos (promos) son copy-paste, no typing real
+        // 45 segundos max es creíble como "armando y pegando" un mensaje
+        const MAX_TYPING_MS = 45000;
+        return Math.round(Math.min(totalTime, MAX_TYPING_MS));
     }
 
     /**
