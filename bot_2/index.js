@@ -1245,7 +1245,7 @@ class WhatsAppBot {
 
             sentMessage = await chatToSend.sendMessage(message);
           } catch (criticalError) {
-            if (criticalError.message.includes('getChat') || criticalError.message.includes('Session Closed') || criticalError.message.includes('protocol')) {
+            if (criticalError.message.includes('getChat') || criticalError.message.includes('Session Closed') || criticalError.message.includes('protocol') || criticalError.message.includes('detached') || criticalError.message.includes('Target closed')) {
               console.error(`🔥 ERROR CRÍTICO DE SESIÓN enviando mensaje: ${criticalError.message}. Deteniendo secuencia.`);
               return; // Salir de la función completamente para evitar crash
             }
