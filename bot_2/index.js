@@ -699,15 +699,15 @@ class WhatsAppBot {
     }
   }
 
-    startLeadProcessing() {
+  startLeadProcessing() {
     console.log('[SMART LOOP] 🚀 Iniciando ciclo de procesamiento inteligente...');
-    
+
     // Función de ciclo inteligente (reemplaza a scheduleNextProcessing)
     const smartLoop = async () => {
       // 1. Evitar superposición
       if (this.isProcessing) {
         console.log('[SMART LOOP] ⏳ Ya existe proceso activo. Reintentando en 30s...');
-        this.processingTimer = setTimeout(smartLoop, 30000); 
+        this.processingTimer = setTimeout(smartLoop, 30000);
         return;
       }
 
@@ -715,55 +715,55 @@ class WhatsAppBot {
       // Esto nos permite dormir el tiempo EXACTO si estamos limitados
       try {
         const rateStatus = await this.rateLimiter.canSendNow();
-        
+
         if (!rateStatus.allowed) {
-            const now = Date.now();
-            let waitTime = 3600000; // Default 1 hora (para daily limit o fallo)
-            let reason = rateStatus.reason || 'unknown';
+          const now = Date.now();
+          let waitTime = 3600000; // Default 1 hora (para daily limit o fallo)
+          let reason = rateStatus.reason || 'unknown';
 
-            if (rateStatus.nextAvailable) {
-                const targetTime = new Date(rateStatus.nextAvailable).getTime();
-                waitTime = Math.max(0, targetTime - now);
-                // Agregar jitter humano (10-30 seg) para no ser robótico al despertar
-                waitTime += (Math.random() * 20000) + 10000;
-                reason = 'outside_business_hours';
-            } else if (rateStatus.reason === 'daily_limit_reached') {
-                 // Si alcanzamos límite diario, checkear cada 1 hora por si resetean manual
-                 waitTime = 60 * 60 * 1000; 
-            }
+          if (rateStatus.nextAvailable) {
+            const targetTime = new Date(rateStatus.nextAvailable).getTime();
+            waitTime = Math.max(0, targetTime - now);
+            // Agregar jitter humano (10-30 seg) para no ser robótico al despertar
+            waitTime += (Math.random() * 20000) + 10000;
+            reason = 'outside_business_hours';
+          } else if (rateStatus.reason === 'daily_limit_reached') {
+            // Si alcanzamos límite diario, checkear cada 1 hora por si resetean manual
+            waitTime = 60 * 60 * 1000;
+          }
 
-            // Log detallado
-            const waitMin = (waitTime / 60000).toFixed(1);
-            console.log(`[SMART LOOP] ⏸️ Rate Limit (${reason}). Durmiendo ${waitMin} min hasta próxima ventana.`);
-            
-            this.processingTimer = setTimeout(smartLoop, waitTime);
-            return;
+          // Log detallado
+          const waitMin = (waitTime / 60000).toFixed(1);
+          console.log(`[SMART LOOP] ⏸️ Rate Limit (${reason}). Durmiendo ${waitMin} min hasta próxima ventana.`);
+
+          this.processingTimer = setTimeout(smartLoop, waitTime);
+          return;
         }
 
         // 3. Ejecutar procesamiento (Rate Limit OK)
         // await processNextLead maneja su propio try/catch interno pero lo envolvemos por seguridad
-        await this.processNextLead(); 
+        await this.processNextLead();
 
       } catch (e) {
-         console.error('[SMART LOOP] ❌ Error crítico en ciclo:', e);
+        console.error('[SMART LOOP] ❌ Error crítico en ciclo:', e);
       }
 
       // 4. Calcular próximo ciclo (Normal)
       // Si procesamos (o intentamos), dormimos un intervalo "humano" de polling
       // Base: valor del .env (default 5 min)
-      
+
       const baseInterval = this.interval || 300000;
-      
+
       // Factor aleatorio (0.8x a 1.2x) - Menos varianza que antes (0.5-2.0 era mucho)
-      const factor = 0.8 + (Math.random() * 0.4); 
+      const factor = 0.8 + (Math.random() * 0.4);
       // Jitter pequeño (-30s a +60s)
       const jitter = (Math.random() * 90000) - 30000;
-      
+
       let nextDelay = Math.floor((baseInterval * factor) + jitter);
       // Mínimo 2 minutos siempre para no saturar si baseInterval es bajo
       nextDelay = Math.max(120000, nextDelay);
 
-      console.log(`[SMART LOOP] ✅ Ciclo finalizado. Próximo chequeo en ${(nextDelay/60000).toFixed(1)} min`);
+      console.log(`[SMART LOOP] ✅ Ciclo finalizado. Próximo chequeo en ${(nextDelay / 60000).toFixed(1)} min`);
       this.processingTimer = setTimeout(smartLoop, nextDelay);
     };
 

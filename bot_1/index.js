@@ -348,7 +348,7 @@ class WhatsAppBot {
     // ✅ CONFIGURACIÓN PUPPETEER ESTABILIZADA
     // Se han eliminado flags experimentales que causaban crashes
     const stealthPuppeteerConfig = {
-      headless: process.env.HEADLESS === 'true' ? "new" : false,
+      headless: process.env.HEADLESS === 'true' ? "shell" : false,
       executablePath: process.env.CHROME_PATH || undefined,
       bypassCSP: true, // 🛡️ FIX CRÍTICO: Evita "Execution context was destroyed"
       ignoreHTTPSErrors: true,
@@ -360,8 +360,8 @@ class WhatsAppBot {
         '--no-first-run',
         '--no-zygote',
         '--disable-gpu',
-        '--disable-gpu',
-        '--disable-extensions'
+        '--disable-extensions',
+        '--disable-web-security'
       ],
       defaultViewport: null,
       timeout: 60000
@@ -403,15 +403,28 @@ class WhatsAppBot {
     });
 
     this.client.on('loading_screen', (percent, message) => {
-      console.log(`⏳ Loading screen: ${percent}% - ${message}`);
+      console.log(`⏳ [${this.instanceId}] Loading screen: ${percent}% - ${message}`);
+      console.log(`🔍 [DEBUG] loading_screen event fired at ${new Date().toISOString()}`);
     });
 
     this.client.on('state_changed', (state) => {
-      console.log(`📶 Estado de WhatsApp: ${state}`);
+      console.log(`📶 [${this.instanceId}] Estado de WhatsApp: ${state}`);
+      console.log(`🔍 [DEBUG] state_changed to ${state} at ${new Date().toISOString()}`);
+    });
+
+    this.client.on('authenticated', () => {
+      console.log(`🔐 [${this.instanceId}] Authenticated event fired!`);
+      // Intentar capturar logs del navegador si es posible
+      if (this.client.pupPage) {
+        console.log('🔧 [DEBUG] Attaching to browser console...');
+        this.client.pupPage.on('console', msg => console.log('🌍 [BROWSER LOG]:', msg.text()));
+        this.client.pupPage.on('pageerror', err => console.log('🌍 [BROWSER ERROR]:', err));
+      }
     });
 
     this.client.on('ready', async () => {
-      console.log('✅ WhatsApp Bot listo!');
+      console.log(`✅ [${this.instanceId}] WhatsApp Bot listo!`);
+      console.log(`🔍 [DEBUG] ready event FIRED at ${new Date().toISOString()}`);
       // La bandera isReady se activará al final de la inicialización
 
       // 🔑 MULTI-BOT: Capturar número conectado
@@ -510,6 +523,8 @@ class WhatsAppBot {
 
     this.client.on('authenticated', () => {
       console.log('🔐 WhatsApp autenticado');
+      console.log(`🔍 [DEBUG] authenticated event at ${new Date().toISOString()}`);
+      console.log(`🔍 [DEBUG] Waiting for 'ready' event...`);
     });
 
     this.client.on('auth_failure', (msg) => {
@@ -685,94 +700,77 @@ class WhatsAppBot {
   }
 
   startLeadProcessing() {
-    console.log(`⏰ Programando procesamiento de leads con intervalo aleatorio entre 60-120 segundos`);
+    console.log('[SMART LOOP] 🚀 Iniciando ciclo de procesamiento inteligente...');
 
-    // Función para programar el siguiente procesamiento con intervalo aleatorio
-    const scheduleNextProcessing = () => {
-      if (!this.isProcessing) {
-        this.processNextLead();
+    // Función de ciclo inteligente (reemplaza a scheduleNextProcessing)
+    const smartLoop = async () => {
+      // 1. Evitar superposición
+      if (this.isProcessing) {
+        console.log('[SMART LOOP] ⏳ Ya existe proceso activo. Reintentando en 30s...');
+        this.processingTimer = setTimeout(smartLoop, 30000);
+        return;
       }
 
-      // 🎲 INTERVALO HUMANO REALISTA - Nunca predecible
-      // Base: valor del .env (default 5 min = 300000ms)
-      const baseInterval = this.interval;
-
-      // Factor aleatorio gaussiano (la mayoría cerca de 1, algunos muy altos o bajos)
-      const gaussianRandom = () => {
-        let u = 0, v = 0;
-        while (u === 0) u = Math.random();
-        while (v === 0) v = Math.random();
-        return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-      };
-
-      // Aplicar variación gaussiana (0.5x a 2x del base, centrado en 1x)
-      const gaussianFactor = Math.max(0.5, Math.min(2.0, 1 + (gaussianRandom() * 0.3)));
-
-      // Micro-variación humana (-60 a +120 segundos, sesgado hacia más tiempo)
-      const humanJitter = (Math.random() * 180000) - 60000; // -60s a +120s
-
-      // Pausa ocasional larga (simula ir al baño, almorzar, etc)
-      const longPauseChance = Math.random();
-      const longPause = longPauseChance < 0.05 ? (Math.random() * 300000) + 180000 : 0; // 5% chance de pausa 3-8 min
-
-      const finalInterval = Math.floor((baseInterval * gaussianFactor) + humanJitter + longPause);
-
-      // Mínimo 2 minutos, máximo 15 minutos
-      const clampedInterval = Math.max(120000, Math.min(900000, finalInterval));
-
-      console.log(`⏰ Próximo procesamiento en ${(clampedInterval / 1000).toFixed(1)} segundos (humano aleatorio)`);
-
-      this.processingTimer = setTimeout(scheduleNextProcessing, clampedInterval);
-    };
-
-    // Función para programar procesamiento inmediato (sin delay)
-    const scheduleImmediateProcessing = () => {
-      if (!this.isProcessing) {
-        this.processNextLead();
-      }
-    };
-
-    // Iniciar el primer procesamiento
-    this.isReady = true;
-    console.log('🚀 Bot completamente inicializado y listo para procesar leads.');
-    scheduleNextProcessing();
-
-    // 🧹 Limpiar cache de WhatsApp cada 6 horas
-    setInterval(() => {
-      if (this.whatsappChecker) {
-        this.whatsappChecker.cleanCache();
-      }
-    }, 6 * 60 * 60 * 1000); // 6 horas
-
-    // 🔍 Revisar números fallidos cada 12 horas
-    setInterval(async () => {
-      if (this.whatsappChecker) {
-        await this.whatsappChecker.reviewFailedNumbers();
-      }
-    }, 12 * 60 * 60 * 1000); // 12 horas
-
-    // 📊 Mostrar estadísticas cada hora
-    setInterval(() => {
-      this.statsTracker.displayStats();
-    }, 60 * 60 * 1000); // 1 hora
-
-    // 🔄 Verificar sesiones completadas cada 60 segundos (PROTEGIDO)
-    setInterval(async () => {
+      // 2. Verificar Rate Limit ANTES de procesar
+      // Esto nos permite dormir el tiempo EXACTO si estamos limitados
       try {
-        if (this.whatsappChecker && !this.isProcessing && !this.isSendingMessages) {
-          await this.checkCompletedSessions();
-        } else {
-          // console.log(`⏳ Saltando checkCompletedSessions...`); // Reducir ruido
-        }
-      } catch (error) {
-        console.error('❌ Error en checkCompletedSessions interval:', error.message);
-      }
-    }, 60 * 1000);
+        const rateStatus = await this.rateLimiter.canSendNow();
 
-    // 🏷️ Sincronizar Etiquetas cada 5 minutos
-    setInterval(() => {
-      this.syncTagsWithBackend();
-    }, 5 * 60 * 1000);
+        if (!rateStatus.allowed) {
+          const now = Date.now();
+          let waitTime = 3600000; // Default 1 hora (para daily limit o fallo)
+          let reason = rateStatus.reason || 'unknown';
+
+          if (rateStatus.nextAvailable) {
+            const targetTime = new Date(rateStatus.nextAvailable).getTime();
+            waitTime = Math.max(0, targetTime - now);
+            // Agregar jitter humano (10-30 seg) para no ser robótico al despertar
+            waitTime += (Math.random() * 20000) + 10000;
+            reason = 'outside_business_hours';
+          } else if (rateStatus.reason === 'daily_limit_reached') {
+            // Si alcanzamos límite diario, checkear cada 1 hora por si resetean manual
+            waitTime = 60 * 60 * 1000;
+          }
+
+          // Log detallado
+          const waitMin = (waitTime / 60000).toFixed(1);
+          console.log(`[SMART LOOP] ⏸️ Rate Limit (${reason}). Durmiendo ${waitMin} min hasta próxima ventana.`);
+
+          this.processingTimer = setTimeout(smartLoop, waitTime);
+          return;
+        }
+
+        // 3. Ejecutar procesamiento (Rate Limit OK)
+        // await processNextLead maneja su propio try/catch interno pero lo envolvemos por seguridad
+        await this.processNextLead();
+
+      } catch (e) {
+        console.error('[SMART LOOP] ❌ Error crítico en ciclo:', e);
+      }
+
+      // 4. Calcular próximo ciclo (Normal)
+      // Si procesamos (o intentamos), dormimos un intervalo "humano" de polling
+      // Base: valor del .env (default 5 min)
+
+      const baseInterval = this.interval || 300000;
+
+      // Factor aleatorio (0.8x a 1.2x) - Menos varianza que antes (0.5-2.0 era mucho)
+      const factor = 0.8 + (Math.random() * 0.4);
+      // Jitter pequeño (-30s a +60s)
+      const jitter = (Math.random() * 90000) - 30000;
+
+      let nextDelay = Math.floor((baseInterval * factor) + jitter);
+      // Mínimo 2 minutos siempre para no saturar si baseInterval es bajo
+      nextDelay = Math.max(120000, nextDelay);
+
+      console.log(`[SMART LOOP] ✅ Ciclo finalizado. Próximo chequeo en ${(nextDelay / 60000).toFixed(1)} min`);
+      this.processingTimer = setTimeout(smartLoop, nextDelay);
+    };
+
+    // Iniciar primer ciclo
+    this.isReady = true;
+    // Pequeño delay inicial aleatorio (2-10s) para desincronizar bots al inicio
+    setTimeout(smartLoop, Math.random() * 8000 + 2000);
   }
 
   // Función para loggear

@@ -37,16 +37,6 @@ const ResponseAnalyzer = require('./services/responseAnalyzer');
 const StealthBrowserManager = require('./services/stealthBrowser');
 const Scheduler = require('./services/scheduler');
 
-// Helper: Timestamp en zona horaria Argentina
-const argTime = () => {
-  return new Date().toLocaleString('es-AR', {
-    timeZone: 'America/Argentina/Buenos_Aires',
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-    hour12: false
-  }).replace(',', '');
-};
-
 class WhatsAppBot {
   constructor() {
     this.client = null;
@@ -145,30 +135,62 @@ class WhatsAppBot {
 
         "Con diez años de trabajo, entendemos tanto las necesidades de un nutricionista como las de un fabricante de acero inoxidable. Unimos publicidad efectiva, páginas sencillas y mensajes automáticos que nutren la relación con el cliente. Así el crecimiento se ve y se siente en el día a día."
       ],
-      // Mensaje 3 - Promo Febrero 2025 (Servicios completos)
+      // Mensaje 3 - Promo Web Express (más claro)
       [
-        "🎉 *PROMO FEBRERO 2025*\n\n🏢 *¿QUÉ PODEMOS HACER POR TU NEGOCIO?*\n\nTe lo explico simple, sin palabras raras:\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🌐 *OPCIÓN A: TU PROPIA PÁGINA WEB*\nPrecio: *$75.000* (pagás una vez)\n\n¿Qué es?\nTu propio sitio tipo \"www.tunegocio.com.ar\" donde los clientes ven tus servicios, tus precios, fotos de tu trabajo, y pueden contactarte.\n\n*¿Qué está incluido?*\n• El diseño completo de la página\n• El nombre de tu página (se llama \"dominio\")\n• El servidor donde funciona (como si fuera el \"local\" de tu web)\n• Candadito verde de seguridad en el navegador\n• Durante 1 año podés pedirnos todos los cambios que necesites\n• Si algo falla, lo arreglamos\n\n*Después del año:* $25.000 cada 3 meses para mantener todo andando.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📍 *OPCIÓN B: QUE TE ENCUENTREN EN GOOGLE*\nPrecio: *$75.000* (pagás una vez)\n\n¿Qué es?\nHacemos que cuando alguien busque en Google \"lo que vos vendés + tu ciudad\", tu negocio aparezca PRIMERO.\n\n*¿Qué está incluido?*\n• Google Analytics: Una herramienta gratis de Google que te muestra cuántas personas visitan tu web, de dónde son, qué miran\n• Search Console: Te dice QUÉ PALABRAS usa la gente para encontrarte\n• Google Maps: Tu negocio aparece en el mapa con dirección, teléfono, fotos, horarios y reseñas\n• SEO Técnico: Optimizamos todo para que Google te \"quiera\" más y te muestre arriba\n• Aparecer rápido: Desde el día 1 te indexamos para que ya estés visible\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📱 *OPCIÓN C: MANEJO DE REDES SOCIALES (Community Management)*\nPrecio: *$75.000 por mes*\n\n¿Qué es?\nNos encargamos de tus redes sociales para que vos no tengas que hacerlo:\n\n*¿Qué está incluido?*\n• Creación de contenido (posteos, historias, reels)\n• Diseño gráfico de las publicaciones\n• Programación y publicación\n• Respuesta a comentarios y mensajes\n• Estrategia de contenido mensual\n• Reportes de cómo le está yendo a tu cuenta\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🤖 *OPCIÓN D: ASISTENTE VIRTUAL INTELIGENTE*\nPrecio: *$200.000* + entre *$5.000 y $10.000 por mes*\n\n¿Qué es?\nUn \"empleado virtual\" que atiende por WhatsApp 24 horas. Pero no es un bot tonto que dice respuestas automáticas - está ENTRENADO con la información de TU negocio y responde como si fueras vos.\n\n*¿Qué puede hacer?*\n• Responder preguntas sobre precios, servicios, horarios (de día y de noche)\n• Agendar turnos automáticamente en tu agenda\n• Si el cliente manda foto de un comprobante, el bot lo ve y lo valida\n• Guiar al cliente paso a paso hasta que compre o reserve\n• Vos ves todo desde un panel: quién escribió, qué preguntó, si compró\n\n*¿Por qué hay un costo mensual?*\nEl bot necesita una computadora especial que nunca se apaga (servidor). Eso cuesta entre $5.000 y $10.000 por mes, dependiendo de cuántos clientes atiendas.\n\n*Incluye:* 6 meses de ajustes sin costo extra.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎁 *COMBO: TODO JUNTO*\nPrecio: *$320.000* + servidor mensual + CM mensual\n\nLlevate Web + Google + Sistema con Bot.\nAhorrás $30.000 vs comprarlos por separado.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎯 *¿Por qué nosotros?*\nNo solo hacemos páginas bonitas. Todo lo que desarrollamos está pensado para que más personas que te contacten terminen siendo clientes reales.\n\n💬 ¿Tenés dudas? ¡Preguntame!",
+        "🚀 Te ofrecemos un sitio web completo por $150.000: incluye diseño personalizado, dominio .com, hosting por 1 año y adaptado a tu marca. Si no tenés marca, te la diseñamos. Todo en 2 días!",
+        "💻 Sitio web completo por $150.000: diseño personalizado, dominio .com, hosting por 1 año y adaptado a tu marca, aparecerá en Google. Si no tenés marca, te la creamos. Listo en 2 días!",
+        "⚡ Sitio web completo por $150.000: diseño personalizado, dominio .com, hosting por 1 año y adaptado a tu marca, aparecerá en Google. Si no tenés marca, te la diseñamos. En 2 días!",
+        "🎯 Sitio web completo por $150.000: diseño personalizado, dominio .com, hosting por 1 año y adaptado a tu marca, aparecerá en Google. Si no tenés marca, te la creamos. Listo en 2 días!",
+        "🌟 Sitio web completo por $150.000: diseño personalizado, dominio .com, hosting por 1 año y adaptado a tu marca, aparecerá en Google. Si no tenés marca, te la diseñamos. En 2 días!"
+      ],
+      // Mensaje 4 - Plan Web Premium (más claro)
+      [
+        "💎 Para negocios que quieren destacar: sitio web premium por $500.000 con diseño exclusivo, animaciones avanzadas y optimizado para Google. Incluye branding completo.",
+        "🏆 Para negocios que quieren destacar: sitio web premium por $500.000 con diseño exclusivo, animaciones avanzadas y optimizado para Google. Incluye branding completo.",
+        "⭐ Para negocios que quieren destacar: sitio web premium por $500.000 con diseño exclusivo, animaciones avanzadas y optimizado para Google. Incluye branding completo.",
+        "✨ Para negocios que quieren destacar: sitio web premium por $500.000 con diseño exclusivo, animaciones avanzadas y optimizado para Google. Incluye branding completo.",
+        "💎 Para negocios que quieren destacar: sitio web premium por $500.000 con diseño exclusivo, animaciones avanzadas y optimizado para Google. Incluye branding completo."
+      ],
+      // Mensaje 5 - Servicios (más claro)
+      [
+        `También hacemos: publicidad en Google para que te encuentren, manejo de redes sociales, bots de WhatsApp automáticos y todo lo que necesites para digitalizar tu negocio. **Preparamos un Pack 360° exclusivo para odontólogos**: página web, dominio .com o .ar, Google Ads para aparecer primero, chatbot dental, recordatorios automáticos y más. Es una plataforma hecha a medida, cómoda, flexible y con acompañamiento personalizado para optimizar resultados (CRO). Convierte consultas en pacientes y mide cada peso invertido. Si preferís, también podemos hacerte una cotización gratuita y personalizada según lo que necesites.`,
+        `Tenemos **un Pack 360° pensado para odontólogos** que incluye todo: página web, dominio .com o .com.ar, Google Ads para aparecer primero, chatbot dental, recordatorios automáticos y más. Es una plataforma hecha a medida, cómoda, flexible y con acompañamiento personalizado para que optimices cada peso invertido (CRO). Si preferís, también podemos hacerte una cotización gratuita y personalizada según lo que necesites.`,
+        `Ofrecemos **un pack integral 360° para odontólogos**: web, dominio .com o .com.ar, Google Ads para aparecer primero, chatbot dental, recordatorios automáticos y mucho más. Todo hecho a medida, cómodo, flexible y con acompañamiento personalizado para mejorar tus resultados (CRO). Si tu clínica necesita algo diferente, te hacemos una cotización gratuita y a medida para digitalizar tu negocio.`,
+        `Además ofrecemos: publicidad en Google para que te encuentren, manejo de redes sociales, bots de WhatsApp automáticos y todo lo que necesites para digitalizar tu negocio. **Nuestro Pack 360° para odontólogos** incluye web, dominio .com o .ar, Google Ads para aparecer primero, chatbot dental, recordatorios automáticos y más. Es una plataforma hecha a medida, cómoda, flexible y con acompañamiento personalizado (CRO). Si querés, te cotizamos gratis lo que necesites.`,
+        `También brindamos: publicidad en Google para que te encuentren, manejo de redes sociales, bots de WhatsApp automáticos y todo lo que necesites para digitalizar tu negocio. **El Pack 360° para odontólogos** incluye web, dominio .com o .ar, Google Ads para aparecer primero, chatbot dental, recordatorios automáticos y más. Todo hecho a medida, cómodo, flexible y con acompañamiento personalizado (CRO). Si preferís, te hacemos una cotización gratuita y a medida.`,
+        `Además trabajamos en: publicidad en Google para que te encuentren, manejo de redes sociales, bots de WhatsApp automáticos y todo lo que necesites para digitalizar tu negocio. **Nuestro Pack 360° exclusivo para odontólogos** incluye web, dominio .com o .ar, Google Ads para aparecer primero, chatbot dental, recordatorios automáticos y más. Es una plataforma hecha a medida, cómoda, flexible y con acompañamiento personalizado (CRO). Si querés, te cotizamos gratis lo que necesites.`,
+        `También ofrecemos: publicidad en Google para que te encuentren, manejo de redes sociales, bots de WhatsApp automáticos y todo lo que necesites para digitalizar tu negocio. **El Pack 360° para odontólogos** incluye web, dominio .com o .ar, Google Ads para aparecer primero, chatbot dental, recordatorios automáticos y más. Todo hecho a medida, cómodo, flexible y con acompañamiento personalizado (CRO). Si preferís, te hacemos una cotización gratuita y a medida.`
+      ],
+      // Mensaje 6 - Servicios específicos (más humano)
+      [
+        "Te cuento que podemos hacer publicidad para que aparezcas en Google, manejo de redes sociales, bots de WhatsApp que te respondan todo automáticamente y la promo de 150.000 por un sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te hacemos el branding también.",
+        "Mirá, podemos hacer publicidad para que te encuentren en Google, manejo de redes sociales, bots de WhatsApp que contesten automáticamente y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te diseñamos todo.",
+        "Te comento que hacemos publicidad para Google, manejo de redes sociales, bots de WhatsApp automáticos y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te hacemos el branding.",
+        "Podemos hacer publicidad para que aparezcas en Google, manejo de redes sociales, bots de WhatsApp que contesten solos y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te diseñamos todo.",
+        "Te cuento que hacemos publicidad para Google, manejo de redes sociales, bots de WhatsApp automáticos y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te hacemos el branding también.",
+        "Mirá, podemos hacer publicidad para que te encuentren en Google, manejo de redes sociales, bots de WhatsApp que te respondan todo automáticamente y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te diseñamos todo.",
+        "Te comento que hacemos publicidad para que aparezcas en Google, manejo de redes sociales, bots de WhatsApp automáticos y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te hacemos el branding.",
+        "Podemos hacer publicidad para Google, manejo de redes sociales, bots de WhatsApp que contesten solos y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te diseñamos todo.",
+        "Te cuento que hacemos publicidad para que te encuentren en Google, manejo de redes sociales, bots de WhatsApp que te respondan todo automáticamente y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te hacemos el branding también.",
+        "Mirá, podemos hacer publicidad para que aparezcas en Google, manejo de redes sociales, bots de WhatsApp automáticos y la promo de 150.000 por sitio web completo adaptado a tu marca con las últimas tecnologías. Si no tenés marca, te diseñamos todo."
+      ],
+      // Mensaje 7 - CTA
+      [
+        "Visitá https://nextemarketing.com para ver ejemplos.",
+        "Visitá https://nextemarketing.com para ver ejemplos.",
+        "Visitá https://nextemarketing.com para ver ejemplos.",
+        "Visitá https://nextemarketing.com para ver ejemplos.",
+        "Visitá https://nextemarketing.com para ver ejemplos."
+      ],
 
-        "🚀 *OFERTAS FEBRERO 2025*\n\nQué tal! Te cuento nuestras opciones:\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🌐 *TU WEB COMPLETA*\nInversión: *$75.000* (un solo pago)\n\n¿De qué se trata?\nTu página web profesional con todo lo necesario para arrancar.\n\n*Incluye:*\n• Diseño completo de la web\n• Tu dominio propio\n• Hosting por 1 año\n• Certificado de seguridad (candadito verde)\n• Cambios ilimitados por 1 año\n• Soporte técnico completo\n\n*Después del año:* $25.000 cada 3 meses.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📍 *POSICIONAMIENTO EN GOOGLE*\nInversión: *$75.000* (un solo pago)\n\n¿De qué se trata?\nQue cuando busquen en Google tu rubro + tu ciudad, aparezcas primero.\n\n*Incluye:*\n• Google Analytics: medí cuánta gente te visita y qué hacen\n• Search Console: descubrí qué palabras usan para buscarte\n• Google Maps: tu negocio visible con fotos, horarios y reseñas\n• SEO Técnico: optimizamos para que Google te posicione arriba\n• Indexación inmediata: estás visible desde el día 1\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📱 *GESTIÓN DE REDES SOCIALES*\nInversión: *$75.000 mensuales*\n\n¿De qué se trata?\nManejamos tus redes para que vos te enfoques en tu negocio.\n\n*Incluye:*\n• Creación de contenido (posts, stories, reels)\n• Diseños gráficos profesionales\n• Publicación programada\n• Respuestas a comentarios y mensajes\n• Estrategia mensual de contenido\n• Informes de rendimiento\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🤖 *BOT INTELIGENTE 24/7*\nInversión: *$200.000* + *$5.000-$10.000/mes*\n\n¿De qué se trata?\nUn asistente virtual que atiende WhatsApp todo el día. No es un bot tonto - está entrenado con TU información.\n\n*Puede:*\n• Responder consultas de precios, servicios, horarios\n• Agendar turnos automáticamente\n• Verificar comprobantes de pago (ve las fotos)\n• Guiar al cliente hasta que compre\n• Panel de control para vos\n\n*Costo mensual:* el servidor donde funciona el bot.\n\n*Incluye:* 6 meses de ajustes gratis.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎁 *PACK COMPLETO*\nInversión: *$320.000* + mensuales\nTodo junto con $30.000 de ahorro.\n\n🎯 Nuestro foco: que cada persona que te contacte termine siendo cliente.",
-
-        "💥 *OPORTUNIDAD FEBRERO 2025*\n\n🏢 *NUESTROS SERVICIOS EXPLICADOS SIMPLE:*\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🌐 *A) TU WEB PROPIA*\n*$75.000* (pago único)\n\nTu página \"www.tunegocio.com.ar\" donde mostrás todo lo que hacés.\n\n*Tenés:*\n• Diseño profesional\n• Dominio incluido\n• Hosting incluido\n• Seguridad SSL\n• Cambios gratis por 1 año\n• Soporte técnico\n\n*Después:* $25.000/trimestre.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📍 *B) APARECER EN GOOGLE*\n*$75.000* (pago único)\n\nQue te encuentren cuando busquen tu rubro en tu zona.\n\n*Tenés:*\n• Google Analytics (ver visitas)\n• Search Console (ver búsquedas)\n• Google Maps optimizado\n• SEO Técnico completo\n• Indexación desde el día 1\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📱 *C) REDES SOCIALES*\n*$75.000/mes*\n\nNos encargamos de tus redes.\n\n*Tenés:*\n• Contenido (posts, stories, reels)\n• Diseños gráficos\n• Publicación programada\n• Respuestas a mensajes\n• Estrategia mensual\n• Reportes\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🤖 *D) BOT CON INTELIGENCIA ARTIFICIAL*\n*$200.000* + *$5.000-$10.000/mes*\n\nAsistente que atiende WhatsApp 24hs como si fueras vos.\n\n*Puede:*\n• Responder consultas automáticamente\n• Agendar turnos\n• Validar comprobantes de pago\n• Guiar hasta la compra\n• Panel de control incluido\n\n*Incluye:* 6 meses de ajustes.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎁 *TODO JUNTO: $320.000* + mensuales\nAhorrás $30.000.\n\n🎯 Hacemos que más gente que te contacte se convierta en cliente.",
-
-        "⚡ *FEBRERO 2025 - SERVICIOS NEXTE*\n\nTe cuento qué podemos hacer por tu negocio:\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🌐 *WEB PROFESIONAL* → *$75.000*\n\nTu sitio www.tunegocio.com.ar con todo incluido por 1 año:\n• Diseño + dominio + hosting + SSL\n• Cambios ilimitados\n• Soporte técnico\n\nRenovación: $25.000 cada 3 meses.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📍 *GOOGLE + SEO* → *$75.000*\n\nQue aparezcas cuando busquen tu rubro:\n• Analytics + Search Console\n• Google Maps optimizado\n• SEO Técnico\n• Indexación inmediata\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📱 *REDES SOCIALES* → *$75.000/mes*\n\nManejamos tus redes:\n• Contenido + diseños\n• Publicación + respuestas\n• Estrategia mensual\n• Reportes\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🤖 *BOT INTELIGENTE* → *$200.000* + servidor\n\nAsistente 24hs en WhatsApp:\n• Responde como vos\n• Agenda turnos\n• Valida pagos\n• Panel de control\n\nIncluye 6 meses de ajustes.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎁 *COMBO TOTAL: $320.000* + mensuales\nAhorro de $30.000.\n\n🎯 Todo pensado para convertir contactos en clientes.",
-
-        "🔥 *PROMO NEXTE - FEBRERO 2025*\n\nServicios para digitalizar tu negocio:\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🌐 *1. PÁGINA WEB*\nPrecio: *$75.000* (una vez)\n\nTu sitio propio con dominio, hosting, diseño, cambios por 1 año y soporte incluido.\n\nDespués del año: $25.000/trimestre.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📍 *2. POSICIONAMIENTO GOOGLE*\nPrecio: *$75.000* (una vez)\n\nAnalytics, Search Console, Maps, SEO técnico e indexación inmediata.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📱 *3. REDES SOCIALES*\nPrecio: *$75.000/mes*\n\nContenido, diseños, publicación, respuestas, estrategia y reportes.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🤖 *4. BOT INTELIGENTE*\nPrecio: *$200.000* + servidor mensual\n\nAtiende WhatsApp 24hs, agenda turnos, valida pagos. Incluye 6 meses de ajustes.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎁 *PACK COMPLETO: $320.000*\nTodo junto con $30k de descuento.\n\n🎯 Nuestro objetivo: que cada contacto se convierta en venta.",
-
-        "✨ *SERVICIOS FEBRERO 2025*\n\nTe cuento nuestras opciones:\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🌐 *WEB COMPLETA* → *$75.000*\nDiseño + dominio + hosting + cambios x1 año + soporte.\nRenovación: $25.000/trimestre.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📍 *GOOGLE + SEO* → *$75.000*\nAnalytics + Search Console + Maps + SEO + indexación.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📱 *REDES SOCIALES* → *$75.000/mes*\nContenido + diseños + publicación + respuestas + reportes.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🤖 *BOT INTELIGENTE* → *$200.000 + servidor*\nAsistente 24hs que atiende, agenda y valida pagos. 6 meses de ajustes incluidos.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎁 *COMBO: $320.000* + mensuales (ahorrás $30k)\n\n🎯 Convertimos contactos en clientes.",
-
-        "🎯 *QUÉ OFRECEMOS - FEBRERO 2025*\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🌐 *PÁGINA WEB:* $75.000\nTodo incluido por 1 año (diseño, dominio, hosting, cambios, soporte).\nDespués: $25.000/trimestre.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📍 *GOOGLE + SEO:* $75.000\nAnalytics, Search Console, Maps, SEO técnico, indexación.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📱 *REDES:* $75.000/mes\nContenido, diseños, publicación, respuestas, reportes.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🤖 *BOT IA:* $200.000 + $5k-$10k/mes\nAsistente 24hs, agenda turnos, valida pagos. 6 meses de ajustes.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎁 *TODO JUNTO:* $320.000 + mensuales\nAhorrás $30.000.\n\n🎯 Objetivo: que más gente que te contacte se convierta en cliente.",
-
-        "💪 *PROMO FEBRERO - NEXTE MARKETING*\n\nEsto es lo que hacemos:\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🌐 *TU WEB:* $75.000\n• Diseño + dominio + hosting + SSL\n• Cambios ilimitados 1 año\n• Soporte incluido\n• Renovación: $25k/trimestre\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📍 *GOOGLE:* $75.000\n• Analytics + Search Console\n• Maps + SEO técnico\n• Indexación inmediata\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📱 *REDES:* $75.000/mes\n• Contenido + diseños\n• Publicación + respuestas\n• Estrategia + reportes\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🤖 *BOT IA:* $200.000 + servidor\n• Atiende 24hs\n• Agenda turnos\n• Valida pagos\n• 6 meses de ajustes\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎁 *PACK COMPLETO:* $320.000 (-$30k)\n\n🎯 Todo orientado a conseguirte más clientes.",
-
-        "🌟 *FEBRERO 2025 - OFERTAS NEXTE*\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n*A) WEB PROFESIONAL* → $75.000\nDiseño, dominio, hosting, seguridad, cambios x1 año, soporte.\nRenovación: $25.000/trimestre.\n\n*B) GOOGLE + SEO* → $75.000\nAnalytics, Search Console, Maps, SEO, indexación día 1.\n\n*C) REDES SOCIALES* → $75.000/mes\nContenido, diseños, publicación, respuestas, reportes.\n\n*D) BOT INTELIGENTE* → $200.000 + servidor\nWhatsApp 24hs, turnos, validación de pagos, panel. 6 meses de ajustes.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎁 *COMBO: $320.000* + mensuales\nAhorro de $30.000.\n\n🎯 Todo para convertir contactos en ventas.",
-
-        "🏆 *SERVICIOS NEXTE - PROMO FEBRERO*\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🌐 *WEB:* $75.000 (1 pago)\nIncluye: diseño, dominio, hosting, SSL, cambios 1 año, soporte.\nRenovación: $25k cada 3 meses.\n\n📍 *GOOGLE:* $75.000 (1 pago)\nIncluye: Analytics, Search Console, Maps, SEO, indexación.\n\n📱 *REDES:* $75.000/mes\nIncluye: contenido, diseños, publicación, respuestas, reportes.\n\n🤖 *BOT:* $200.000 + servidor mensual\nIncluye: atención 24hs, turnos, validación pagos, panel. 6 meses de ajustes.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎁 *PACK:* $320.000 + mensuales (-$30k)\n\n🎯 Foco en resultados: más clientes para vos."
+      // Mensaje 8 - Cierre
+      [
+        "Cualquier consulta, estoy disponible",
+        "Cualquier pregunta, estoy disponible",
+        "Cualquier duda, estoy disponible",
+        "Cualquier consulta, estoy disponible",
+        "Cualquier pregunta, estoy disponible"
       ]
-      // NOTA: Los mensajes se generan dinámicamente desde bot/services/advancedTemplateGenerator.js
-      // Este array no se usa directamente para enviar mensajes
 
     ];
 
@@ -356,8 +378,6 @@ class WhatsAppBot {
         clientId: this.instanceId,
         dataPath: sessionsDir
       }),
-      // webVersionCache removido - la URL 2.2412.54 ya no existe (404)
-      // whatsapp-web.js usará la versión por defecto
       puppeteer: {
         ...stealthPuppeteerConfig,
         args: [
@@ -383,15 +403,28 @@ class WhatsAppBot {
     });
 
     this.client.on('loading_screen', (percent, message) => {
-      console.log(`⏳ Loading screen: ${percent}% - ${message}`);
+      console.log(`⏳ [${this.instanceId}] Loading screen: ${percent}% - ${message}`);
+      console.log(`🔍 [DEBUG] loading_screen event fired at ${new Date().toISOString()}`);
     });
 
     this.client.on('state_changed', (state) => {
-      console.log(`📶 Estado de WhatsApp: ${state}`);
+      console.log(`📶 [${this.instanceId}] Estado de WhatsApp: ${state}`);
+      console.log(`🔍 [DEBUG] state_changed to ${state} at ${new Date().toISOString()}`);
+    });
+
+    this.client.on('authenticated', () => {
+      console.log(`🔐 [${this.instanceId}] Authenticated event fired!`);
+      // Intentar capturar logs del navegador si es posible
+      if (this.client.pupPage) {
+        console.log('🔧 [DEBUG] Attaching to browser console...');
+        this.client.pupPage.on('console', msg => console.log('🌍 [BROWSER LOG]:', msg.text()));
+        this.client.pupPage.on('pageerror', err => console.log('🌍 [BROWSER ERROR]:', err));
+      }
     });
 
     this.client.on('ready', async () => {
-      console.log('✅ WhatsApp Bot listo!');
+      console.log(`✅ [${this.instanceId}] WhatsApp Bot listo!`);
+      console.log(`🔍 [DEBUG] ready event FIRED at ${new Date().toISOString()}`);
       // La bandera isReady se activará al final de la inicialización
 
       // 🔑 MULTI-BOT: Capturar número conectado
@@ -443,7 +476,7 @@ class WhatsAppBot {
       };
 
       console.log('⏱️ Inicializando Rate Limiter...');
-      this.rateLimiter = new IntelligentRateLimiter(this.instanceId);
+      this.rateLimiter = new IntelligentRateLimiter();
 
       console.log('👤 Human Behavior Simulator: ACTIVO');
       console.log('📊 Response Analyzer: ACTIVO');
@@ -490,6 +523,8 @@ class WhatsAppBot {
 
     this.client.on('authenticated', () => {
       console.log('🔐 WhatsApp autenticado');
+      console.log(`🔍 [DEBUG] authenticated event at ${new Date().toISOString()}`);
+      console.log(`🔍 [DEBUG] Waiting for 'ready' event...`);
     });
 
     this.client.on('auth_failure', (msg) => {
@@ -499,12 +534,6 @@ class WhatsAppBot {
     this.client.on('disconnected', async (reason) => {
       console.log('🔌 WhatsApp desconectado:', reason);
       this.isReady = false;
-
-      // Notificar al servidor el motivo de la desconexión para estadísticas de historial
-      this.socket.emit('bot_disconnection', {
-        instanceId: this.instanceId,
-        reason: reason
-      });
 
       // EVITAR CRASH EBUSY: No destruir cliente inmediatamente si es LOGOUT temporal
       if (reason === 'LOGOUT') {
@@ -746,7 +775,7 @@ class WhatsAppBot {
 
   // Función para loggear
   log(message, level = 'info', details = null, leadId = null) {
-    const timestamp = argTime(); // 🇦🇷 Hora Argentina
+    const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] ${message}`);
 
     // Enviar log al backend
@@ -811,9 +840,6 @@ class WhatsAppBot {
             await this.updateLeadStatus(lead.id, 'contacted', lead.name);
             this.consecutiveAttempts = 0;
             this.lastProcessedLead = null;
-
-            // 🔧 FIX: Liberar el flag ANTES de pasar al siguiente
-            this.isProcessing = false;
 
             // Pasar inmediatamente al siguiente
             setTimeout(() => {

@@ -348,7 +348,7 @@ class WhatsAppBot {
     // ✅ CONFIGURACIÓN PUPPETEER ESTABILIZADA
     // Se han eliminado flags experimentales que causaban crashes
     const stealthPuppeteerConfig = {
-      headless: process.env.HEADLESS === 'true' ? "new" : false,
+      headless: process.env.HEADLESS === 'true' ? "shell" : false,
       executablePath: process.env.CHROME_PATH || undefined,
       bypassCSP: true, // 🛡️ FIX CRÍTICO: Evita "Execution context was destroyed"
       ignoreHTTPSErrors: true,
@@ -360,8 +360,8 @@ class WhatsAppBot {
         '--no-first-run',
         '--no-zygote',
         '--disable-gpu',
-        '--disable-gpu',
-        '--disable-extensions'
+        '--disable-extensions',
+        '--disable-web-security'
       ],
       defaultViewport: null,
       timeout: 60000
@@ -378,8 +378,6 @@ class WhatsAppBot {
         clientId: this.instanceId,
         dataPath: sessionsDir
       }),
-      // webVersionCache removido - la URL 2.2412.54 ya no existe (404)
-      // whatsapp-web.js usará la versión por defecto
       puppeteer: {
         ...stealthPuppeteerConfig,
         args: [
@@ -405,15 +403,28 @@ class WhatsAppBot {
     });
 
     this.client.on('loading_screen', (percent, message) => {
-      console.log(`⏳ Loading screen: ${percent}% - ${message}`);
+      console.log(`⏳ [${this.instanceId}] Loading screen: ${percent}% - ${message}`);
+      console.log(`🔍 [DEBUG] loading_screen event fired at ${new Date().toISOString()}`);
     });
 
     this.client.on('state_changed', (state) => {
-      console.log(`📶 Estado de WhatsApp: ${state}`);
+      console.log(`📶 [${this.instanceId}] Estado de WhatsApp: ${state}`);
+      console.log(`🔍 [DEBUG] state_changed to ${state} at ${new Date().toISOString()}`);
+    });
+
+    this.client.on('authenticated', () => {
+      console.log(`🔐 [${this.instanceId}] Authenticated event fired!`);
+      // Intentar capturar logs del navegador si es posible
+      if (this.client.pupPage) {
+        console.log('🔧 [DEBUG] Attaching to browser console...');
+        this.client.pupPage.on('console', msg => console.log('🌍 [BROWSER LOG]:', msg.text()));
+        this.client.pupPage.on('pageerror', err => console.log('🌍 [BROWSER ERROR]:', err));
+      }
     });
 
     this.client.on('ready', async () => {
-      console.log('✅ WhatsApp Bot listo!');
+      console.log(`✅ [${this.instanceId}] WhatsApp Bot listo!`);
+      console.log(`🔍 [DEBUG] ready event FIRED at ${new Date().toISOString()}`);
       // La bandera isReady se activará al final de la inicialización
 
       // 🔑 MULTI-BOT: Capturar número conectado
@@ -512,6 +523,8 @@ class WhatsAppBot {
 
     this.client.on('authenticated', () => {
       console.log('🔐 WhatsApp autenticado');
+      console.log(`🔍 [DEBUG] authenticated event at ${new Date().toISOString()}`);
+      console.log(`🔍 [DEBUG] Waiting for 'ready' event...`);
     });
 
     this.client.on('auth_failure', (msg) => {
@@ -521,12 +534,6 @@ class WhatsAppBot {
     this.client.on('disconnected', async (reason) => {
       console.log('🔌 WhatsApp desconectado:', reason);
       this.isReady = false;
-
-      // Notificar al servidor el motivo de la desconexión para estadísticas de historial
-      this.socket.emit('bot_disconnection', {
-        instanceId: this.instanceId,
-        reason: reason
-      });
 
       // EVITAR CRASH EBUSY: No destruir cliente inmediatamente si es LOGOUT temporal
       if (reason === 'LOGOUT') {
@@ -692,15 +699,15 @@ class WhatsAppBot {
     }
   }
 
-    startLeadProcessing() {
+  startLeadProcessing() {
     console.log('[SMART LOOP] 🚀 Iniciando ciclo de procesamiento inteligente...');
-    
+
     // Función de ciclo inteligente (reemplaza a scheduleNextProcessing)
     const smartLoop = async () => {
       // 1. Evitar superposición
       if (this.isProcessing) {
         console.log('[SMART LOOP] ⏳ Ya existe proceso activo. Reintentando en 30s...');
-        this.processingTimer = setTimeout(smartLoop, 30000); 
+        this.processingTimer = setTimeout(smartLoop, 30000);
         return;
       }
 
@@ -708,55 +715,55 @@ class WhatsAppBot {
       // Esto nos permite dormir el tiempo EXACTO si estamos limitados
       try {
         const rateStatus = await this.rateLimiter.canSendNow();
-        
+
         if (!rateStatus.allowed) {
-            const now = Date.now();
-            let waitTime = 3600000; // Default 1 hora (para daily limit o fallo)
-            let reason = rateStatus.reason || 'unknown';
+          const now = Date.now();
+          let waitTime = 3600000; // Default 1 hora (para daily limit o fallo)
+          let reason = rateStatus.reason || 'unknown';
 
-            if (rateStatus.nextAvailable) {
-                const targetTime = new Date(rateStatus.nextAvailable).getTime();
-                waitTime = Math.max(0, targetTime - now);
-                // Agregar jitter humano (10-30 seg) para no ser robótico al despertar
-                waitTime += (Math.random() * 20000) + 10000;
-                reason = 'outside_business_hours';
-            } else if (rateStatus.reason === 'daily_limit_reached') {
-                 // Si alcanzamos límite diario, checkear cada 1 hora por si resetean manual
-                 waitTime = 60 * 60 * 1000; 
-            }
+          if (rateStatus.nextAvailable) {
+            const targetTime = new Date(rateStatus.nextAvailable).getTime();
+            waitTime = Math.max(0, targetTime - now);
+            // Agregar jitter humano (10-30 seg) para no ser robótico al despertar
+            waitTime += (Math.random() * 20000) + 10000;
+            reason = 'outside_business_hours';
+          } else if (rateStatus.reason === 'daily_limit_reached') {
+            // Si alcanzamos límite diario, checkear cada 1 hora por si resetean manual
+            waitTime = 60 * 60 * 1000;
+          }
 
-            // Log detallado
-            const waitMin = (waitTime / 60000).toFixed(1);
-            console.log(`[SMART LOOP] ⏸️ Rate Limit (${reason}). Durmiendo ${waitMin} min hasta próxima ventana.`);
-            
-            this.processingTimer = setTimeout(smartLoop, waitTime);
-            return;
+          // Log detallado
+          const waitMin = (waitTime / 60000).toFixed(1);
+          console.log(`[SMART LOOP] ⏸️ Rate Limit (${reason}). Durmiendo ${waitMin} min hasta próxima ventana.`);
+
+          this.processingTimer = setTimeout(smartLoop, waitTime);
+          return;
         }
 
         // 3. Ejecutar procesamiento (Rate Limit OK)
         // await processNextLead maneja su propio try/catch interno pero lo envolvemos por seguridad
-        await this.processNextLead(); 
+        await this.processNextLead();
 
       } catch (e) {
-         console.error('[SMART LOOP] ❌ Error crítico en ciclo:', e);
+        console.error('[SMART LOOP] ❌ Error crítico en ciclo:', e);
       }
 
       // 4. Calcular próximo ciclo (Normal)
       // Si procesamos (o intentamos), dormimos un intervalo "humano" de polling
       // Base: valor del .env (default 5 min)
-      
+
       const baseInterval = this.interval || 300000;
-      
+
       // Factor aleatorio (0.8x a 1.2x) - Menos varianza que antes (0.5-2.0 era mucho)
-      const factor = 0.8 + (Math.random() * 0.4); 
+      const factor = 0.8 + (Math.random() * 0.4);
       // Jitter pequeño (-30s a +60s)
       const jitter = (Math.random() * 90000) - 30000;
-      
+
       let nextDelay = Math.floor((baseInterval * factor) + jitter);
       // Mínimo 2 minutos siempre para no saturar si baseInterval es bajo
       nextDelay = Math.max(120000, nextDelay);
 
-      console.log(`[SMART LOOP] ✅ Ciclo finalizado. Próximo chequeo en ${(nextDelay/60000).toFixed(1)} min`);
+      console.log(`[SMART LOOP] ✅ Ciclo finalizado. Próximo chequeo en ${(nextDelay / 60000).toFixed(1)} min`);
       this.processingTimer = setTimeout(smartLoop, nextDelay);
     };
 

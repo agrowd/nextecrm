@@ -12,7 +12,8 @@ const targetDirs = [
 const filesToSync = [
     'services/advancedTemplateGenerator.js',
     'services/aiTextGenerator.js',
-    'package.json'
+    'package.json',
+    'index.js'
 ];
 
 console.log('🤖 INICIANDO SINCRONIZACIÓN DE BOTS DESDE BOT_2...');
