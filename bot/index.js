@@ -28,6 +28,8 @@ LocalAuth.prototype.logout = async function () {
 const phoneValidator = require('./services/phoneValidator');
 const WhatsAppChecker = require('./services/whatsappChecker');
 const StatsTracker = require('./services/statsTracker');
+// ✅ NUEVO: Profile Manager
+const ProfileManager = require('./services/profileManager');
 
 // ✅ NUEVOS SERVICIOS INTEGRADOS
 const AITextGenerator = require('./services/aiTextGenerator');
@@ -371,6 +373,16 @@ class WhatsAppBot {
     if (process.env.PROXY_SERVER) {
       stealthPuppeteerConfig.args.push(`--proxy-server=${process.env.PROXY_SERVER}`);
       console.log(`🛡️ Usando Proxy: ${process.env.PROXY_SERVER}`);
+    }
+
+    // 🧹 LIMPIEZA AUTOMÁTICA DE BLOQUEOS (Profile Auto-Cleanup)
+    try {
+      if (ProfileManager && typeof ProfileManager.cleanProfileLocks === 'function') {
+        const profilePath = path.join(sessionsDir, 'browser-' + this.instanceId);
+        ProfileManager.cleanProfileLocks(sessionsDir, this.instanceId);
+      }
+    } catch (e) {
+      console.warn('⚠️ Error cleaning profile locks:', e.message);
     }
 
     this.client = new Client({

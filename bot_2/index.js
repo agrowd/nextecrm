@@ -29,6 +29,8 @@ const phoneValidator = require('./services/phoneValidator');
 const WhatsAppChecker = require('./services/whatsappChecker');
 const StatsTracker = require('./services/statsTracker');
 
+const ProfileManager = require('./services/profileManager');
+
 // ✅ NUEVOS SERVICIOS INTEGRADOS
 const AITextGenerator = require('./services/aiTextGenerator');
 const IntelligentRateLimiter = require('./services/rateLimiter');
