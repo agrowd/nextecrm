@@ -1,5 +1,19 @@
 # 📜 SYSTEM CHANGELOG
 
+## [2026-02-11] - Lead Burning Prevention
+### Fixed
+- **session_dead Detection:** Inner catch blocks in `quickVerify` now detect browser crashes and return `session_dead` instead of false `quick_not_registered`. (`ee23cb3`)
+- **QuickVerify False Negatives:** Replaced blind trust in `isRegisteredUser()` with message history check (`fetchMessages`). No longer burns WhatsApp Business accounts. (`872359d`)
+- **Response Detection via LID:** In-memory lead tracking replaces broken HTTP lookup. Bot now stops sending when client responds. (`41b7e10`)
+
+### Added
+- **Recovery Script:** `server/recover-burned-bot1.js` for 6 leads burned by quickVerify false negatives.
+- **`currentlyProcessingLead` Property:** All 4 bots track the active lead in memory with `stopSending` flag.
+
+### ⚠️ Lessons Learned
+- `sendMessage('.')` as trial verification is WRONG — creates chats for any number, even invalid ones. (D-19)
+- `isRegisteredUser()` returns ~43% false negatives for WhatsApp Business accounts.
+
 ## [Unreleased] - 2026-02-05
 ### Added
 - **Smart Sleep Loop:** Bot now sleeps exact duration required by RateLimiter instead of random polling. Zero dead time.

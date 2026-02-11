@@ -1,8 +1,29 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-02-05 (08:40 Argentina)
+## Current Session: 2026-02-11 (20:00 Argentina)
+- **Objective:** Fix 3 critical bot issues causing lead burning (false negatives, LID lookup, spam on response).
+- **Status:** ✅ FIXES PUSHED (3 commits) — Awaiting VPS deploy.
+
+## Fixes Applied This Session
+
+### 11. session_dead Detection Fix (ERR-06)
+- **Commit:** `ee23cb3` — Inner catch blocks now detect detached/closed errors and return `session_dead`.
+
+### 12. QuickVerify False Negatives Fix (ERR-07, D-19)
+- **Commit:** `41b7e10` + `872359d` — When quickVerify says no, check last 100 messages. If we already sent → `contacted`. If no history → `check_failed`.
+- **⚠️ Lección:** `sendMessage('.')` crea chats para CUALQUIER número. No es verificación válida.
+
+### 13. In-Memory Lead Tracking + Stop on Response (ERR-08, D-20)
+- **Commit:** `41b7e10` — `currentlyProcessingLead` con flag `stopSending`. Message handler resuelve LID y compara. Secuencia se corta al recibir respuesta.
+
+### 14. Recovery Script (Bot 1)
+- **Archivo:** `server/recover-burned-bot1.js` — 6 leads quemados por falsos negativos.
+
+---
+
+## Previous Session: 2026-02-05 (08:40 Argentina)
 - **Objective:** Fix bot_1 not sending + bot_2 WAPhoneUtils error.
-- **Status:** ✅ FIXES PUSHED - Awaiting VPS rebuild.
+- **Status:** ✅ FIXES PUSHED.
 
 ## Fixes Applied This Session
 
