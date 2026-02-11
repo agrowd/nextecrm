@@ -342,6 +342,11 @@ class WhatsAppChecker {
         } catch (err) {
           attempts++;
           console.log(`⚠️ Falló isRegisteredUser (${phoneNumber}) intento ${attempts}: ${err.message}`);
+          // 🔥 DETECCIÓN INMEDIATA: Si Chrome crasheó, NO seguir intentando
+          if (err.message.includes('detached') || err.message.includes('Target closed') || err.message.includes('Session closed')) {
+            console.error(`🔥 [quickVerify] SESIÓN MUERTA en isRegisteredUser: ${err.message}`);
+            return { valid: false, method: 'session_dead', error: err.message };
+          }
           if (attempts < maxAttempts) await this.sleep(1000); // Wait 1s before retry
         }
       }
@@ -358,6 +363,11 @@ class WhatsAppChecker {
           }
         } catch (e) {
           console.log(`❌ getNumberId también falló: ${e.message}`);
+          // 🔥 DETECCIÓN INMEDIATA: Si Chrome crasheó, NO marcar como no_whatsapp
+          if (e.message.includes('detached') || e.message.includes('Target closed') || e.message.includes('Session closed')) {
+            console.error(`🔥 [quickVerify] SESIÓN MUERTA en getNumberId: ${e.message}`);
+            return { valid: false, method: 'session_dead', error: e.message };
+          }
         }
       }
 
