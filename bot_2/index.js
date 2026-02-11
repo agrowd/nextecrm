@@ -1100,14 +1100,23 @@ class WhatsAppBot {
           console.error(`      🔥 SESIÓN MUERTA detectada en QuickVerify. NO marcando lead como inválido.`);
           console.error(`      🔥 Error: ${quickCheck.error}`);
           this.log(`🔥 Sesión muerta detectada durante QuickVerify. Abortando procesamiento.`, 'error');
-          // NO actualizamos el estado del lead - dejamos que se vuelva a intentar
           throw new Error(`SESSION_DEAD: ${quickCheck.error}`);
         }
-        console.log(`      ❌ Número NO registrado en WhatsApp.`);
-        this.log(`❌ ${phoneNumber} NO tiene WhatsApp registrado`, 'warn', null, lead.id);
-        this.statsTracker.trackLead(lead, 'invalid', { method: 'quick_verify' });
-        await this.updateLeadStatus(lead.id, 'not_interested', lead.name);
-        return { success: false, reason: 'no_whatsapp' };
+        // 🛡️ FIX FALSOS NEGATIVOS: isRegisteredUser es poco confiable con WhatsApp Business.
+        console.log(`      ⚠️ QuickVerify negativo (${quickCheck.method}). Intentando envío de prueba...`);
+        try {
+          const trialResult = await this.client.sendMessage(whatsappFormat, '.');
+          if (trialResult && trialResult.id) {
+            console.log(`      ✅ FALSO NEGATIVO CONFIRMADO: Mensaje de prueba enviado OK a ${phoneNumber}`);
+            console.log(`      ℹ️ QuickVerify dijo no_registered pero el número SÍ tiene WhatsApp.`);
+          }
+        } catch (trialError) {
+          console.log(`      ❌ Número confirmado SIN WhatsApp (envío falló: ${trialError.message})`);
+          this.log(`❌ ${phoneNumber} NO tiene WhatsApp (confirmado por envío fallido)`, 'warn', null, lead.id);
+          this.statsTracker.trackLead(lead, 'invalid', { method: 'trial_send_failed' });
+          await this.updateLeadStatus(lead.id, 'check_failed', lead.name);
+          return { success: false, reason: 'no_whatsapp_confirmed' };
+        }
       }
 
       if (quickCheck.hasConversation) {
@@ -1150,6 +1159,14 @@ class WhatsAppBot {
 
       // ✅ ENVIAR SECUENCIA CON HUMAN BEHAVIOR
       console.log(`   5️⃣ Iniciando envío secuencial con simulación humana...`);
+      // 🛡️ FIX: Trackear el lead actual en memoria para detectar respuestas sin depender de HTTP
+      this.currentlyProcessingLead = {
+        phone: phoneNumber,
+        whatsappFormat: whatsappFormat,
+        lead: lead,
+        stopSending: false,
+        respondedAt: null
+      };
       for (let i = 0; i < messages.length; i++) {
         const message = messages[i];
         console.log(`      --- Procesando Mensaje ${i + 1}/${messages.length} ---`);
@@ -1158,6 +1175,13 @@ class WhatsAppBot {
         if (this.abortCurrentSequence) {
           console.log(`      ⛔ SECUENCIA ABORTADA - Rechazo detectado del lead`);
           this.abortCurrentSequence = false; // Reset flag
+          break;
+        }
+
+        // 0.1 VERIFICAR SI EL LEAD RESPONDIÓ (detectado in-memory)
+        if (this.currentlyProcessingLead && this.currentlyProcessingLead.stopSending) {
+          console.log(`      🛑 SECUENCIA CORTADA — Cliente respondió durante el envío`);
+          console.log(`      📨 Respondió a las: ${this.currentlyProcessingLead.respondedAt}`);
           break;
         }
 
@@ -1332,6 +1356,9 @@ class WhatsAppBot {
       // Marcar como contactado
       await this.updateLeadStatus(lead.id, 'contacted', lead.name);
       console.log(`   ✅ SECUENCIA COMPLETADA EXITOSAMENTE para ${lead.name}`);
+
+      // 🛡️ FIX: Limpiar tracking in-memory del lead actual
+      this.currentlyProcessingLead = null;
 
       // Mostrar stats del rate limiter
       const stats = await this.rateLimiter.getStats();
@@ -1650,6 +1677,30 @@ class WhatsAppBot {
       const messageBody = message.body;
 
       console.log(`📨 Mensaje recibido de ${contactNumber}: "${messageBody}"`);
+
+      // 🛡️ FIX: Detectar respuesta del lead ACTUALMENTE en procesamiento (in-memory)
+      if (this.currentlyProcessingLead && !this.currentlyProcessingLead.stopSending) {
+        let resolvedNumber = contactNumber;
+        if (contactNumber.includes('@lid')) {
+          try {
+            const chat = await this.client.getChatById(contactNumber);
+            const contact = await chat.getContact();
+            if (contact && contact.number) {
+              resolvedNumber = contact.number + '@c.us';
+            }
+          } catch (e) { /* silenciar */ }
+        }
+        const cleanIncoming = resolvedNumber.replace('@c.us', '').replace(/\D/g, '');
+        const cleanCurrent = this.currentlyProcessingLead.phone.replace(/\D/g, '');
+        if (cleanIncoming === cleanCurrent || cleanIncoming.endsWith(cleanCurrent) || cleanCurrent.endsWith(cleanIncoming)) {
+          console.log(`🛑 RESPUESTA DETECTADA del lead actual (${this.currentlyProcessingLead.lead.name})!`);
+          console.log(`   📞 Número entrante: ${contactNumber} → resuelto: ${resolvedNumber}`);
+          console.log(`   📞 Lead actual: ${this.currentlyProcessingLead.phone}`);
+          this.currentlyProcessingLead.stopSending = true;
+          this.currentlyProcessingLead.respondedAt = new Date().toISOString();
+          this.abortCurrentSequence = true;
+        }
+      }
 
       // ✅ ANALIZAR RESPUESTA CON IA
       const analysis = await this.responseAnalyzer.isRejection(messageBody);
