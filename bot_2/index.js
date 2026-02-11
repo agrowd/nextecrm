@@ -1103,19 +1103,37 @@ class WhatsAppBot {
           throw new Error(`SESSION_DEAD: ${quickCheck.error}`);
         }
         // 🛡️ FIX FALSOS NEGATIVOS: isRegisteredUser es poco confiable con WhatsApp Business.
-        console.log(`      ⚠️ QuickVerify negativo (${quickCheck.method}). Intentando envío de prueba...`);
+        // Paso 1: Revisar últimos 100 mensajes del chat para ver si ya le enviamos algo.
+        console.log(`      ⚠️ QuickVerify negativo (${quickCheck.method}). Revisando historial de chat...`);
+        let hasExistingMessages = false;
         try {
-          const trialResult = await this.client.sendMessage(whatsappFormat, '.');
-          if (trialResult && trialResult.id) {
-            console.log(`      ✅ FALSO NEGATIVO CONFIRMADO: Mensaje de prueba enviado OK a ${phoneNumber}`);
-            console.log(`      ℹ️ QuickVerify dijo no_registered pero el número SÍ tiene WhatsApp.`);
+          const existingChat = await this.client.getChatById(whatsappFormat);
+          if (existingChat) {
+            const chatMessages = await existingChat.fetchMessages({ limit: 100 });
+            const sentByUs = chatMessages.filter(m => m.fromMe);
+            if (sentByUs.length > 0) {
+              hasExistingMessages = true;
+              console.log(`      ✅ FALSO NEGATIVO: Encontrados ${sentByUs.length} mensajes enviados por nosotros.`);
+              console.log(`      ℹ️ QuickVerify dijo no_registered pero YA le enviamos mensajes.`);
+              console.log(`      ⚠️ Marcando como 'contacted' para no re-enviar.`);
+              this.statsTracker.trackLead(lead, 'existing_conversation', { method: 'history_check' });
+              await this.updateLeadStatus(lead.id, 'contacted', lead.name);
+              return { success: false, reason: 'already_contacted_history' };
+            } else {
+              console.log(`      ℹ️ Chat existe pero sin mensajes nuestros. Posible falso negativo.`);
+            }
           }
-        } catch (trialError) {
-          console.log(`      ❌ Número confirmado SIN WhatsApp (envío falló: ${trialError.message})`);
-          this.log(`❌ ${phoneNumber} NO tiene WhatsApp (confirmado por envío fallido)`, 'warn', null, lead.id);
-          this.statsTracker.trackLead(lead, 'invalid', { method: 'trial_send_failed' });
+        } catch (chatError) {
+          console.log(`      ⚠️ No se pudo obtener historial: ${chatError.message}`);
+        }
+
+        // Paso 2: Si no hay historial, marcar como check_failed para reintentar después.
+        if (!hasExistingMessages) {
+          console.log(`      ❌ Sin historial de mensajes. Marcando como check_failed para reintento.`);
+          this.log(`⚠️ ${phoneNumber} quickVerify negativo sin historial — check_failed`, 'warn', null, lead.id);
+          this.statsTracker.trackLead(lead, 'invalid', { method: 'quick_verify_no_history' });
           await this.updateLeadStatus(lead.id, 'check_failed', lead.name);
-          return { success: false, reason: 'no_whatsapp_confirmed' };
+          return { success: false, reason: 'no_whatsapp_no_history' };
         }
       }
 
