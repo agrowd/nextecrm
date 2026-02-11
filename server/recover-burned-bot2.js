@@ -96,7 +96,7 @@ async function recoverBurnedLeads() {
         // Buscar leads que coincidan con los teléfonos quemados
         const query = {
             phone: { $in: BURNED_PHONES },
-            status: { $in: ['not_interested', 'no_whatsapp', 'failed', 'check_failed'] }
+            status: { $in: ['not_interested', 'no_whatsapp', 'failed', 'check_failed', 'processing'] }
         };
 
         const burnedLeads = await Lead.find(query).lean();
