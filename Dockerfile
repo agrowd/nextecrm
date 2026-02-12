@@ -52,6 +52,12 @@ COPY bot_3/package*.json ./bot_3/
 COPY bot_4/package*.json ./bot_4/
 COPY server/package*.json ./server/
 
+# Variables de entorno para Puppeteer (ANTES de npm install para evitar descarga de Chrome)
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV CHROME_PATH=/usr/bin/chromium
+
 # Instalar dependencias del root
 RUN npm install
 
@@ -68,9 +74,7 @@ RUN npm install -g pm2 serve
 # Copiar el resto del código
 COPY . .
 
-# Variables de entorno para Puppeteer
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+# (Variables de Puppeteer ya definidas arriba, antes del npm install)
 
 # Exponer puertos
 EXPOSE 8484 8485

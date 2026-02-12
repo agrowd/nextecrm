@@ -14,6 +14,9 @@ services:
       - PORT=8484
       - HEADLESS=true
       - BACKEND_URL=http://127.0.0.1:8484
+      - CHROME_PATH=/usr/bin/chromium
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
     volumes:
       - ./logs:/app/logs
       - ./sessions:/app/sessions
