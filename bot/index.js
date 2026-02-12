@@ -350,7 +350,7 @@ class WhatsAppBot {
     // ✅ CONFIGURACIÓN PUPPETEER ESTABILIZADA
     // Se han eliminado flags experimentales que causaban crashes
     const stealthPuppeteerConfig = {
-      headless: process.env.HEADLESS === 'true' ? "shell" : false,
+      headless: process.env.HEADLESS === 'true' ? true : false,
       executablePath: process.env.CHROME_PATH || undefined,
       bypassCSP: true, // 🛡️ FIX CRÍTICO: Evita "Execution context was destroyed"
       ignoreHTTPSErrors: true,
@@ -392,6 +392,7 @@ class WhatsAppBot {
       }),
       // webVersionCache REMOVIDO — la versión 2.2412.54 ya no existe (404)
       // whatsapp-web.js usará su versión built-in
+      authTimeoutMs: 120000, // 2 min para dar tiempo al QR
       puppeteer: {
         ...stealthPuppeteerConfig,
         args: [
@@ -705,11 +706,27 @@ class WhatsAppBot {
    */
   async initialize() {
     console.log('🚀 Inicializando cliente WhatsApp...');
+    console.log(`🔍 [DEBUG] CHROME_PATH=${process.env.CHROME_PATH}`);
+    console.log(`🔍 [DEBUG] PUPPETEER_EXECUTABLE_PATH=${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+    console.log(`🔍 [DEBUG] HEADLESS=${process.env.HEADLESS}`);
     try {
       await this.client.initialize();
       console.log('✅ initialize() resuelto');
     } catch (error) {
       console.error('❌ Error inicializando WhatsApp:', error);
+      console.error('❌ Error type:', typeof error);
+      console.error('❌ Error stack:', error && error.stack ? error.stack : 'no stack');
+      // Intentar capturar info del browser si existe
+      try {
+        if (this.client && this.client.pupBrowser) {
+          const version = await this.client.pupBrowser.version();
+          console.log(`🔍 [DEBUG] Browser version: ${version}`);
+        } else {
+          console.log('🔍 [DEBUG] pupBrowser is NULL — Chrome never launched successfully');
+        }
+      } catch (e) {
+        console.log(`🔍 [DEBUG] Error getting browser info: ${e.message}`);
+      }
     }
   }
 
