@@ -347,16 +347,16 @@ class WhatsAppBot {
       console.log(`📁 Carpeta de sesiones creada en ${sessionsDir}`);
     }
 
-    // ✅ CONFIGURACIÓN PUPPETEER ESTABILIZADA
-    // Se han eliminado flags experimentales que causaban crashes
+    // ✅ CONFIGURACIÓN PUPPETEER SIMPLIFICADA (INTENTO DE FIX)
     const stealthPuppeteerConfig = {
-      headless: process.env.HEADLESS === 'true' ? true : false,
+      headless: 'shell', // 🐢 LEGACY HEADLESS: Más compatible con Docker
       executablePath: process.env.CHROME_PATH || undefined,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-gpu'
+        '--disable-gpu',
+        '--disable-extensions' // Importante sin Stealth plugin
       ],
       timeout: 60000
     };
