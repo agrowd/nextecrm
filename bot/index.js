@@ -348,15 +348,24 @@ class WhatsAppBot {
     }
 
     // ✅ CONFIGURACIÓN PUPPETEER SIMPLIFICADA (INTENTO DE FIX)
+    const chromePath = '/usr/bin/chromium';
+    console.log(`🔧 [DEBUG] Buscando Chrome en: ${chromePath}`);
+    if (fs.existsSync(chromePath)) {
+      console.log('✅ Chrome encontrado en ruta del sistema.');
+    } else {
+      console.warn('⚠️ Chrome NO encontrado en /usr/bin/chromium. Usando fallback...');
+    }
+
     const stealthPuppeteerConfig = {
       headless: 'shell', // 🐢 LEGACY HEADLESS: Más compatible con Docker
-      executablePath: process.env.CHROME_PATH || undefined,
+      executablePath: process.env.CHROME_PATH || chromePath,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
-        '--disable-extensions' // Importante sin Stealth plugin
+        '--disable-extensions',
+        '--disable-software-rasterizer' // Añadido para prevenir problemas de GPU
       ],
       timeout: 60000
     };
