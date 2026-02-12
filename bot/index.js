@@ -395,6 +395,7 @@ class WhatsAppBot {
       authTimeoutMs: 120000, // 2 min para dar tiempo al QR
       puppeteer: {
         ...stealthPuppeteerConfig,
+        dumpio: true, // 🐛 DEBUG: Ver logs de Chrome en consola
         args: [
           ...stealthPuppeteerConfig.args,
           `--user-data-dir=${path.join(sessionsDir, 'browser-' + this.instanceId)}`
@@ -606,9 +607,26 @@ class WhatsAppBot {
     // Iniciar realmente el cliente
     console.log('🏁 Fin de configuración de eventos. Llamando a initialize()...');
     try {
-      await this.initialize();
+      // 🐛 DEBUG: Timeout explícito para detectar hangs
+      const initPromise = this.client.initialize();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('❌ TIMEOUT FATAL: client.initialize() tardó más de 60s')), 60000)
+      );
+
+      await Promise.race([initPromise, timeoutPromise]);
+      console.log('✅ client.initialize() completado sin errores.');
+
     } catch (err) {
       console.error('❌ Error fatal en init():', err);
+      if (this.client && this.client.pupPage) {
+        try {
+          console.log('📸 Intentando tomar screenshot de error...');
+          await this.client.pupPage.screenshot({ path: path.join(__dirname, 'error_screenshot.png') });
+          console.log('📸 Screenshot guardado en error_screenshot.png');
+        } catch (e) {
+          console.error('No se pudo tomar screenshot:', e.message);
+        }
+      }
     }
   }
 
