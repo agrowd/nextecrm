@@ -352,20 +352,12 @@ class WhatsAppBot {
     const stealthPuppeteerConfig = {
       headless: process.env.HEADLESS === 'true' ? true : false,
       executablePath: process.env.CHROME_PATH || undefined,
-      bypassCSP: true, // 🛡️ FIX CRÍTICO: Evita "Execution context was destroyed"
-      ignoreHTTPSErrors: true,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--disable-gpu',
-        '--disable-extensions',
-        '--disable-web-security'
+        '--disable-gpu'
       ],
-      defaultViewport: null,
       timeout: 60000
     };
 
