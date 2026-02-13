@@ -401,8 +401,7 @@ class WhatsAppBot {
     // 🧹 LIMPIEZA AUTOMÁTICA DE BLOQUEOS (Profile Auto-Cleanup)
     try {
       if (ProfileManager && typeof ProfileManager.cleanProfileLocks === 'function') {
-        const profilePath = path.join(sessionsDir, 'browser-' + this.instanceId);
-        // await ProfileManager.cleanProfileLocks(profilePath); // Desactivado por ahora
+        ProfileManager.cleanProfileLocks(sessionsDir, this.instanceId);
       }
     } catch (e) {
       console.warn('⚠️ Error en limpieza de perfil:', e.message);
