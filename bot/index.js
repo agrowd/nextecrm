@@ -410,12 +410,8 @@ class WhatsAppBot {
         clientId: this.instanceId,
         dataPath: sessionsDir
       }),
-      puppeteer: stealthPuppeteerConfig,
-      // 🛠️ FIX VERSIONES WHATSAPP (Evita "WAPhoneUtils not defined")
-      webVersionCache: {
-        type: 'remote',
-        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
-      }
+      puppeteer: stealthPuppeteerConfig
+      // 🛠️ webVersionCache REMOVIDO para igualar a bot_2
     });
     console.log(`✅ Cliente configurado (Auth: LocalAuth, ID: ${this.instanceId})`);
 
