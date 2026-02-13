@@ -373,6 +373,7 @@ class WhatsAppBot {
     const stealthPuppeteerConfig = {
       headless: true, // 🐢 STANDARD HEADLESS (Igual que bot_2)
       executablePath: process.env.CHROME_PATH || chromePath,
+      bypassCSP: true, // 🛡️ FIX CRÍTICO: Evita "Execution context was destroyed"
       ignoreHTTPSErrors: true,
       dumpio: true, // 🐛 DEBUG: Ver logs de Chrome en consola
       args: [
@@ -383,11 +384,12 @@ class WhatsAppBot {
         '--no-first-run',
         '--no-zygote',
         '--disable-gpu',
+        '--disable-extensions',
+        '--disable-web-security',
         '--disable-features=IsolateOrigins,site-per-process' // 🛡️ CRITICO para iframes en Docker
       ],
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36', // 🕵️ FAKE UA
-      bypassCSP: true,
-      timeout: 120000
+      defaultViewport: null,
+      timeout: 60000
     };
 
     // 🌐 SOPORTE PARA PROXY (Anti-Ban VPS)
@@ -395,6 +397,7 @@ class WhatsAppBot {
       stealthPuppeteerConfig.args.push(`--proxy-server=${process.env.PROXY_SERVER}`);
       console.log(`🛡️ Usando Proxy: ${process.env.PROXY_SERVER}`);
     }
+
     // 🧹 LIMPIEZA AUTOMÁTICA DE BLOQUEOS (Profile Auto-Cleanup)
     try {
       if (ProfileManager && typeof ProfileManager.cleanProfileLocks === 'function') {
@@ -410,7 +413,13 @@ class WhatsAppBot {
         clientId: this.instanceId,
         dataPath: sessionsDir
       }),
-      puppeteer: stealthPuppeteerConfig
+      puppeteer: {
+        ...stealthPuppeteerConfig,
+        args: [
+          ...stealthPuppeteerConfig.args,
+          `--user-data-dir=${path.join(sessionsDir, 'browser-' + this.instanceId)}`
+        ]
+      }
       // 🛠️ webVersionCache REMOVIDO para igualar a bot_2
     });
     console.log(`✅ Cliente configurado (Auth: LocalAuth, ID: ${this.instanceId})`);
