@@ -398,13 +398,17 @@ class WhatsAppBot {
       console.log(`🛡️ Usando Proxy: ${process.env.PROXY_SERVER}`);
     }
 
-    // 🧹 LIMPIEZA AUTOMÁTICA DE BLOQUEOS (Profile Auto-Cleanup)
+    // 🧹 LIMPIEZA AGRESIVA DE ZOMBIES (Pre-init)
     try {
+      if (ProfileManager && typeof ProfileManager.killZombieChrome === 'function') {
+        console.log('🧹 Limpiando procesos Chrome previos para liberar RAM...');
+        ProfileManager.killZombieChrome();
+      }
       if (ProfileManager && typeof ProfileManager.cleanProfileLocks === 'function') {
         ProfileManager.cleanProfileLocks(sessionsDir, this.instanceId);
       }
     } catch (e) {
-      console.warn('⚠️ Error en limpieza de perfil:', e.message);
+      console.warn('⚠️ Error en limpieza preventiva:', e.message);
     }
 
     this.client = new Client({
@@ -412,17 +416,20 @@ class WhatsAppBot {
         clientId: this.instanceId,
         dataPath: sessionsDir
       }),
-      authTimeoutMs: 120000, // ⏳ Aumentado a 120s para VPS lentos
+      authTimeoutMs: 180000, // ⏳ Aumentado a 180s (3 min) para VPS con poca RAM
       puppeteer: {
         ...stealthPuppeteerConfig,
         args: [
           ...stealthPuppeteerConfig.args,
-          '--disable-background-networking', // 🛡️ Fix para GCM/push errors
+          '--disable-background-networking',
           '--disable-default-apps',
           '--disable-sync',
           '--no-first-run',
           '--disable-notifications',
           '--disable-push-api',
+          '--disable-canvas-aa', // 📉 Disminuir carga gráfica
+          '--disable-2d-canvas-clip-aa',
+          '--js-flags="--max-old-space-size=512"', // 🧠 LIMITE DE RAM JS (Evita OOM fatales)
           `--user-data-dir=${path.join(sessionsDir, 'browser-' + this.instanceId)}`
         ]
       }
