@@ -413,10 +413,17 @@ class WhatsAppBot {
         clientId: this.instanceId,
         dataPath: sessionsDir
       }),
+      authTimeoutMs: 120000, // ⏳ Aumentado a 120s para VPS lentos
       puppeteer: {
         ...stealthPuppeteerConfig,
         args: [
           ...stealthPuppeteerConfig.args,
+          '--disable-background-networking', // 🛡️ Fix para GCM/push errors
+          '--disable-default-apps',
+          '--disable-sync',
+          '--no-first-run',
+          '--disable-notifications',
+          '--disable-push-api',
           `--user-data-dir=${path.join(sessionsDir, 'browser-' + this.instanceId)}`
         ]
       }
@@ -630,7 +637,7 @@ class WhatsAppBot {
       // 🐛 DEBUG: Timeout explícito para detectar hangs
       const initPromise = this.client.initialize();
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('❌ TIMEOUT FATAL: client.initialize() tardó más de 60s')), 60000)
+        setTimeout(() => reject(new Error('❌ TIMEOUT FATAL: client.initialize() tardó más de 130s')), 130000)
       );
 
       await Promise.race([initPromise, timeoutPromise]);
@@ -641,8 +648,16 @@ class WhatsAppBot {
       if (this.client && this.client.pupPage) {
         try {
           console.log('📸 Intentando tomar screenshot de error...');
-          await this.client.pupPage.screenshot({ path: path.join(__dirname, 'error_screenshot.png') });
-          console.log('📸 Screenshot guardado en error_screenshot.png');
+          const screenshotPath = path.join(__dirname, 'error_screenshot.png');
+          await this.client.pupPage.screenshot({ path: screenshotPath });
+          console.log('📸 Screenshot guardado localmente.');
+
+          // 🚀 PUBLICAR SCREENSHOT EN DASHBOARD (Para que el usuario lo vea vía web)
+          const publicPath = path.join(__dirname, '../crm-dashboard/error.png');
+          if (fs.existsSync(path.dirname(publicPath))) {
+            fs.copyFileSync(screenshotPath, publicPath);
+            console.log('🌐 Screenshot expuesto en dashboard: /dashboard/error.png');
+          }
         } catch (e) {
           console.error('No se pudo tomar screenshot:', e.message);
         }
