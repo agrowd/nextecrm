@@ -347,6 +347,20 @@ class WhatsAppBot {
       console.log(`📁 Carpeta de sesiones creada en ${sessionsDir}`);
     }
 
+    // 🔌 PLUGINS DESACTIVADOS (A VECES CAUSAN CONFLICTOS EN DOCKER)
+    // const puppeteer = require('puppeteer-extra');
+    // const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+    // puppeteer.use(StealthPlugin());
+
+    // 🔍 DEBUG: Verificar IP sin proxies
+    // console.log('🔍 [DEBUG] Verificando IP pública...');
+    // try {
+    //   const { data } = await axios.get('https://api.ipify.org?format=json');
+    //   console.log(`🌍 [NET] IP Pública del Bot: ${data.ip}`);
+    // } catch (err) {
+    //   console.error('⚠️ Error chequeando IP:', err.message);
+    // }
+
     // ✅ CONFIGURACIÓN PUPPETEER SIMPLIFICADA (INTENTO DE FIX)
     const chromePath = '/usr/bin/chromium';
     console.log(`🔧 [DEBUG] Buscando Chrome en: ${chromePath}`);
@@ -367,9 +381,11 @@ class WhatsAppBot {
         '--disable-gpu',
         '--disable-extensions',
         '--disable-software-rasterizer',
-        '--disable-web-security' // 🔓 Necesario para inyección de scripts a veces
+        '--disable-web-security', // 🔓 Necesario para inyección de scripts a veces
+        '--disable-features=IsolateOrigins,site-per-process', // 🛡️ CRITICO para iframes en Docker
+        '--no-zygote' // 🛡️ CRITICO para prevenir zombies
       ],
-      timeout: 60000
+      timeout: 120000 // Aumentado a 2 minutos
     };
 
     // 🌐 SOPORTE PARA PROXY (Anti-Ban VPS)
