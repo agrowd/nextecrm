@@ -359,13 +359,15 @@ class WhatsAppBot {
     const stealthPuppeteerConfig = {
       headless: 'shell', // 🐢 LEGACY HEADLESS: Más compatible con Docker
       executablePath: process.env.CHROME_PATH || chromePath,
+      ignoreHTTPSErrors: true, // 🛡️ Recomendado para evitar bloqueos SSL
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
         '--disable-extensions',
-        '--disable-software-rasterizer' // Añadido para prevenir problemas de GPU
+        '--disable-software-rasterizer',
+        '--disable-web-security' // 🔓 Necesario para inyección de scripts a veces
       ],
       timeout: 60000
     };
