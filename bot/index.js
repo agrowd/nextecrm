@@ -371,21 +371,21 @@ class WhatsAppBot {
     }
 
     const stealthPuppeteerConfig = {
-      headless: 'shell', // 🐢 LEGACY HEADLESS: Más compatible con Docker
+      headless: true, // 🐢 STANDARD HEADLESS (Igual que bot_2)
       executablePath: process.env.CHROME_PATH || chromePath,
-      ignoreHTTPSErrors: true, // 🛡️ Recomendado para evitar bloqueos SSL
+      ignoreHTTPSErrors: true,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-extensions',
-        '--disable-software-rasterizer',
-        '--disable-web-security', // 🔓 Necesario para inyección de scripts a veces
-        '--disable-features=IsolateOrigins,site-per-process', // 🛡️ CRITICO para iframes en Docker
-        '--no-zygote' // 🛡️ CRITICO para prevenir zombies
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu'
       ],
-      timeout: 120000 // Aumentado a 2 minutos
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36', // 🕵️ FAKE UA
+      bypassCSP: true,
+      timeout: 120000
     };
 
     // 🌐 SOPORTE PARA PROXY (Anti-Ban VPS)
