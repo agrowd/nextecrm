@@ -374,6 +374,7 @@ class WhatsAppBot {
       headless: true, // 🐢 STANDARD HEADLESS (Igual que bot_2)
       executablePath: process.env.CHROME_PATH || chromePath,
       ignoreHTTPSErrors: true,
+      dumpio: true, // 🐛 DEBUG: Ver logs de Chrome en consola
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -381,7 +382,8 @@ class WhatsAppBot {
         '--disable-accelerated-2d-canvas',
         '--no-first-run',
         '--no-zygote',
-        '--disable-gpu'
+        '--disable-gpu',
+        '--disable-features=IsolateOrigins,site-per-process' // 🛡️ CRITICO para iframes en Docker
       ],
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36', // 🕵️ FAKE UA
       bypassCSP: true,
@@ -393,15 +395,14 @@ class WhatsAppBot {
       stealthPuppeteerConfig.args.push(`--proxy-server=${process.env.PROXY_SERVER}`);
       console.log(`🛡️ Usando Proxy: ${process.env.PROXY_SERVER}`);
     }
-
     // 🧹 LIMPIEZA AUTOMÁTICA DE BLOQUEOS (Profile Auto-Cleanup)
     try {
       if (ProfileManager && typeof ProfileManager.cleanProfileLocks === 'function') {
         const profilePath = path.join(sessionsDir, 'browser-' + this.instanceId);
-        ProfileManager.cleanProfileLocks(sessionsDir, this.instanceId);
+        // await ProfileManager.cleanProfileLocks(profilePath); // Desactivado por ahora
       }
     } catch (e) {
-      console.warn('⚠️ Error cleaning profile locks:', e.message);
+      console.warn('⚠️ Error en limpieza de perfil:', e.message);
     }
 
     this.client = new Client({
@@ -409,19 +410,14 @@ class WhatsAppBot {
         clientId: this.instanceId,
         dataPath: sessionsDir
       }),
-      // webVersionCache REMOVIDO — la versión 2.2412.54 ya no existe (404)
-      // whatsapp-web.js usará su versión built-in
-      authTimeoutMs: 120000, // 2 min para dar tiempo al QR
-      puppeteer: {
-        ...stealthPuppeteerConfig,
-        dumpio: true, // 🐛 DEBUG: Ver logs de Chrome en consola
-        args: [
-          ...stealthPuppeteerConfig.args,
-          `--user-data-dir=${path.join(sessionsDir, 'browser-' + this.instanceId)}`
-        ]
+      puppeteer: stealthPuppeteerConfig,
+      // 🛠️ FIX VERSIONES WHATSAPP (Evita "WAPhoneUtils not defined")
+      webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
       }
     });
-    console.log('✅ Cliente configurado con Stealth Mode.');
+    console.log(`✅ Cliente configurado (Auth: LocalAuth, ID: ${this.instanceId})`);
 
     // Eventos del cliente
     this.client.on('qr', (qr) => {
