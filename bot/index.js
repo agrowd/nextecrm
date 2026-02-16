@@ -420,10 +420,16 @@ class WhatsAppBot {
       puppeteer: {
         ...stealthPuppeteerConfig,
         args: [
-          ...stealthPuppeteerConfig.args,
-          '--disable-canvas-aa',
-          '--disable-2d-canvas-clip-aa',
-          '--js-flags="--max-old-space-size=512"', // 🧠 LIMITE DE RAM
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--disable-gpu',
+          '--disable-extensions',
+          '--disable-web-security',
+          '--js-flags="--max-old-space-size=512"', // 🧠 MEMORY LIMIT (Crucial para VPS)
           `--user-data-dir=${path.join(sessionsDir, 'browser-' + this.instanceId)}`
         ]
       }
