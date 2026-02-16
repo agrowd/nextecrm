@@ -416,7 +416,6 @@ class WhatsAppBot {
         clientId: this.instanceId,
         dataPath: sessionsDir
       }),
-      authTimeoutMs: 180000, // ⏳ 3 min timeout
       puppeteer: {
         ...stealthPuppeteerConfig,
         args: [
