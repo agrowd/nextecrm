@@ -371,11 +371,11 @@ class WhatsAppBot {
     }
 
     const stealthPuppeteerConfig = {
-      headless: true, // 🐢 STANDARD HEADLESS (Igual que bot_2)
-      executablePath: process.env.CHROME_PATH || chromePath,
-      bypassCSP: true, // 🛡️ FIX CRÍTICO: Evita "Execution context was destroyed"
+      headless: true, // 🐢 STANDARD HEADLESS
+      executablePath: process.env.CHROME_PATH || undefined, // 🔧 FIX: Evitar rutas windows hardcoded
+      bypassCSP: true,
       ignoreHTTPSErrors: true,
-      dumpio: true, // 🐛 DEBUG: Ver logs de Chrome en consola
+      dumpio: true, // 🐛 DEBUG: Ver logs de Chrome
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -386,7 +386,7 @@ class WhatsAppBot {
         '--disable-gpu',
         '--disable-extensions',
         '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process' // 🛡️ CRITICO para iframes en Docker
+        '--disable-features=IsolateOrigins,site-per-process'
       ],
       defaultViewport: null,
       timeout: 60000
@@ -416,24 +416,17 @@ class WhatsAppBot {
         clientId: this.instanceId,
         dataPath: sessionsDir
       }),
-      authTimeoutMs: 180000, // ⏳ Aumentado a 180s (3 min) para VPS con poca RAM
+      authTimeoutMs: 180000, // ⏳ 3 min timeout
       puppeteer: {
         ...stealthPuppeteerConfig,
         args: [
           ...stealthPuppeteerConfig.args,
-          '--disable-background-networking',
-          '--disable-default-apps',
-          '--disable-sync',
-          '--no-first-run',
-          '--disable-notifications',
-          '--disable-push-api',
-          '--disable-canvas-aa', // 📉 Disminuir carga gráfica
+          '--disable-canvas-aa',
           '--disable-2d-canvas-clip-aa',
-          '--js-flags="--max-old-space-size=512"', // 🧠 LIMITE DE RAM JS (Evita OOM fatales)
+          '--js-flags="--max-old-space-size=512"', // 🧠 LIMITE DE RAM
           `--user-data-dir=${path.join(sessionsDir, 'browser-' + this.instanceId)}`
         ]
       }
-      // 🛠️ webVersionCache REMOVIDO para igualar a bot_2
     });
     console.log(`✅ Cliente configurado (Auth: LocalAuth, ID: ${this.instanceId})`);
 
