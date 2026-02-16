@@ -416,6 +416,7 @@ class WhatsAppBot {
         clientId: this.instanceId,
         dataPath: sessionsDir
       }),
+      authTimeoutMs: 300000, // ⏳ 5 minutos (VPS Lenta)
       puppeteer: {
         ...stealthPuppeteerConfig,
         args: [

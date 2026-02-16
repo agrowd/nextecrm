@@ -390,6 +390,7 @@ class WhatsAppBot {
         clientId: this.instanceId,
         dataPath: sessionsDir
       }),
+      authTimeoutMs: 300000, // ⏳ 5 minutos (VPS Lenta)
       // webVersionCache REMOVIDO — la versión 2.2412.54 ya no existe (404)
       // whatsapp-web.js usará su versión built-in
       puppeteer: {
