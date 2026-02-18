@@ -1,15 +1,14 @@
 /**
- * 🔧 DIAGNOSTIC + RECOVERY: Encontrar leads "contactados" sin mensajes reales
+ * 🔧 FAST RECOVERY: Restaurar leads atrapados en 'processing' y verificar 'contacted'
  * 
- * El problema: La sesión muerta puede causar que leads se marquen como 
- * 'contacted' sin que se hayan enviado mensajes reales.
+ * Diagnóstico encontró:
+ * - 1295 leads en 'processing' (atrapados cuando la sesión murió)
+ * - 1492 en 'not_interested' (posiblemente mal clasificados)
+ * - 1882 en 'contacted' (algunos posiblemente sin mensajes reales)
  * 
- * Este script:
- * 1. Muestra TODOS los status existentes en la BD
- * 2. Cruza leads 'contacted' con la tabla de mensajes
- * 3. Identifica leads sin mensajes reales → los restaura a 'pending'
- * 
- * Uso: node recover-false-contacted.js [--fix]
+ * Uso: 
+ *   node recover-false-contacted.js          # Solo diagnóstico
+ *   node recover-false-contacted.js --fix    # Aplicar fix
  */
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
@@ -27,95 +26,88 @@ async function diagnoseAndRecover() {
     const leadsCollection = db.collection('leads');
     const messagesCollection = db.collection('messages');
 
-    // 1. DIAGNÓSTICO: Mostrar todos los status
-    console.log('📊 === DIAGNÓSTICO COMPLETO DE LEADS ===\n');
+    // 1. DIAGNÓSTICO RÁPIDO
+    console.log('📊 === DIAGNÓSTICO COMPLETO ===\n');
 
     const statusAgg = await leadsCollection.aggregate([
         { $group: { _id: '$status', count: { $sum: 1 } } },
         { $sort: { count: -1 } }
     ]).toArray();
 
-    console.log('Status breakdown:');
-    let totalLeads = 0;
     for (const s of statusAgg) {
-        console.log(`   ${s._id || '(null/undefined)'}: ${s.count}`);
-        totalLeads += s.count;
+        console.log(`   ${s._id || '(null)'}: ${s.count}`);
     }
-    console.log(`   TOTAL: ${totalLeads}\n`);
 
-    // 2. CRUCE: Leads 'contacted' sin mensajes
-    console.log('🔍 === BUSCANDO LEADS "CONTACTED" SIN MENSAJES REALES ===\n');
+    // 2. FIX INMEDIATO: Leads en 'processing' → 'pending'
+    // Estos SEGURO quedaron trabados por la sesión muerta
+    const processingCount = await leadsCollection.countDocuments({ status: 'processing' });
+    console.log(`\n🔥 === LEADS ATRAPADOS EN 'PROCESSING': ${processingCount} ===`);
 
-    const contactedLeads = await leadsCollection.find({ status: 'contacted' }).toArray();
-    console.log(`Total leads con status 'contacted': ${contactedLeads.length}`);
+    if (processingCount > 0) {
+        if (DRY_RUN) {
+            console.log(`   ⚠️ DRY-RUN: Se restaurarían ${processingCount} leads de 'processing' → 'pending'`);
+        } else {
+            const result = await leadsCollection.updateMany(
+                { status: 'processing' },
+                { $set: { status: 'pending', retryCount: 0 } }
+            );
+            console.log(`   ✅ Restaurados ${result.modifiedCount} leads de 'processing' → 'pending'`);
+        }
+    }
+
+    // 3. VERIFICACIÓN RÁPIDA: Leads 'contacted' sin mensajes (usando aggregation, no uno por uno)
+    console.log(`\n🔍 === VERIFICANDO LEADS 'CONTACTED' SIN MENSAJES ===`);
+
+    // Obtener todos los phones/leadIds que tienen mensajes (RÁPIDO con distinct)
+    const phonesWithMessages = await messagesCollection.distinct('phone');
+    const leadIdsWithMessages = await messagesCollection.distinct('leadId');
+
+    const phonesSet = new Set(phonesWithMessages.filter(Boolean));
+    const leadIdsSet = new Set(leadIdsWithMessages.filter(Boolean));
+
+    console.log(`   📱 Phones con mensajes en BD: ${phonesSet.size}`);
+    console.log(`   🆔 LeadIDs con mensajes en BD: ${leadIdsSet.size}`);
+
+    // Obtener todos los contacted
+    const contactedLeads = await leadsCollection.find(
+        { status: 'contacted' },
+        { projection: { _id: 1, name: 1, phone: 1 } }
+    ).toArray();
 
     let falseContacted = [];
     let realContacted = 0;
-    let noPhone = 0;
 
     for (const lead of contactedLeads) {
-        if (!lead.phone) {
-            noPhone++;
-            continue;
-        }
-
-        // Buscar mensajes enviados a este lead
-        const messageCount = await messagesCollection.countDocuments({
-            $or: [
-                { leadId: lead._id.toString() },
-                { phone: lead.phone }
-            ]
-        });
-
-        if (messageCount === 0) {
-            falseContacted.push(lead);
-        } else {
+        const hasMsg = phonesSet.has(lead.phone) || leadIdsSet.has(lead._id.toString());
+        if (hasMsg) {
             realContacted++;
-        }
-    }
-
-    console.log(`   ✅ Con mensajes reales: ${realContacted}`);
-    console.log(`   ❌ SIN mensajes (falsos contactados): ${falseContacted.length}`);
-    console.log(`   ⚠️ Sin teléfono: ${noPhone}`);
-
-    if (falseContacted.length > 0) {
-        console.log(`\n📋 Primeros 10 falsos contactados:`);
-        for (const lead of falseContacted.slice(0, 10)) {
-            console.log(`   - ${lead.name} (${lead.phone || 'sin tel'}) [ID: ${lead._id}]`);
-        }
-    }
-
-    // 3. Buscar otros status sospechosos (check_failed, processing, not_interested sin mensajes)
-    console.log('\n🔍 === OTROS STATUS SOSPECHOSOS ===\n');
-
-    const otherStatuses = ['check_failed', 'processing', 'not_interested', 'invalid'];
-    for (const status of otherStatuses) {
-        const count = await leadsCollection.countDocuments({ status });
-        if (count > 0) {
-            console.log(`   ${status}: ${count} leads`);
-        }
-    }
-
-    // 4. RECOVERY
-    if (falseContacted.length > 0) {
-        if (DRY_RUN) {
-            console.log(`\n⚠️ MODO DRY-RUN: No se hacen cambios.`);
-            console.log(`   Para restaurar ${falseContacted.length} leads, ejecutar con --fix:`);
-            console.log(`   node recover-false-contacted.js --fix`);
         } else {
-            console.log(`\n🔄 RESTAURANDO ${falseContacted.length} leads falsos a 'pending'...`);
+            falseContacted.push(lead);
+        }
+    }
 
+    console.log(`\n   ✅ Con mensajes reales: ${realContacted}`);
+    console.log(`   ❌ SIN mensajes (falsos contactados): ${falseContacted.length}`);
+
+    if (falseContacted.length > 0) {
+        console.log(`\n   Primeros 10 falsos contactados:`);
+        for (const lead of falseContacted.slice(0, 10)) {
+            console.log(`     - ${lead.name} (${lead.phone || 'sin tel'})`);
+        }
+
+        if (DRY_RUN) {
+            console.log(`\n   ⚠️ DRY-RUN: Se restaurarían ${falseContacted.length} leads de 'contacted' → 'pending'`);
+        } else {
             const ids = falseContacted.map(l => l._id);
             const result = await leadsCollection.updateMany(
                 { _id: { $in: ids } },
                 { $set: { status: 'pending', retryCount: 0 } }
             );
-
-            console.log(`✅ Restaurados ${result.modifiedCount} leads a 'pending'`);
+            console.log(`\n   ✅ Restaurados ${result.modifiedCount} leads de 'contacted' → 'pending'`);
         }
     }
 
-    // 5. Estado final
+    // 4. Estado final
     console.log('\n📊 === ESTADO FINAL ===');
     const finalStatus = await leadsCollection.aggregate([
         { $group: { _id: '$status', count: { $sum: 1 } } },
@@ -123,7 +115,13 @@ async function diagnoseAndRecover() {
     ]).toArray();
 
     for (const s of finalStatus) {
-        console.log(`   ${s._id || '(null/undefined)'}: ${s.count}`);
+        console.log(`   ${s._id || '(null)'}: ${s.count}`);
+    }
+
+    if (DRY_RUN) {
+        console.log('\n⚠️ MODO DRY-RUN: No se hicieron cambios.');
+        console.log('   Para aplicar los fixes, ejecutar con --fix:');
+        console.log('   node recover-false-contacted.js --fix');
     }
 
     await mongoose.disconnect();
