@@ -83,3 +83,40 @@ Este archivo documenta errores encontrados y sus soluciones para NO repetirlos.
 **Solución:** Tracking in-memory del lead actual (`this.currentlyProcessingLead`). El message handler compara directamente el número entrante (resolviendo LID) con el lead en proceso. Flag `stopSending` corta la secuencia.
 **Commit:** `41b7e10`
 **Estado:** ✅ FIXED
+
+---
+
+## ERR-09: Auto-reply de WhatsApp Business abortaba secuencia (2026-02-17)
+**Síntoma:** Bot 1 recibía auto-respuestas de WhatsApp Business (menús, bienvenidas) y las interpretaba como respuestas humanas. Esto causaba: `⛔ SECUENCIA ABORTADA` tras el primer mensaje, `isRejection()` clasificaba auto-replies como rechazos y enviaba disculpas.
+**Root Cause:** `handleIncomingMessage` no distinguía entre auto-replies y respuestas reales. CUALQUIER mensaje del número actual → `stopSending = true` + `abortCurrentSequence = true`. Además `isRejection()` procesaba auto-replies y los clasificaba como rechazos.
+**Solución (3 partes):**
+1. `isQuickAutoReply()` — Nuevo método con detección por keywords ("gracias por comunicarte", "bienvenido", "menú"), estructura (3+ `?`, emojis numerados 1️⃣2️⃣), y timing (<5s para mensajes >300 chars).
+2. Guard en response detection — Si `isQuickAutoReply()` → NO setear `stopSending`/`abortCurrentSequence`. Bot envía reconocimiento ("Veo que tienen respuesta automática") y sigue.
+3. Guard antes de `isRejection()` — Si auto-reply → `return` sin pasar por análisis de rechazo.
+**Validación en producción:** `🤖 Auto-reply ignorado en análisis de rechazo: "No comprendí tu mensaje. Si deseás ser atendido por un aseso..."` ← FUNCIONANDO
+**Commit:** `350b108`
+**Estado:** ✅ FIXED
+
+---
+
+## ERR-10: Loop infinito de leads sin teléfono / número inválido (2026-02-18)
+**Síntoma:** Leads con `no_phone` o `invalid_phone` volvían a status `pending` → bot los procesaba de nuevo → mismo error → `pending` → loop eterno.
+**Root Cause:** Fix anterior (sesión 2026-02-17) cambió `not_interested`/`failed` a `pending` SIN distinguir entre errores transitorios y permanentes. Un lead SIN teléfono nunca va a tener teléfono.
+**Solución (Smart Discard):**
+- `no_phone` → `discarded` (PERMANENTE, no vuelve a cola)
+- `invalid_phone` → `discarded` (PERMANENTE, formato no va a cambiar)
+- `internal_error` → `pending` con contador `retryCount` (max 3, después `failed`)
+- Nuevo status `discarded` agregado al enum de Lead schema.
+**Archivos modificados:** `bot/index.js`, `server/models/Lead.js`
+**Commit:** `350b108`
+**Estado:** ✅ FIXED
+
+---
+
+## ERR-11: bot_2 no tenía los fixes de bot_1 (2026-02-18)
+**Síntoma:** bot_2 seguía abortando secuencias por auto-replies porque no tenía `isQuickAutoReply()` ni los guards.
+**Root Cause:** D-11 (cada bot tiene código independiente). Fixes aplicados solo a `bot/index.js` no aplican a `bot_2/index.js`.
+**Solución:** Sincronizados manualmente: `isQuickAutoReply()`, guards en handler, auto-reply acknowledgment, `autoReplyDetected` flag.
+**Bug encontrado durante sync:** Al aplicar el segundo chunk del fix, el `else` se perdió, causando que el branch de auto-reply Y el de respuesta real se ejecutaran juntos. Corregido inmediatamente.
+**Commit:** `350b108`
+**Estado:** ✅ FIXED

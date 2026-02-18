@@ -1,20 +1,46 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-02-17 (17:45 Argentina)
-- **Objective:** Fix auto-reply sequence abort + lead discard logic.
-- **Status:** ✅ FIXES APPLIED — Awaiting VPS deploy.
+## Current Session: 2026-02-18 (02:00-05:10 Argentina)
+- **Objective:** Fix auto-reply abort + lead discard loop + sync bot_2.
+- **Status:** ✅ ALL FIXES DEPLOYED & VERIFIED ON VPS.
+- **Commit:** `350b108` — `fix: auto-reply detection + smart lead discard + retry counter`
+- **Deploy:** `docker system prune -af --volumes` (liberó 43GB) → `docker compose build --no-cache` → `docker compose up -d`
+
+## Estado Actual de los Bots (FUNCIONANDO)
+| Bot | Número | Status | Fixes Aplicados |
+|:---|:---|:---|:---|
+| Bot 1 (`bot/`) | +549 11 5735-1676 | ✅ ready | isQuickAutoReply + ack msg + smart discard + retry counter |
+| Bot 2 (`bot_2/`) | +549 11 2817-9269 | ✅ ready | isQuickAutoReply + ack msg (no necesitaba smart discard) |
+
+## Validación en Producción
+```
+🤖 Auto-reply ignorado en análisis de rechazo: "No comprendí tu mensaje. Si deseás ser atendido por un aseso..."
+```
+↑ Esto apareció en los logs inmediatamente al prender Bot 1. El fix funciona.
 
 ## Fixes Applied This Session
 
-### 15. Auto-Reply Sequence Abort Fix (D-21)
-- **Problema:** `handleIncomingMessage` abortaba la secuencia cuando recibía auto-replies de WhatsApp Business.
-- **Solución:** `isQuickAutoReply()` con keywords + estructura + timing. Guard en 2 puntos del handler.
+### 15. Auto-Reply Detection + Acknowledgment (ERR-09, D-21, D-23)
+- **Problema:** Auto-replies de WhatsApp Business abortaban la secuencia.
+- **Solución:** `isQuickAutoReply()` detecta por keywords/estructura/timing. Si es auto-reply → bot envía "Veo que tienen respuesta automática" y sigue. Si es respuesta real → corta secuencia.
+- **Archivos:** `bot/index.js`, `bot_2/index.js`
 
-### 16. Lead Discard → Retry Fix
-- **Problema:** `not_interested`/`failed` en leads con errores → descartados permanentemente.
-- **Solución:** Cambiados a `pending`.
+### 16. Smart Lead Discard — No Infinite Loop (ERR-10, D-22)
+- **Problema:** `no_phone`/`invalid_phone` → `pending` → loop infinito.
+- **Solución:** `no_phone`/`invalid_phone` → `discarded` (permanente). `internal_error` → retry 3x con `retryCount`, después `failed`.
+- **Archivos:** `bot/index.js`, `server/models/Lead.js`
 
----
+### 17. Bot 2 Sync (ERR-11)
+- **Problema:** bot_2 no tenía ninguno de los fixes.
+- **Solución:** Sincronizado `isQuickAutoReply()` + guards + ack msg + `autoReplyDetected` flag.
+- **Bug encontrado:** `else` perdido en el if/else del handler → corregido.
+- **Archivos:** `bot_2/index.js`
+
+## Lecciones Clave de Esta Sesión
+1. **NUNCA poner errores permanentes como `pending`** — crea loops infinitos. Usar `discarded`.
+2. **Cada bot tiene código independiente (D-11)** — SIEMPRE verificar que fixes estén en TODOS los bots.
+3. **Al hacer multi-replace en el mismo archivo, verificar que el if/else no se rompa** — la herramienta puede comer el `else` si los chunks están mal definidos.
+4. **`docker system prune -af --volumes`** libera espacio (43GB en este caso) cuando el build falla por `no space left on device`.
 
 ## Previous Session: 2026-02-11 (20:00 Argentina)
 - **Objective:** Fix 3 critical bot issues causing lead burning.
