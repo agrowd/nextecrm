@@ -895,6 +895,45 @@ class WhatsAppBot {
         if (result && !result.success) {
           console.log(`⚡ Lead ${lead.name} no procesado exitosamente (${result.reason}) - pasando inmediatamente al siguiente`);
 
+          // 🔥 CIRCUIT BREAKER: Si detectamos SESSION_DEAD, parar el loop
+          if (result.reason === 'session_dead') {
+            this.consecutiveSessionDeadCount = (this.consecutiveSessionDeadCount || 0) + 1;
+            console.error(`🔥 SESSION_DEAD consecutivo #${this.consecutiveSessionDeadCount}`);
+
+            if (this.consecutiveSessionDeadCount >= 3) {
+              console.error(`🛑🛑🛑 CIRCUIT BREAKER: ${this.consecutiveSessionDeadCount} SESSION_DEAD consecutivos. PARANDO procesamiento.`);
+              console.error(`🔄 Intentando reiniciar sesión de WhatsApp...`);
+              this.log(`🛑 Circuit breaker activado: ${this.consecutiveSessionDeadCount} SESSION_DEAD. Reiniciando WhatsApp.`, 'error');
+
+              this.isProcessing = false;
+
+              try {
+                await this.client.destroy();
+                console.log('🔧 Cliente destruido. Reinicializando en 30 segundos...');
+                await new Promise(r => setTimeout(r, 30000));
+                await this.client.initialize();
+                console.log('✅ Cliente reinicializado. Esperando ready...');
+                this.consecutiveSessionDeadCount = 0;
+              } catch (restartErr) {
+                console.error(`❌ Error reiniciando WhatsApp: ${restartErr.message}`);
+                console.error('⏸️ El bot necesita reinicio manual (pm2 restart)');
+              }
+              return;
+            }
+
+            const sessionDeadDelay = 30000;
+            console.log(`🧊 SESSION_DEAD: Esperando ${sessionDeadDelay / 1000}s antes de reintentar...`);
+            setTimeout(() => {
+              if (!this.isProcessing) {
+                this.processNextLead();
+              }
+            }, sessionDeadDelay);
+            return;
+          }
+
+          // Reset counter si el error no es SESSION_DEAD
+          this.consecutiveSessionDeadCount = 0;
+
           // Si el número está atascado, limpiarlo del cache
           if (result.reason === 'already_contacted' || result.reason === 'existing_conversation') {
             console.log(`🧹 Limpiando número ${lead.phone} del cache por estar atascado`);
@@ -902,7 +941,6 @@ class WhatsAppBot {
           }
 
           // Programar el siguiente procesamiento con un delay seguro "Cool-off"
-          // (Aleatorio 10-15s para simular comportamiento humano ante error)
           const coolOffDelay = Math.floor(Math.random() * (15000 - 10000 + 1)) + 10000;
           console.log(`🧊 Aplicando Cool-off de ${(coolOffDelay / 1000).toFixed(1)}s antes del siguiente lead...`);
 
@@ -913,6 +951,9 @@ class WhatsAppBot {
           }, coolOffDelay);
           return;
         }
+
+        // Reset counter on success
+        this.consecutiveSessionDeadCount = 0;
 
       } else {
         this.isProcessing = false; // Liberar el flag
@@ -1310,9 +1351,37 @@ class WhatsAppBot {
       console.error(`   ❌ ERROR CRÍTICO EN SECUENCIA:`, error.stack || error);
       console.error('❌ Error crítico en secuencia de mensajes:', error.message);
 
-      // Intentar actualizar estado a fallido si tenemos ID
+      // 🛡️ SESSION_DEAD: NO contar como fallo del lead
+      const isSessionDead = error.message && error.message.includes('SESSION_DEAD');
+
+      if (isSessionDead) {
+        console.log(`   🔥 SESSION_DEAD: No se cuenta como fallo del lead ${lead.name}`);
+        if (lead && (lead._id || lead.id)) {
+          await this.updateLeadStatus(lead._id || lead.id, 'pending', lead.name);
+        }
+        return { success: false, reason: 'session_dead', error: error.message };
+      }
+
+      // 🔄 SMART RETRY: Reintentar errores transitorios con límite de 3 intentos
       if (lead && (lead._id || lead.id)) {
-        await this.updateLeadStatus(lead._id || lead.id, 'failed', lead.name);
+        const retryCount = (lead.retryCount || 0) + 1;
+        if (retryCount >= 3) {
+          console.log(`   ⛔ Lead ${lead.name} falló ${retryCount} veces — descartado definitivamente`);
+          await this.updateLeadStatus(lead._id || lead.id, 'failed', lead.name);
+          try {
+            await axios.put(`${this.backendUrl}/lead/${lead._id || lead.id}`, {
+              notes: `Failed after ${retryCount} retries: ${error.message}`
+            });
+          } catch (e) { /* silenciar */ }
+        } else {
+          console.log(`   🔄 Reintento ${retryCount}/3 para ${lead.name} — vuelve a la cola`);
+          await this.updateLeadStatus(lead._id || lead.id, 'pending', lead.name);
+          try {
+            await axios.put(`${this.backendUrl}/lead/${lead._id || lead.id}`, {
+              retryCount: retryCount
+            });
+          } catch (e) { /* silenciar */ }
+        }
       }
 
       return { success: false, reason: 'internal_error', error: error.message };
