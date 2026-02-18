@@ -1200,6 +1200,27 @@ class WhatsAppBot {
           break;
         }
 
+        // 0.2 RECONOCER AUTO-REPLY SI SE DETECTÓ (no aborta, pero lo menciona)
+        if (this.currentlyProcessingLead && this.currentlyProcessingLead.autoReplyDetected && i > 0) {
+          console.log(`      🤖 Auto-reply detectado — enviando reconocimiento antes del siguiente mensaje`);
+          try {
+            const ackMessages = [
+              '¡Veo que tienen respuesta automática! Igual les dejo la info 😊',
+              '¡Noto que tienen un bot de respuestas! Les comparto esto de todas formas 👇',
+              '¡Vi que tienen mensaje automático! Les dejo esta info que puede interesarles 😉'
+            ];
+            const ackMsg = ackMessages[Math.floor(Math.random() * ackMessages.length)];
+            await this.simulateTyping(whatsappFormat);
+            const chatAck = await this.client.getChatById(whatsappFormat);
+            await chatAck.sendMessage(ackMsg);
+            console.log(`      ✅ Reconocimiento enviado: "${ackMsg}"`);
+            this.currentlyProcessingLead.autoReplyDetected = false;
+            await this.sleep(3000 + Math.random() * 2000);
+          } catch (ackError) {
+            console.log(`      ⚠️ Error enviando reconocimiento: ${ackError.message}`);
+          }
+        }
+
         // 1. VALIDACIÓN DE MENSAJE VACÍO O INCORRECTO (CRÍTICO)
         if (!message || typeof message !== 'string' || message.trim().length === 0) {
           console.error(`      ❌ ERROR CRÍTICO: Intentando enviar mensaje vacío en índice ${i}. Saltando...`);
@@ -1668,6 +1689,55 @@ class WhatsAppBot {
     }
   }
 
+  /**
+   * Detección rápida de auto-replies de WhatsApp Business
+   * No depende de Gemini — usa patrones de texto comunes
+   */
+  isQuickAutoReply(messageBody) {
+    if (!messageBody) return false;
+    const lower = messageBody.toLowerCase();
+
+    // 1. Palabras clave de bots / auto-respuestas
+    const autoReplyKeywords = [
+      'gracias por comunicarte', 'gracias por contactarnos', 'gracias por escribirnos',
+      '¿cómo podemos ayudarte', 'como podemos ayudarte',
+      'bienvenido', 'bienvenida',
+      'menú', 'menu', 'opción', 'opcion', 'marcar',
+      'horario de atención', 'horario de atencion',
+      'respuesta automática', 'respuesta automatica',
+      'autorespuesta', 'auto-respuesta',
+      'asistente virtual', 'chatbot',
+      'fuera del horario', 'fuera de horario',
+      'en breve te respondemos', 'en breve nos comunicamos',
+      'mensaje fue recibido', 'hemos recibido tu mensaje',
+      'te responderemos', 'nos pondremos en contacto',
+      'seleccione una opción', 'selecciona una opcion',
+      'elige una opción', 'elija una opcion',
+      'recuerde que debemos', 'agendado'
+    ];
+    if (autoReplyKeywords.some(kw => lower.includes(kw))) return true;
+
+    // 2. Estructura de menú: múltiples signos de interrogación (3+)
+    const questionMarks = (messageBody.match(/\?/g) || []).length;
+    if (questionMarks >= 3) return true;
+
+    // 3. Emojis numerados (1️⃣, 2️⃣, etc.) — típico de menús de bot
+    const numberedEmojis = (messageBody.match(/[0-9]️⃣/g) || []).length;
+    if (numberedEmojis >= 2) return true;
+
+    // 4. Mensaje excesivamente largo (>300 chars) que llega instantáneamente
+    if (messageBody.length > 300) {
+      const lastSentTime = this.lastMessageTimestamps?.get(
+        this.currentlyProcessingLead?.whatsappFormat
+      );
+      if (lastSentTime && (Date.now() - lastSentTime) < 5000) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   async handleIncomingMessage(message) {
     try {
       // 1. IGNORAR MENSAJES PROPIOS (CRÍTICO)
@@ -1708,13 +1778,30 @@ class WhatsAppBot {
         const cleanIncoming = resolvedNumber.replace('@c.us', '').replace(/\D/g, '');
         const cleanCurrent = this.currentlyProcessingLead.phone.replace(/\D/g, '');
         if (cleanIncoming === cleanCurrent || cleanIncoming.endsWith(cleanCurrent) || cleanCurrent.endsWith(cleanIncoming)) {
-          console.log(`🛑 RESPUESTA DETECTADA del lead actual (${this.currentlyProcessingLead.lead.name})!`);
-          console.log(`   📞 Número entrante: ${contactNumber} → resuelto: ${resolvedNumber}`);
-          console.log(`   📞 Lead actual: ${this.currentlyProcessingLead.phone}`);
-          this.currentlyProcessingLead.stopSending = true;
-          this.currentlyProcessingLead.respondedAt = new Date().toISOString();
-          this.abortCurrentSequence = true;
+          // 🤖 Verificar si es auto-reply ANTES de abortar la secuencia
+          const isAutoReply = this.isQuickAutoReply(messageBody);
+          if (isAutoReply) {
+            console.log(`🤖 AUTO-REPLY detectado del lead actual (${this.currentlyProcessingLead.lead.name}) — IGNORANDO, secuencia continúa`);
+            console.log(`   📨 Contenido: "${messageBody.substring(0, 80)}..."`);
+            // Guardar info para que la secuencia lo reconozca
+            this.currentlyProcessingLead.autoReplyDetected = true;
+            this.currentlyProcessingLead.autoReplyContent = messageBody;
+            // NO abortar — es respuesta automática de WhatsApp Business, no humana
+          } else {
+            console.log(`🛑 RESPUESTA REAL DETECTADA del lead actual (${this.currentlyProcessingLead.lead.name})!`);
+            console.log(`   📞 Número entrante: ${contactNumber} → resuelto: ${resolvedNumber}`);
+            console.log(`   📞 Lead actual: ${this.currentlyProcessingLead.phone}`);
+            this.currentlyProcessingLead.stopSending = true;
+            this.currentlyProcessingLead.respondedAt = new Date().toISOString();
+            this.abortCurrentSequence = true;
+          }
         }
+      }
+
+      // 🤖 Si ya detectamos que es auto-reply, no pasar por isRejection
+      if (this.isQuickAutoReply(messageBody)) {
+        console.log(`🤖 Auto-reply ignorado en análisis de rechazo: "${messageBody.substring(0, 60)}..."`);
+        return;
       }
 
       // ✅ ANALIZAR RESPUESTA CON IA

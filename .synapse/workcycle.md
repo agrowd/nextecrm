@@ -1,8 +1,24 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-02-11 (20:00 Argentina)
-- **Objective:** Fix 3 critical bot issues causing lead burning (false negatives, LID lookup, spam on response).
-- **Status:** ✅ FIXES PUSHED (3 commits) — Awaiting VPS deploy.
+## Current Session: 2026-02-17 (17:45 Argentina)
+- **Objective:** Fix auto-reply sequence abort + lead discard logic.
+- **Status:** ✅ FIXES APPLIED — Awaiting VPS deploy.
+
+## Fixes Applied This Session
+
+### 15. Auto-Reply Sequence Abort Fix (D-21)
+- **Problema:** `handleIncomingMessage` abortaba la secuencia cuando recibía auto-replies de WhatsApp Business.
+- **Solución:** `isQuickAutoReply()` con keywords + estructura + timing. Guard en 2 puntos del handler.
+
+### 16. Lead Discard → Retry Fix
+- **Problema:** `not_interested`/`failed` en leads con errores → descartados permanentemente.
+- **Solución:** Cambiados a `pending`.
+
+---
+
+## Previous Session: 2026-02-11 (20:00 Argentina)
+- **Objective:** Fix 3 critical bot issues causing lead burning.
+- **Status:** ✅ FIXES PUSHED (3 commits).
 
 ## Fixes Applied This Session
 
