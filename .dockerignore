@@ -1,0 +1,14 @@
+node_modules
+bot/node_modules
+bot_1/node_modules
+bot_2/node_modules
+bot_3/node_modules
+bot_4/node_modules
+server/node_modules
+.git
+.env
+.DS_Store
+npm-debug.log
+yarn-error.log
+bot/sessions
+bot/chrome-profile

@@ -1379,7 +1379,7 @@ class WhatsAppBot {
             await this.sleep(readingTime);
           }
 
-          // 4.1. Análisis de Auto-Respuesta (Nuevo Requerimiento)
+          // 4.1. Análisis de Auto-Respuesta (SISTEMA DE PALABRAS CLAVE - SIN GEMINI)
           // Si es el primer mensaje y tiene respuesta inmediata, verificar si es bot
           let chatForCheck = null;
           try {
@@ -1393,23 +1393,36 @@ class WhatsAppBot {
           if (i === 0 && chatForCheck && (chatForCheck.unreadCount > 0 || chatForCheck.lastMessage)) {
             const lastMsg = chatForCheck.lastMessage;
             if (lastMsg && !lastMsg.fromMe) {
-              console.log(`      🤖 Posible auto-respuesta detectada: "${lastMsg.body.substring(0, 50)}..."`);
+              const incomingText = lastMsg.body.toLowerCase();
+              console.log(`      🤖 Posible auto-respuesta detectada: "${incomingText.substring(0, 50)}..."`);
 
-              // Pedir a Gemini que analice si es bot y genere respuesta de venta
-              try {
-                const isAutoReply = await this.aiGenerator.detectAutoReply(lastMsg.body);
-                if (isAutoReply) {
-                  console.log(`      🎯 Auto-respuesta CONFIRMADA. Adaptando estrategia de venta...`);
-                  // Generar mensaje específico vendiendo la mejora del bot
-                  // Le pasamos el lead y el mensaje del bot
-                  const botsalesMessage = await this.aiGenerator.generateBotSalesPitch(lead, lastMsg.body);
-                  if (botsalesMessage) {
-                    this.messageSequences[1] = botsalesMessage; // Reemplazar el segundo mensaje con el pitch
-                    console.log(`      ✅ Mensaje 2 reemplazado con pitch de venta de bot.`);
-                  }
+              // 🔍 DICCIONARIO DE DETECCIÓN DE BOTS (Expandido)
+              const botKeywords = [
+                'horario de atenci', 'gracias por comunicarte', 'para urgencias',
+                'marque una opci', 'marque la opci', 'en breves momentos',
+                'este es un mensaje auto', 'respondere', 'responderé', 'responderemos',
+                'menú', 'menu', 'opción', 'opcion', 'guardia', 'casilla',
+                'deje su mensaje', 'momentos un asesor', 'presione', 'digite'
+              ];
+
+              const isAutoReply = botKeywords.some(keyword => incomingText.includes(keyword));
+
+              if (isAutoReply) {
+                console.log(`      🎯 Auto-respuesta CONFIRMADA (Keywords). Adaptando estrategia de venta...`);
+
+                // 🗣️ PITCH DE VENTA DE BOT (Hardcoded)
+                const botSalesPitch = `¡Hola! Veo que utilizan una respuesta automática. 👋\n\nJustamente nosotros nos especializamos en *desarrollo de bots inteligentes y sistemas de gestión de turnos*.\n\nSi ya usan algún software de gestión, podemos *conectar todo* para que tu sistema de turnos alimente al bot automáticamente y tengas tu propia plataforma 100% personalizada y actualizada. 🚀\n\n¿Te interesaría ver cómo podríamos mejorar esta automatización que ya tenés?`;
+
+                // Inyectar el pitch como segundo mensaje (index 1) y desplazar el resto si es necesario
+                // O reemplazar el mensaje de "Nexte" original.
+                // Decisión: Reemplazar el mensaje 2 (Nexte General) por el Pitch de Bot.
+                if (messages.length > 1) {
+                  messages[1] = botSalesPitch;
+                  console.log(`      ✅ Mensaje 2 reemplazado con PITCH DE BOT.`);
+                } else {
+                  messages.push(botSalesPitch); // Si era corto, agregarlo
+                  console.log(`      ✅ Pitch de bot agregado a la secuencia.`);
                 }
-              } catch (err) {
-                console.log(`      ⚠️ Error analizando auto-respuesta: ${err.message}`);
               }
             }
           }
