@@ -431,7 +431,13 @@ class WhatsAppBot {
     this.client.on('ready', async () => {
       console.log(`✅ [${this.instanceId}] WhatsApp Bot listo!`);
       console.log(`🔍 [DEBUG] ready event FIRED at ${new Date().toISOString()}`);
-      // La bandera isReady se activará al final de la inicialización
+
+      // 🛡️ GUARD: Prevenir inicializaciones duplicadas por re-auth
+      if (this._leadProcessingStarted) {
+        console.log(`⚠️ [${this.instanceId}] ready event duplicado IGNORADO - procesamiento ya iniciado`);
+        this.isReady = true;
+        return;
+      }
 
       // 🔑 MULTI-BOT: Capturar número conectado
       try {
@@ -512,8 +518,8 @@ class WhatsAppBot {
       console.log(`=====================================\n`);
 
       // ✅ KEEP-ALIVE: Evitar desconexión por inactividad
-      // Enviar un ping (getBatteryStatus) cada 5 minutos para mantener sesión viva
-      setInterval(async () => {
+      if (this._keepAliveInterval) clearInterval(this._keepAliveInterval);
+      this._keepAliveInterval = setInterval(async () => {
         if (this.isReady) {
           try {
             await this.client.getBatteryStatus();
@@ -524,6 +530,8 @@ class WhatsAppBot {
         }
       }, 5 * 60 * 1000);
 
+      // 🛡️ Solo iniciar procesamiento UNA VEZ
+      this._leadProcessingStarted = true;
       this.startLeadProcessing();
     });
 
