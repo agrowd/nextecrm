@@ -1149,13 +1149,11 @@ class WhatsAppBot {
         });
 
         if (!safetyCheck.data.safeToSend) {
-          console.log(`      ⛔ SEGURIDAD: Mensajes previos detectados en servidor. ABORTANDO.`);
+          // MODIFICACIÓN: No abortar, solo loggear advertencia (Usuario pidió re-contactar)
+          console.log(`      ⚠️ SEGURIDAD: Mensajes previos detectados, pero CONTINUANDO por configuración.`);
           console.log(`      Razón: ${safetyCheck.data.reason}`);
 
-          // Marcar como contactado para que no vuelva a salir
-          await this.updateLeadStatus(lead.id, 'contacted', lead.name);
-
-          return { success: false, reason: 'server_safety_check_failed' };
+          // No retornamos false, dejamos que continúe
         }
         console.log(`      ✅ Seguridad OK: Lead limpio en base de datos.`);
       } catch (err) {
@@ -1229,12 +1227,14 @@ class WhatsAppBot {
                 // Inyectar el pitch como segundo mensaje (index 1) y desplazar el resto si es necesario
                 // O reemplazar el mensaje de "Nexte" original.
                 // Decisión: Reemplazar el mensaje 2 (Nexte General) por el Pitch de Bot.
-                if (messages.length > 1) {
-                  messages[1] = botSalesPitch;
-                  console.log(`      ✅ Mensaje 2 reemplazado con PITCH DE BOT.`);
+                // Decisión: INSERTAR el Pitch de Bot como mensaje 2 (index 1)
+                // Usamos splice para no perder los otros mensajes
+                if (messages.length > 0) {
+                  messages.splice(1, 0, botSalesPitch); // Insertar en posición 1
+                  console.log(`      ✅ Pitch de bot INSERTADO en la secuencia (Total: ${messages.length}).`);
                 } else {
-                  messages.push(botSalesPitch); // Si era corto, agregarlo
-                  console.log(`      ✅ Pitch de bot agregado a la secuencia.`);
+                  messages.push(botSalesPitch);
+                  console.log(`      ✅ Pitch de bot agregado al final.`);
                 }
               }
             }
