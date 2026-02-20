@@ -1286,7 +1286,6 @@ class WhatsAppBot {
           }
 
           // 4.1. Análisis de Auto-Respuesta (SISTEMA DE PALABRAS CLAVE - SIN GEMINI)
-          // Si es el primer mensaje y tiene respuesta inmediata, verificar si es bot
           let chatForCheck = null;
           try {
             if (this.client && this.isReady) {
@@ -1302,7 +1301,6 @@ class WhatsAppBot {
               const incomingText = lastMsg.body.toLowerCase();
               console.log(`      🤖 Posible auto-respuesta detectada: "${incomingText.substring(0, 50)}..."`);
 
-              // 🔍 DICCIONARIO DE DETECCIÓN DE BOTS (Expandido)
               const botKeywords = [
                 'horario de atenci', 'gracias por comunicarte', 'para urgencias',
                 'marque una opci', 'marque la opci', 'en breves momentos',
@@ -1315,401 +1313,212 @@ class WhatsAppBot {
 
               if (isAutoReply) {
                 console.log(`      🎯 Auto-respuesta CONFIRMADA (Keywords). Adaptando estrategia de venta...`);
-
-                // 🗣️ PITCH DE VENTA DE BOT (Hardcoded)
                 const botSalesPitch = `¡Hola! Veo que utilizan una respuesta automática. 👋\n\nJustamente nosotros nos especializamos en *desarrollo de bots inteligentes y sistemas de gestión de turnos*.\n\nSi ya usan algún software de gestión, podemos *conectar todo* para que tu sistema de turnos alimente al bot automáticamente y tengas tu propia plataforma 100% personalizada y actualizada. 🚀\n\n¿Te interesaría ver cómo podríamos mejorar esta automatización que ya tenés?`;
-
-                // Inyectar el pitch como segundo mensaje (index 1) y desplazar el resto si es necesario
-                // O reemplazar el mensaje de "Nexte" original.
-                // Decisión: Reemplazar el mensaje 2 (Nexte General) por el Pitch de Bot.
-                // Decisión: INSERTAR el Pitch de Bot como mensaje 2 (index 1)
-                // Usamos splice para no perder los otros mensajes
                 if (messages.length > 0) {
-                  messages.splice(1, 0, botSalesPitch); // Insertar en posición 1
+                  messages.splice(1, 0, botSalesPitch);
                   console.log(`      ✅ Pitch de bot INSERTADO en la secuencia (Total: ${messages.length}).`);
                 } else {
                   messages.push(botSalesPitch);
                   console.log(`      ✅ Pitch de bot agregado al final.`);
                 }
-                messages.push(botSalesPitch); // Si era corto, agregarlo
-                console.log(`      ✅ Pitch de bot agregado a la secuencia.`);
               }
             }
           }
-        }
 
           // Simular typing con velocidad realista
           const typingTime = this.behaviorSimulator.getTypingTime(message);
-        console.log(`      ⌨️  Escribiendo... (duración calculada: ${(typingTime / 1000).toFixed(1)}s)`);
+          console.log(`      ⌨️  Escribiendo... (duración calculada: ${(typingTime / 1000).toFixed(1)}s)`);
 
-        // Mostrar indicador "escribiendo..." en WhatsApp
-        try {
-          // Intentar simular typing, pero si falla (ej: función no existe), continuar
-          if (typeof this.client.sendStateTyping === 'function') {
-            await this.client.sendStateTyping(whatsappFormat);
-          } else {
-            // Fallback para versiones nvas/viejas de wwebjs o usar getChatById
-            const chat = await this.client.getChatById(whatsappFormat);
-            await chat.sendStateTyping();
-          }
-          await this.sleep(typingTime);
-
-          if (typeof this.client.sendStateTyping === 'function') {
-            await this.client.sendStateTyping(whatsappFormat, false);
-          } else {
-            const chat = await this.client.getChatById(whatsappFormat);
-            if (typeof chat.clearStateTyping === 'function') {
-              await chat.clearStateTyping();
+          // Mostrar indicador "escribiendo..." en WhatsApp
+          try {
+            if (this.client.sendStateTyping) {
+              await this.client.sendStateTyping(whatsappFormat);
+            } else {
+              const chat = await this.client.getChatById(whatsappFormat);
+              if (chat && chat.sendStateTyping) await chat.sendStateTyping();
             }
-          }
-        } catch (typingError) {
-          console.log(`      ⚠️ Simulando espera (typing error: ${typingError.message})`);
-          // Capar el tiempo de espera si hay error para no parecer colgado
-          const safeWait = Math.min(typingTime, 5000);
-          await this.sleep(safeWait);
-        }
-
-        // Enviar mensaje usando el objeto chat directamente (más estable)
-        // Enviar mensaje usando el objeto chat directamente (más estable)
-        console.log(`      📤 Enviando a API de WhatsApp...`);
-        // Asegurar que tenemos el chat (el 'chat' anterior estaba en otro scope)
-        let sentMessage;
-        try {
-          // 🛡️ SAFETY CHECK: Verificar si el cliente sigue conectado
-          if (!this.client || !this.client.info) {
-            console.warn('⚠️ Cliente desconectado detectado antes de enviar. Abortando.');
-            return;
+            await this.sleep(typingTime);
+            if (this.client.sendStateTyping) {
+              await this.client.sendStateTyping(whatsappFormat, false);
+            } else {
+              const chat = await this.client.getChatById(whatsappFormat);
+              if (chat && chat.clearStateTyping) await chat.clearStateTyping();
+            }
+          } catch (typingError) {
+            console.log(`      ⚠️ Warning: Error simulando typing (${typingError.message}). Continuando...`);
+            await this.sleep(Math.min(typingTime, 2000));
           }
 
-          const chatToSend = await this.client.getChatById(whatsappFormat);
-          if (!chatToSend) throw new Error(`Chat object is null for ${whatsappFormat}`);
-
-          sentMessage = await chatToSend.sendMessage(message);
-        } catch (criticalError) {
-          if (criticalError.message.includes('getChat') || criticalError.message.includes('Session Closed') || criticalError.message.includes('protocol') || criticalError.message.includes('detached') || criticalError.message.includes('Target closed')) {
-            console.error(`🔥 ERROR CRÍTICO DE SESIÓN enviando mensaje: ${criticalError.message}. Deteniendo secuencia.`);
-            return; // Salir de la función completamente para evitar crash
+          // Enviar mensaje
+          console.log(`      📤 Enviando a API de WhatsApp...`);
+          let sentMessage;
+          try {
+            if (!this.client || !this.client.info) {
+              console.warn('⚠️ Cliente desconectado detectado antes de enviar. Abortando.');
+              return;
+            }
+            const chatToSend = await this.client.getChatById(whatsappFormat);
+            if (!chatToSend) throw new Error(`Chat object is null for ${whatsappFormat}`);
+            sentMessage = await chatToSend.sendMessage(message);
+          } catch (criticalError) {
+            if (criticalError.message.includes('getChat') || criticalError.message.includes('Session Closed') || criticalError.message.includes('protocol') || criticalError.message.includes('detached') || criticalError.message.includes('Target closed')) {
+              console.error(`🔥 ERROR CRÍTICO DE SESIÓN enviando mensaje: ${criticalError.message}. Deteniendo secuencia.`);
+              return;
+            }
+            throw criticalError;
           }
-          throw criticalError; // Re-lanzar para el catch externo si es otro error
-        }
 
-        // ⏱️ Auto-reply Timer: Registrar hora exacta de envío
-        this.lastMessageTimestamps.set(whatsappFormat, Date.now());
+          // ⏱️ Auto-reply Timer
+          this.lastMessageTimestamps.set(whatsappFormat, Date.now());
+          console.log(`      ✅ Mensaje ENVIADO (ID: ${sentMessage.id._serialized})`);
 
-        console.log(`      ✅ Mensaje ENVIADO (ID: ${sentMessage.id._serialized})`);
-
-        // Guardar en BD con metadata de IA
-        try {
-          console.log(`      💾 Guardando en base de datos...`);
-          await axios.post(`${this.backendUrl}/messages`, {
-            leadId: lead.id,
-            leadName: lead.name,
-            phone: lead.phone,
-            messageNumber: i + 1,
-            content: message,
-            type: 'oferta_servicio',
-            status: 'sent',
-            sentAt: new Date(),
-            whatsappMessageId: sentMessage.id._serialized,
-            // 🔑 MULTI-BOT: Tracking de qué número/instancia envió
-            sentFromNumber: this.connectedNumber,
-            instanceId: this.instanceId,
-            metadata: {
-              generatedByAI: true,
-              model: 'gemini-1.5-flash',
-              promoType: i === 2 ? 'promo_2025' : 'engagement',
-              humanBehavior: {
-                typingTime: typingTime,
-                readingTime: i > 0 ? this.behaviorSimulator.getReadingTime(messages[i - 1]) : 0
+          // Guardar en BD con metadata de IA
+          try {
+            console.log(`      💾 Guardando en base de datos...`);
+            await axios.post(`${this.backendUrl}/messages`, {
+              leadId: lead.id,
+              leadName: lead.name,
+              phone: lead.phone,
+              messageNumber: i + 1,
+              content: message,
+              type: 'oferta_servicio',
+              status: 'sent',
+              sentAt: new Date(),
+              whatsappMessageId: sentMessage.id._serialized,
+              // 🔑 MULTI-BOT: Tracking de qué número/instancia envió
+              sentFromNumber: this.connectedNumber,
+              instanceId: this.instanceId,
+              metadata: {
+                generatedByAI: true,
+                model: 'gemini-1.5-flash',
+                promoType: i === 2 ? 'promo_2025' : 'engagement',
+                humanBehavior: {
+                  typingTime: typingTime,
+                  readingTime: i > 0 ? this.behaviorSimulator.getReadingTime(messages[i - 1]) : 0
+                }
               }
-            }
-          });
-          console.log(`      ✅ Guardado OK.`);
+            });
+            console.log(`      ✅ Guardado OK.`);
+          } catch (error) {
+            console.error('      ⚠️ Error guardando mensaje en BD:', error.message);
+          }
+
+          // Delay entre mensajes con rate limiter
+          if (i < messages.length - 1) {
+            const delay = this.rateLimiter.getMessageDelay();
+            console.log(`      ⏱️  Esperando delay humano: ${(delay / 1000).toFixed(1)}s ...`);
+            await this.sleep(delay);
+          }
+
         } catch (error) {
-          console.error('      ⚠️ Error guardando mensaje en BD:', error.message);
-        }
-
-        // Delay entre mensajes con rate limiter
-        if (i < messages.length - 1) {
-          const delay = this.rateLimiter.getMessageDelay();
-          console.log(`      ⏱️  Esperando delay humano: ${(delay / 1000).toFixed(1)}s ...`);
-          await this.sleep(delay);
-        }
-
-      } catch (error) {
-        console.error(`      ❌ Error fatal enviando mensaje ${i + 1}:`, error.stack || error);
-        // Continuar con el siguiente mensaje si falla uno
-        if (i < messages.length - 1) {
-          console.log(`      ⏩ Intentando siguiente mensaje a pesar del error...`);
-          continue;
-        } else {
-          console.log(`      ⛔ Abortando secuencia.`);
-          break;
+          console.error(`      ❌ Error fatal enviando mensaje ${i + 1}:`, error.stack || error);
+          // Continuar con el siguiente mensaje si falla uno
+          if (i < messages.length - 1) {
+            console.log(`      ⏩ Intentando siguiente mensaje a pesar del error...`);
+            continue;
+          } else {
+            console.log(`      ⛔ Abortando secuencia.`);
+            break;
+          }
         }
       }
-    }
 
       // ✅ REGISTRAR EN RATE LIMITER
       console.log(`   6️⃣ Finalizando y actualizando estadísticas...`);
-    await this.rateLimiter.recordLead(lead.id, messages.length, true);
-    this.statsTracker.trackLead(lead, 'contacted', { messagesSent: messages.length, method: 'ai_generated' });
+      await this.rateLimiter.recordLead(lead.id, messages.length, true);
+      this.statsTracker.trackLead(lead, 'contacted', { messagesSent: messages.length, method: 'ai_generated' });
 
-    // Marcar como contactado
-    await this.updateLeadStatus(lead.id, 'contacted', lead.name);
-    console.log(`   ✅ SECUENCIA COMPLETADA EXITOSAMENTE para ${lead.name}`);
+      // Marcar como contactado
+      await this.updateLeadStatus(lead.id, 'contacted', lead.name);
+      console.log(`   ✅ SECUENCIA COMPLETADA EXITOSAMENTE para ${lead.name}`);
 
-    // 🛡️ FIX: Limpiar tracking in-memory del lead actual
-    this.currentlyProcessingLead = null;
+      // 🛡️ FIX: Limpiar tracking in-memory del lead actual
+      this.currentlyProcessingLead = null;
 
-    // Mostrar stats del rate limiter
-    const stats = await this.rateLimiter.getStats();
-    const todayStats = stats?.today || { leads: 0, messages: 0 };
-    console.log(`   📊 Progreso Diario: ${todayStats.leads} leads | ${todayStats.messages} mensajes`);
+      // Mostrar stats del rate limiter
+      const stats = await this.rateLimiter.getStats();
+      const todayStats = stats?.today || { leads: 0, messages: 0 };
+      console.log(`   📊 Progreso Diario: ${todayStats.leads} leads | ${todayStats.messages} mensajes`);
 
-    return { success: true, messagesSent: messages.length };
+      return { success: true, messagesSent: messages.length };
 
-  } catch(error) {
-    this.log(`❌ Error en secuencia: ${error.message}`, 'error', null, lead.id);
-    console.error(`   ❌ ERROR CRÍTICO EN SECUENCIA:`, error.stack || error);
-    console.error('❌ Error crítico en secuencia de mensajes:', error.message);
+    } catch (error) {
+      this.log(`❌ Error en secuencia: ${error.message}`, 'error', null, lead.id);
+      console.error(`   ❌ ERROR CRÍTICO EN SECUENCIA:`, error.stack || error);
+      console.error('❌ Error crítico en secuencia de mensajes:', error.message);
 
-    // 🛡️ SESSION_DEAD: NO contar como reintento del lead
-    const isSessionDead = error.message && error.message.includes('SESSION_DEAD');
+      // 🛡️ SESSION_DEAD: NO contar como reintento del lead
+      const isSessionDead = error.message && error.message.includes('SESSION_DEAD');
 
-    if (isSessionDead) {
-      console.log(`   🔥 SESSION_DEAD: No se cuenta como fallo del lead ${lead.name}`);
+      if (isSessionDead) {
+        console.log(`   🔥 SESSION_DEAD: No se cuenta como fallo del lead ${lead.name}`);
+        if (lead && (lead._id || lead.id)) {
+          await this.updateLeadStatus(lead._id || lead.id, 'pending', lead.name);
+        }
+        return { success: false, reason: 'session_dead', error: error.message };
+      }
+
+      // 🔄 SMART RETRY: Reintentar errores transitorios con límite de 3 intentos
       if (lead && (lead._id || lead.id)) {
-        await this.updateLeadStatus(lead._id || lead.id, 'pending', lead.name);
+        const retryCount = (lead.retryCount || 0) + 1;
+        if (retryCount >= 3) {
+          console.log(`   ⛔ Lead ${lead.name} falló ${retryCount} veces — descartado definitivamente`);
+          await this.updateLeadStatus(lead._id || lead.id, 'failed', lead.name);
+          try {
+            await axios.put(`${this.backendUrl}/lead/${lead._id || lead.id}`, {
+              notes: `Failed after ${retryCount} retries: ${error.message}`
+            });
+          } catch (e) { /* silenciar */ }
+        } else {
+          console.log(`   🔄 Reintento ${retryCount}/3 para ${lead.name} — vuelve a la cola`);
+          await this.updateLeadStatus(lead._id || lead.id, 'pending', lead.name);
+          try {
+            await axios.put(`${this.backendUrl}/lead/${lead._id || lead.id}`, {
+              retryCount: retryCount
+            });
+          } catch (e) { /* silenciar */ }
+        }
       }
-      return { success: false, reason: 'session_dead', error: error.message };
-    }
 
-    // 🔄 SMART RETRY: Reintentar errores transitorios con límite de 3 intentos
-    if (lead && (lead._id || lead.id)) {
-      const retryCount = (lead.retryCount || 0) + 1;
-      if (retryCount >= 3) {
-        console.log(`   ⛔ Lead ${lead.name} falló ${retryCount} veces — descartado definitivamente`);
-        await this.updateLeadStatus(lead._id || lead.id, 'failed', lead.name);
-        try {
-          await axios.put(`${this.backendUrl}/lead/${lead._id || lead.id}`, {
-            notes: `Failed after ${retryCount} retries: ${error.message}`
-          });
-        } catch (e) { /* silenciar */ }
-      } else {
-        console.log(`   🔄 Reintento ${retryCount}/3 para ${lead.name} — vuelve a la cola`);
-        await this.updateLeadStatus(lead._id || lead.id, 'pending', lead.name);
-        try {
-          await axios.put(`${this.backendUrl}/lead/${lead._id || lead.id}`, {
-            retryCount: retryCount
-          });
-        } catch (e) { /* silenciar */ }
-      }
+      return { success: false, reason: 'internal_error', error: error.message };
     }
-
-    return { success: false, reason: 'internal_error', error: error.message };
   }
-}
 
   /**
    * Enviar secuencia completa (mensajes 1-8)
    */
   async sendFullSequence(lead, whatsappFormat) {
-  this.log(`📱 Enviando secuencia completa de ${this.messageSequences.length} mensajes a ${lead.name}`, 'info', null, lead.id);
-  this.log(`🎲 Usando variaciones aleatorias para evitar spam`, 'info', null, lead.id);
+    this.log(`📱 Enviando secuencia completa de ${this.messageSequences.length} mensajes a ${lead.name}`, 'info', null, lead.id);
+    this.log(`🎲 Usando variaciones aleatorias para evitar spam`, 'info', null, lead.id);
 
-  // Enviar secuencia de mensajes con variaciones
-  for (let i = 0; i < this.messageSequences.length; i++) {
-    const message = this.getRandomMessage(i, lead.name);
-
-    try {
-      const messageId = Date.now().toString() + '_' + i;
-
-      // Guardar mensaje en base de datos
-      const messageData = {
-        leadId: lead.id,
-        leadName: lead.name,
-        phone: lead.phone,
-        messageNumber: i + 1,
-        content: message,
-        variation: message,
-        type: 'oferta_servicio',
-        status: 'sent',
-        sentAt: new Date(),
-        delay: i > 0 ? this.getRandomDelay() : 0,
-        typingTime: 2000,
-        whatsappMessageId: messageId,
-        botInstance: 'main',
-        sessionId: this.client.info?.wid?.user || '',
-        metadata: {
-          messageIndex: i,
-          totalMessages: this.messageSequences.length,
-          whatsappVerified: true,
-          envioAutomatico: true,
-          scrapingData: {
-            keyword: lead.keyword || '',
-            location: lead.location || '',
-            searchQuery: `${lead.keyword || ''} ${lead.location || ''}`.trim(),
-            scrapedAt: lead.createdAt || new Date()
-          }
-        }
-      };
-
-      // Guardar en base de datos
-      try {
-        await axios.post(`${this.backendUrl}/messages`, messageData);
-      } catch (error) {
-        console.error('Error guardando mensaje en BD:', error.message);
-      }
-
-      // Simular que está escribiendo
-      await this.simulateTyping(whatsappFormat);
-
-      const sentMessage = await this.client.sendMessage(whatsappFormat, message);
-      this.log(`✅ Mensaje ${i + 1} enviado a ${lead.name}`, 'success', null, lead.id);
-
-      // Trackear mensaje enviado
-      this.statsTracker.trackMessage(messageData);
-
-      // Esperar delay aleatorio entre mensajes
-      if (i < this.messageSequences.length - 1) {
-        const randomDelay = this.getRandomDelay();
-        this.log(`⏱️ Esperando ${randomDelay / 1000}s antes del siguiente mensaje...`, 'info', null, lead.id);
-        await this.sleep(randomDelay);
-      }
-
-    } catch (error) {
-      console.error(`❌ Error enviando mensaje ${i + 1} a ${lead.name}:`, error.message);
-      break;
-    }
-  }
-
-  // Marcar como contactado
-  await this.updateLeadStatus(lead.id, 'contacted', lead.name);
-  this.log(`✅ Secuencia completa finalizada para ${lead.name}`, 'success', null, lead.id);
-
-  // Mostrar progreso de la cola
-  try {
-    const queueResponse = await axios.get(`${this.backendUrl}/next`);
-    if (queueResponse.data.queue) {
-      const queueInfo = queueResponse.data.queue;
-      console.log(`\n📊 === PROGRESO DE LA COLA ===`);
-      console.log(`✅ Lead completado: ${lead.name}`);
-      console.log(`📈 Estado actual:`);
-      console.log(`   • Pendientes: ${queueInfo.pending} leads`);
-      console.log(`   • Total en sistema: ${queueInfo.total} leads`);
-      console.log(`   • Progreso: ${queueInfo.total > 0 ? Math.round(((queueInfo.total - queueInfo.pending) / queueInfo.total) * 100) : 0}% completado`);
-      console.log(`⏱️ Tiempo estimado restante: ${queueInfo.pending > 0 ? Math.round(queueInfo.pending * 2) : 0} minutos`);
-      console.log(`=====================================\n`);
-    }
-  } catch (error) {
-    // Silenciar errores de consulta de cola
-  }
-}
-
-  /**
-   * Enviar secuencia restante (mensajes 3-8 después de verificación)
-   */
-  async sendRemainingSequence(lead, whatsappFormat, startIndex = 2) {
-  // Evitar envío simultáneo de mensajes
-  if (this.isSendingMessages) {
-    this.log(`⚠️ Ya se están enviando mensajes a ${lead.name} - saltando`, 'warn', null, lead.id);
-    return;
-  }
-
-  this.isSendingMessages = true; // Marcar como enviando
-
-  try {
-    this.log(`📱 Enviando secuencia restante (mensajes ${startIndex + 1}-${this.messageSequences.length}) a ${lead.name}`, 'info', null, lead.id);
-
-    // Verificar mensajes ya enviados en el chat
-    const sentMessages = await this.getSentMessagesFromChat(whatsappFormat);
-    this.log(`🔍 Mensajes encontrados en chat: ${sentMessages.length}`, 'info', null, lead.id);
-
-    // VERIFICACIÓN PREVIA: Revisar todos los mensajes que se van a enviar
-    const messagesToSend = [];
-
-    // IMPORTANTE: También verificar el mensaje 2 (índice 1) si startIndex es 2
-    // porque puede haber sido enviado por WhatsAppChecker
-    const checkStartIndex = startIndex === 2 ? 1 : startIndex;
-
-    for (let i = checkStartIndex; i < this.messageSequences.length; i++) {
-      // Verificar si este mensaje ya fue enviado
-      if (await this.isMessageAlreadySent(i, sentMessages)) {
-        this.log(`⏭️ Mensaje ${i + 1} (índice ${i}) ya fue enviado - saltando`, 'info', null, lead.id);
-        continue;
-      }
-
-      // Solo agregar mensajes que están en el rango que queremos enviar (startIndex en adelante)
-      if (i >= startIndex) {
-        // Agregar a la lista de mensajes a enviar
-        const message = this.getRandomMessage(i, lead.name);
-        messagesToSend.push({
-          index: i,
-          message: message,
-          messageNumber: i + 1
-        });
-      }
-    }
-
-    this.log(`📋 Mensajes a enviar: ${messagesToSend.length} de ${this.messageSequences.length - startIndex}`, 'info', null, lead.id);
-
-    // 6. Verificar si quedan leads para aplicar "Cool-off" largo
-    const pendingLeads = await this.rateLimiter.getPendingCount();
-    if (pendingLeads > 0) {
-      // Lógica anterior que usaba this.leads fallaba
-    }
-    // Si no hay mensajes para enviar, terminar
-    if (messagesToSend.length === 0) {
-      this.log(`✅ No hay mensajes nuevos para enviar a ${lead.name}`, 'info', null, lead.id);
-      return;
-    }
-
-    // Enviar mensajes restantes de la secuencia
-    for (let i = 0; i < messagesToSend.length; i++) {
-      const { index, message, messageNumber } = messagesToSend[i];
-
-      this.log(`📝 Enviando mensaje ${messageNumber} (índice ${index}): ${message.substring(0, 100)}...`, 'info', null, lead.id);
-
-      // Verificar que el mensaje sea el correcto
-      if (index === 2 && !message.includes('$150.000')) {
-        this.log(`⚠️ ERROR: Mensaje 3 (índice 2) no contiene $150.000: ${message.substring(0, 50)}...`, 'error', null, lead.id);
-      }
-      if (index === 3 && !message.includes('$500.000')) {
-        this.log(`⚠️ ERROR: Mensaje 4 (índice 3) no contiene $500.000: ${message.substring(0, 50)}...`, 'error', null, lead.id);
-      }
-
-      // AGREGAR DELAY INICIAL ANTES DEL PRIMER MENSAJE
-      if (i === 0) {
-        const initialDelay = this.getRandomDelay();
-        this.log(`⏱️ Delay inicial de ${initialDelay / 1000}s antes del primer mensaje...`, 'info', null, lead.id);
-        await this.sleep(initialDelay);
-      }
+    // Enviar secuencia de mensajes con variaciones
+    for (let i = 0; i < this.messageSequences.length; i++) {
+      const message = this.getRandomMessage(i, lead.name);
 
       try {
-        const messageId = Date.now().toString() + '_' + index;
+        const messageId = Date.now().toString() + '_' + i;
 
         // Guardar mensaje en base de datos
         const messageData = {
           leadId: lead.id,
           leadName: lead.name,
           phone: lead.phone,
-          messageNumber: messageNumber,
+          messageNumber: i + 1,
           content: message,
           variation: message,
           type: 'oferta_servicio',
           status: 'sent',
           sentAt: new Date(),
-          delay: this.getRandomDelay(), // SIEMPRE agregar delay, incluso al primer mensaje
+          delay: i > 0 ? this.getRandomDelay() : 0,
           typingTime: 2000,
           whatsappMessageId: messageId,
           botInstance: 'main',
           sessionId: this.client.info?.wid?.user || '',
           metadata: {
-            messageIndex: index,
+            messageIndex: i,
             totalMessages: this.messageSequences.length,
             whatsappVerified: true,
             envioAutomatico: true,
-            verificationSession: true,
             scrapingData: {
               keyword: lead.keyword || '',
               location: lead.location || '',
@@ -1730,34 +1539,27 @@ class WhatsAppBot {
         await this.simulateTyping(whatsappFormat);
 
         const sentMessage = await this.client.sendMessage(whatsappFormat, message);
-        this.log(`✅ Mensaje ${messageNumber} enviado a ${lead.name}`, 'success', null, lead.id);
+        this.log(`✅ Mensaje ${i + 1} enviado a ${lead.name}`, 'success', null, lead.id);
 
-        // Esperar delay aleatorio entre mensajes (SIEMPRE, incluso después del primer mensaje)
-        if (i < messagesToSend.length - 1) {
+        // Trackear mensaje enviado
+        this.statsTracker.trackMessage(messageData);
+
+        // Esperar delay aleatorio entre mensajes
+        if (i < this.messageSequences.length - 1) {
           const randomDelay = this.getRandomDelay();
           this.log(`⏱️ Esperando ${randomDelay / 1000}s antes del siguiente mensaje...`, 'info', null, lead.id);
           await this.sleep(randomDelay);
         }
 
       } catch (error) {
-        console.error(`❌ Error enviando mensaje ${messageNumber} a ${lead.name}:`, error.message);
+        console.error(`❌ Error enviando mensaje ${i + 1} a ${lead.name}:`, error.message);
         break;
       }
     }
 
-    // Marcar como contactado y que se enviaron mensajes 3-8
+    // Marcar como contactado
     await this.updateLeadStatus(lead.id, 'contacted', lead.name);
-
-    // Marcar que se enviaron los mensajes 3-8 para evitar duplicados
-    try {
-      await axios.put(`${this.backendUrl}/lead/${lead.id}/status`, {
-        messages3to8Sent: true
-      });
-    } catch (error) {
-      console.error('Error marcando mensajes 3-8 como enviados:', error.message);
-    }
-
-    this.log(`✅ Secuencia restante finalizada para ${lead.name}`, 'success', null, lead.id);
+    this.log(`✅ Secuencia completa finalizada para ${lead.name}`, 'success', null, lead.id);
 
     // Mostrar progreso de la cola
     try {
@@ -1776,1309 +1578,1481 @@ class WhatsAppBot {
     } catch (error) {
       // Silenciar errores de consulta de cola
     }
-
-  } finally {
-    this.isSendingMessages = false; // Liberar la bandera
   }
-}
 
-/**
- * Detección rápida de auto-replies de WhatsApp Business
- * No depende de Gemini — usa patrones de texto comunes
- */
-isQuickAutoReply(messageBody) {
-  if (!messageBody) return false;
-  const lower = messageBody.toLowerCase();
+  /**
+   * Enviar secuencia restante (mensajes 3-8 después de verificación)
+   */
+  async sendRemainingSequence(lead, whatsappFormat, startIndex = 2) {
+    // Evitar envío simultáneo de mensajes
+    if (this.isSendingMessages) {
+      this.log(`⚠️ Ya se están enviando mensajes a ${lead.name} - saltando`, 'warn', null, lead.id);
+      return;
+    }
 
-  // 1. Palabras clave de bots / auto-respuestas
-  const autoReplyKeywords = [
-    'gracias por comunicarte', 'gracias por contactarnos', 'gracias por escribirnos',
-    '¿cómo podemos ayudarte', 'como podemos ayudarte',
-    'bienvenido', 'bienvenida',
-    'menú', 'menu', 'opción', 'opcion', 'marcar',
-    'horario de atención', 'horario de atencion',
-    'respuesta automática', 'respuesta automatica',
-    'autorespuesta', 'auto-respuesta',
-    'asistente virtual', 'chatbot',
-    'fuera del horario', 'fuera de horario',
-    'en breve te respondemos', 'en breve nos comunicamos',
-    'mensaje fue recibido', 'hemos recibido tu mensaje',
-    'te responderemos', 'nos pondremos en contacto',
-    'seleccione una opción', 'selecciona una opcion',
-    'elige una opción', 'elija una opcion',
-    'recuerde que debemos', 'agendado'
-  ];
-  if (autoReplyKeywords.some(kw => lower.includes(kw))) return true;
+    this.isSendingMessages = true; // Marcar como enviando
 
-  // 2. Estructura de menú: múltiples signos de interrogación (3+)
-  const questionMarks = (messageBody.match(/\?/g) || []).length;
-  if (questionMarks >= 3) return true;
+    try {
+      this.log(`📱 Enviando secuencia restante (mensajes ${startIndex + 1}-${this.messageSequences.length}) a ${lead.name}`, 'info', null, lead.id);
 
-  // 3. Emojis numerados (1️⃣, 2️⃣, etc.) — típico de menús de bot
-  const numberedEmojis = (messageBody.match(/[0-9]️⃣/g) || []).length;
-  if (numberedEmojis >= 2) return true;
+      // Verificar mensajes ya enviados en el chat
+      const sentMessages = await this.getSentMessagesFromChat(whatsappFormat);
+      this.log(`🔍 Mensajes encontrados en chat: ${sentMessages.length}`, 'info', null, lead.id);
 
-  // 4. Mensaje excesivamente largo (>300 chars) que llega instantáneamente
-  if (messageBody.length > 300) {
-    const lastSentTime = this.lastMessageTimestamps?.get(
-      this.currentlyProcessingLead?.whatsappFormat
-    );
-    if (lastSentTime && (Date.now() - lastSentTime) < 5000) {
-      return true;
+      // VERIFICACIÓN PREVIA: Revisar todos los mensajes que se van a enviar
+      const messagesToSend = [];
+
+      // IMPORTANTE: También verificar el mensaje 2 (índice 1) si startIndex es 2
+      // porque puede haber sido enviado por WhatsAppChecker
+      const checkStartIndex = startIndex === 2 ? 1 : startIndex;
+
+      for (let i = checkStartIndex; i < this.messageSequences.length; i++) {
+        // Verificar si este mensaje ya fue enviado
+        if (await this.isMessageAlreadySent(i, sentMessages)) {
+          this.log(`⏭️ Mensaje ${i + 1} (índice ${i}) ya fue enviado - saltando`, 'info', null, lead.id);
+          continue;
+        }
+
+        // Solo agregar mensajes que están en el rango que queremos enviar (startIndex en adelante)
+        if (i >= startIndex) {
+          // Agregar a la lista de mensajes a enviar
+          const message = this.getRandomMessage(i, lead.name);
+          messagesToSend.push({
+            index: i,
+            message: message,
+            messageNumber: i + 1
+          });
+        }
+      }
+
+      this.log(`📋 Mensajes a enviar: ${messagesToSend.length} de ${this.messageSequences.length - startIndex}`, 'info', null, lead.id);
+
+      // 6. Verificar si quedan leads para aplicar "Cool-off" largo
+      const pendingLeads = await this.rateLimiter.getPendingCount();
+      if (pendingLeads > 0) {
+        // Lógica anterior que usaba this.leads fallaba
+      }
+      // Si no hay mensajes para enviar, terminar
+      if (messagesToSend.length === 0) {
+        this.log(`✅ No hay mensajes nuevos para enviar a ${lead.name}`, 'info', null, lead.id);
+        return;
+      }
+
+      // Enviar mensajes restantes de la secuencia
+      for (let i = 0; i < messagesToSend.length; i++) {
+        const { index, message, messageNumber } = messagesToSend[i];
+
+        this.log(`📝 Enviando mensaje ${messageNumber} (índice ${index}): ${message.substring(0, 100)}...`, 'info', null, lead.id);
+
+        // Verificar que el mensaje sea el correcto
+        if (index === 2 && !message.includes('$150.000')) {
+          this.log(`⚠️ ERROR: Mensaje 3 (índice 2) no contiene $150.000: ${message.substring(0, 50)}...`, 'error', null, lead.id);
+        }
+        if (index === 3 && !message.includes('$500.000')) {
+          this.log(`⚠️ ERROR: Mensaje 4 (índice 3) no contiene $500.000: ${message.substring(0, 50)}...`, 'error', null, lead.id);
+        }
+
+        // AGREGAR DELAY INICIAL ANTES DEL PRIMER MENSAJE
+        if (i === 0) {
+          const initialDelay = this.getRandomDelay();
+          this.log(`⏱️ Delay inicial de ${initialDelay / 1000}s antes del primer mensaje...`, 'info', null, lead.id);
+          await this.sleep(initialDelay);
+        }
+
+        try {
+          const messageId = Date.now().toString() + '_' + index;
+
+          // Guardar mensaje en base de datos
+          const messageData = {
+            leadId: lead.id,
+            leadName: lead.name,
+            phone: lead.phone,
+            messageNumber: messageNumber,
+            content: message,
+            variation: message,
+            type: 'oferta_servicio',
+            status: 'sent',
+            sentAt: new Date(),
+            delay: this.getRandomDelay(), // SIEMPRE agregar delay, incluso al primer mensaje
+            typingTime: 2000,
+            whatsappMessageId: messageId,
+            botInstance: 'main',
+            sessionId: this.client.info?.wid?.user || '',
+            metadata: {
+              messageIndex: index,
+              totalMessages: this.messageSequences.length,
+              whatsappVerified: true,
+              envioAutomatico: true,
+              verificationSession: true,
+              scrapingData: {
+                keyword: lead.keyword || '',
+                location: lead.location || '',
+                searchQuery: `${lead.keyword || ''} ${lead.location || ''}`.trim(),
+                scrapedAt: lead.createdAt || new Date()
+              }
+            }
+          };
+
+          // Guardar en base de datos
+          try {
+            await axios.post(`${this.backendUrl}/messages`, messageData);
+          } catch (error) {
+            console.error('Error guardando mensaje en BD:', error.message);
+          }
+
+          // Simular que está escribiendo
+          await this.simulateTyping(whatsappFormat);
+
+          const sentMessage = await this.client.sendMessage(whatsappFormat, message);
+          this.log(`✅ Mensaje ${messageNumber} enviado a ${lead.name}`, 'success', null, lead.id);
+
+          // Esperar delay aleatorio entre mensajes (SIEMPRE, incluso después del primer mensaje)
+          if (i < messagesToSend.length - 1) {
+            const randomDelay = this.getRandomDelay();
+            this.log(`⏱️ Esperando ${randomDelay / 1000}s antes del siguiente mensaje...`, 'info', null, lead.id);
+            await this.sleep(randomDelay);
+          }
+
+        } catch (error) {
+          console.error(`❌ Error enviando mensaje ${messageNumber} a ${lead.name}:`, error.message);
+          break;
+        }
+      }
+
+      // Marcar como contactado y que se enviaron mensajes 3-8
+      await this.updateLeadStatus(lead.id, 'contacted', lead.name);
+
+      // Marcar que se enviaron los mensajes 3-8 para evitar duplicados
+      try {
+        await axios.put(`${this.backendUrl}/lead/${lead.id}/status`, {
+          messages3to8Sent: true
+        });
+      } catch (error) {
+        console.error('Error marcando mensajes 3-8 como enviados:', error.message);
+      }
+
+      this.log(`✅ Secuencia restante finalizada para ${lead.name}`, 'success', null, lead.id);
+
+      // Mostrar progreso de la cola
+      try {
+        const queueResponse = await axios.get(`${this.backendUrl}/next`);
+        if (queueResponse.data.queue) {
+          const queueInfo = queueResponse.data.queue;
+          console.log(`\n📊 === PROGRESO DE LA COLA ===`);
+          console.log(`✅ Lead completado: ${lead.name}`);
+          console.log(`📈 Estado actual:`);
+          console.log(`   • Pendientes: ${queueInfo.pending} leads`);
+          console.log(`   • Total en sistema: ${queueInfo.total} leads`);
+          console.log(`   • Progreso: ${queueInfo.total > 0 ? Math.round(((queueInfo.total - queueInfo.pending) / queueInfo.total) * 100) : 0}% completado`);
+          console.log(`⏱️ Tiempo estimado restante: ${queueInfo.pending > 0 ? Math.round(queueInfo.pending * 2) : 0} minutos`);
+          console.log(`=====================================\n`);
+        }
+      } catch (error) {
+        // Silenciar errores de consulta de cola
+      }
+
+    } finally {
+      this.isSendingMessages = false; // Liberar la bandera
     }
   }
 
-  return false;
-}
+  /**
+   * Detección rápida de auto-replies de WhatsApp Business
+   * No depende de Gemini — usa patrones de texto comunes
+   */
+  isQuickAutoReply(messageBody) {
+    if (!messageBody) return false;
+    const lower = messageBody.toLowerCase();
+
+    // 1. Palabras clave de bots / auto-respuestas
+    const autoReplyKeywords = [
+      'gracias por comunicarte', 'gracias por contactarnos', 'gracias por escribirnos',
+      '¿cómo podemos ayudarte', 'como podemos ayudarte',
+      'bienvenido', 'bienvenida',
+      'menú', 'menu', 'opción', 'opcion', 'marcar',
+      'horario de atención', 'horario de atencion',
+      'respuesta automática', 'respuesta automatica',
+      'autorespuesta', 'auto-respuesta',
+      'asistente virtual', 'chatbot',
+      'fuera del horario', 'fuera de horario',
+      'en breve te respondemos', 'en breve nos comunicamos',
+      'mensaje fue recibido', 'hemos recibido tu mensaje',
+      'te responderemos', 'nos pondremos en contacto',
+      'seleccione una opción', 'selecciona una opcion',
+      'elige una opción', 'elija una opcion',
+      'recuerde que debemos', 'agendado'
+    ];
+    if (autoReplyKeywords.some(kw => lower.includes(kw))) return true;
+
+    // 2. Estructura de menú: múltiples signos de interrogación (3+)
+    const questionMarks = (messageBody.match(/\?/g) || []).length;
+    if (questionMarks >= 3) return true;
+
+    // 3. Emojis numerados (1️⃣, 2️⃣, etc.) — típico de menús de bot
+    const numberedEmojis = (messageBody.match(/[0-9]️⃣/g) || []).length;
+    if (numberedEmojis >= 2) return true;
+
+    // 4. Mensaje excesivamente largo (>300 chars) que llega instantáneamente
+    if (messageBody.length > 300) {
+      const lastSentTime = this.lastMessageTimestamps?.get(
+        this.currentlyProcessingLead?.whatsappFormat
+      );
+      if (lastSentTime && (Date.now() - lastSentTime) < 5000) {
+        return true;
+      }
+    }
+
+    return false;
+  }
 
   async handleIncomingMessage(message) {
-  try {
-    // 1. IGNORAR MENSAJES PROPIOS (CRÍTICO)
-    if (message.fromMe) {
-      return;
-    }
+    try {
+      // 1. IGNORAR MENSAJES PROPIOS (CRÍTICO)
+      if (message.fromMe) {
+        return;
+      }
 
-    // 2. IGNORAR MENSAJES VACÍOS O DE SISTEMA (CRÍTICO)
-    // Esto evita errores de IA con strings vacíos
-    if (!message.body || message.body.trim() === '') {
-      // console.log(`[${new Date().toISOString()}] ⚠️ Mensaje vacío ignorado de ${message.from}`); // Reducir ruido
-      return;
-    }
+      // 2. IGNORAR MENSAJES VACÍOS O DE SISTEMA (CRÍTICO)
+      // Esto evita errores de IA con strings vacíos
+      if (!message.body || message.body.trim() === '') {
+        // console.log(`[${new Date().toISOString()}] ⚠️ Mensaje vacío ignorado de ${message.from}`); // Reducir ruido
+        return;
+      }
 
-    // 3. IGNORAR GRUPOS
-    if (message.from.endsWith('@g.us')) {
-      // console.log(`[${new Date().toISOString()}] ⚠️ Mensaje de grupo ignorado: ${message.from}`);
-      return;
-    }
+      // 3. IGNORAR GRUPOS
+      if (message.from.endsWith('@g.us')) {
+        // console.log(`[${new Date().toISOString()}] ⚠️ Mensaje de grupo ignorado: ${message.from}`);
+        return;
+      }
 
-    const contactNumber = message.from;
-    const messageBody = message.body;
+      const contactNumber = message.from;
+      const messageBody = message.body;
 
-    console.log(`📨 Mensaje recibido de ${contactNumber}: "${messageBody}"`);
+      console.log(`📨 Mensaje recibido de ${contactNumber}: "${messageBody}"`);
 
-    // 🛡️ FIX: Detectar respuesta del lead ACTUALMENTE en procesamiento (in-memory)
-    if (this.currentlyProcessingLead && !this.currentlyProcessingLead.stopSending) {
-      let resolvedNumber = contactNumber;
-      if (contactNumber.includes('@lid')) {
-        try {
-          const chat = await this.client.getChatById(contactNumber);
-          const contact = await chat.getContact();
-          if (contact && contact.number) {
-            resolvedNumber = contact.number + '@c.us';
+      // 🛡️ FIX: Detectar respuesta del lead ACTUALMENTE en procesamiento (in-memory)
+      if (this.currentlyProcessingLead && !this.currentlyProcessingLead.stopSending) {
+        let resolvedNumber = contactNumber;
+        if (contactNumber.includes('@lid')) {
+          try {
+            const chat = await this.client.getChatById(contactNumber);
+            const contact = await chat.getContact();
+            if (contact && contact.number) {
+              resolvedNumber = contact.number + '@c.us';
+            }
+          } catch (e) { /* silenciar */ }
+        }
+        const cleanIncoming = resolvedNumber.replace('@c.us', '').replace(/\D/g, '');
+        const cleanCurrent = this.currentlyProcessingLead.phone.replace(/\D/g, '');
+        if (cleanIncoming === cleanCurrent || cleanIncoming.endsWith(cleanCurrent) || cleanCurrent.endsWith(cleanIncoming)) {
+          // 🤖 Verificar si es auto-reply ANTES de abortar la secuencia
+          const isAutoReply = this.isQuickAutoReply(messageBody);
+          if (isAutoReply) {
+            console.log(`🤖 AUTO-REPLY detectado del lead actual (${this.currentlyProcessingLead.lead.name}) — IGNORANDO, secuencia continúa`);
+            console.log(`   📨 Contenido: "${messageBody.substring(0, 80)}..."`);
+            // Guardar info para que la secuencia lo reconozca
+            this.currentlyProcessingLead.autoReplyDetected = true;
+            this.currentlyProcessingLead.autoReplyContent = messageBody;
+            // NO abortar — es respuesta automática de WhatsApp Business, no humana
+          } else {
+            console.log(`🛑 RESPUESTA REAL DETECTADA del lead actual (${this.currentlyProcessingLead.lead.name})!`);
+            console.log(`   📞 Número entrante: ${contactNumber} → resuelto: ${resolvedNumber}`);
+            console.log(`   📞 Lead actual: ${this.currentlyProcessingLead.phone}`);
+            this.currentlyProcessingLead.stopSending = true;
+            this.currentlyProcessingLead.respondedAt = new Date().toISOString();
+            this.abortCurrentSequence = true;
           }
-        } catch (e) { /* silenciar */ }
-      }
-      const cleanIncoming = resolvedNumber.replace('@c.us', '').replace(/\D/g, '');
-      const cleanCurrent = this.currentlyProcessingLead.phone.replace(/\D/g, '');
-      if (cleanIncoming === cleanCurrent || cleanIncoming.endsWith(cleanCurrent) || cleanCurrent.endsWith(cleanIncoming)) {
-        // 🤖 Verificar si es auto-reply ANTES de abortar la secuencia
-        const isAutoReply = this.isQuickAutoReply(messageBody);
-        if (isAutoReply) {
-          console.log(`🤖 AUTO-REPLY detectado del lead actual (${this.currentlyProcessingLead.lead.name}) — IGNORANDO, secuencia continúa`);
-          console.log(`   📨 Contenido: "${messageBody.substring(0, 80)}..."`);
-          // Guardar info para que la secuencia lo reconozca
-          this.currentlyProcessingLead.autoReplyDetected = true;
-          this.currentlyProcessingLead.autoReplyContent = messageBody;
-          // NO abortar — es respuesta automática de WhatsApp Business, no humana
-        } else {
-          console.log(`🛑 RESPUESTA REAL DETECTADA del lead actual (${this.currentlyProcessingLead.lead.name})!`);
-          console.log(`   📞 Número entrante: ${contactNumber} → resuelto: ${resolvedNumber}`);
-          console.log(`   📞 Lead actual: ${this.currentlyProcessingLead.phone}`);
-          this.currentlyProcessingLead.stopSending = true;
-          this.currentlyProcessingLead.respondedAt = new Date().toISOString();
-          this.abortCurrentSequence = true;
         }
       }
-    }
 
-    // 🤖 Si ya detectamos que es auto-reply, no pasar por isRejection
-    if (this.isQuickAutoReply(messageBody)) {
-      console.log(`🤖 Auto-reply ignorado en análisis de rechazo: "${messageBody.substring(0, 60)}..."`);
-      return;
-    }
+      // 🤖 Si ya detectamos que es auto-reply, no pasar por isRejection
+      if (this.isQuickAutoReply(messageBody)) {
+        console.log(`🤖 Auto-reply ignorado en análisis de rechazo: "${messageBody.substring(0, 60)}..."`);
+        return;
+      }
 
-    // ✅ ANALIZAR RESPUESTA CON IA
-    const analysis = await this.responseAnalyzer.isRejection(messageBody);
+      // ✅ ANALIZAR RESPUESTA CON IA
+      const analysis = await this.responseAnalyzer.isRejection(messageBody);
 
-    if (analysis.isRejection && analysis.shouldRespond) {
-      console.log(`❌ Rechazo detectado de ${contactNumber} (${(analysis.confidence * 100).toFixed(0)}%)`);
-      console.log(`📝 Razón: ${analysis.reason || 'Usuario no interesado'}`);
+      if (analysis.isRejection && analysis.shouldRespond) {
+        console.log(`❌ Rechazo detectado de ${contactNumber} (${(analysis.confidence * 100).toFixed(0)}%)`);
+        console.log(`📝 Razón: ${analysis.reason || 'Usuario no interesado'}`);
 
-      // CRÍTICO: Abortar secuencia en curso si hay una activa
-      this.abortCurrentSequence = true;
+        // CRÍTICO: Abortar secuencia en curso si hay una activa
+        this.abortCurrentSequence = true;
 
-      // Generar disculpa profesional
-      const apology = await this.responseAnalyzer.generateApology(contactNumber);
+        // Generar disculpa profesional
+        const apology = await this.responseAnalyzer.generateApology(contactNumber);
 
-      // Enviar disculpa
-      try {
-        await this.client.sendMessage(contactNumber, apology);
-        console.log(`✅ Disculpa enviada a ${contactNumber}`);
-
-        // Marcar en BD como no interesado
+        // Enviar disculpa
         try {
-          // Buscar lead por número y actualizar status
-          await axios.put(`${this.backendUrl}/lead/by-phone/${encodeURIComponent(contactNumber)}`, {
-            status: 'not_interested',
-            rejectionReason: analysis.reason || 'Usuario rechazó oferta',
-            rejectionConfidence: analysis.confidence
-          });
+          await this.client.sendMessage(contactNumber, apology);
+          console.log(`✅ Disculpa enviada a ${contactNumber}`);
+
+          // Marcar en BD como no interesado
+          try {
+            // Buscar lead por número y actualizar status
+            await axios.put(`${this.backendUrl}/lead/by-phone/${encodeURIComponent(contactNumber)}`, {
+              status: 'not_interested',
+              rejectionReason: analysis.reason || 'Usuario rechazó oferta',
+              rejectionConfidence: analysis.confidence
+            });
+          } catch (error) {
+            console.error('Error actualizando lead status:', error.message);
+          }
+
+          return; // No procesar más este mensaje
         } catch (error) {
-          console.error('Error actualizando lead status:', error.message);
+          console.error(`Error enviando disculpa:`, error.message);
         }
-
-        return; // No procesar más este mensaje
-      } catch (error) {
-        console.error(`Error enviando disculpa:`, error.message);
       }
-    }
 
-    // Verificar si es interés alto/medio
-    const interest = this.responseAnalyzer.isInterested(messageBody);
-    if (interest.isInterested && interest.shouldNotify) {
-      console.log(`🔥 LEAD INTERESADO (${interest.level}): ${contactNumber}`);
-      console.log(`📝 Mensaje: "${messageBody}"`);
+      // Verificar si es interés alto/medio
+      const interest = this.responseAnalyzer.isInterested(messageBody);
+      if (interest.isInterested && interest.shouldNotify) {
+        console.log(`🔥 LEAD INTERESADO (${interest.level}): ${contactNumber}`);
+        console.log(`📝 Mensaje: "${messageBody}"`);
 
-      // 🚨 NOTIFICAR AL USUARIO (aquí implementar notificación)
-      // TODO: Enviar a tu WhatsApp personal, Slack, email, etc.
-    }
-
-    const phoneNumber = message.from; // Re-declare or use contactNumber consistently
-    // console.log(`[${new Date().toISOString()}] 📨 Mensaje recibido de ${phoneNumber}: ${message.body}`); // This line is now redundant due to the new console.log above
-
-    // 🎭 DEMO DENTAL - Verificar activación de demo
-    if (this.checkDemoActivation(message)) {
-      console.log(`[${new Date().toISOString()}] 🎭 Activando demo dental para ${phoneNumber}`);
-      this.activateDemo(phoneNumber);
-
-      // Enviar mensaje inicial de la demo
-      const demoResponse = "🎭 **[DEMO ACTIVADA]**\n\n¡Hola! Soy el asistente virtual de Clínica Dental Recoleta 🦷\n\n¿Sos paciente ya de nuestra clínica o sos nuevo?\n\n💡 **Enviar \"Desactivar demo\" para desactivar**";
-
-      try {
-        await this.simulateTyping(phoneNumber);
-        await this.client.sendMessage(phoneNumber, demoResponse);
-        console.log(`[${new Date().toISOString()}] 🎭 Demo dental iniciado para ${phoneNumber}`);
-      } catch (error) {
-        console.error('❌ Error enviando mensaje inicial de demo:', error.message);
+        // 🚨 NOTIFICAR AL USUARIO (aquí implementar notificación)
+        // TODO: Enviar a tu WhatsApp personal, Slack, email, etc.
       }
-      return;
-    }
 
-    // 🎭 DEMO DENTAL - Verificar si hay demo activa
-    if (this.isDemoActivated(phoneNumber)) {
-      console.log(`[${new Date().toISOString()}] 🎭 Procesando demo dental para ${phoneNumber}`);
+      const phoneNumber = message.from; // Re-declare or use contactNumber consistently
+      // console.log(`[${new Date().toISOString()}] 📨 Mensaje recibido de ${phoneNumber}: ${message.body}`); // This line is now redundant due to the new console.log above
 
-      // Verificar si quiere desactivar la demo
-      if (message.body.toLowerCase().includes('desactivar demo')) {
-        this.deactivateDemo(phoneNumber);
-        const deactivateResponse = "🎭 **Demo desactivada**\n\n¡Gracias por probar la demo! El sistema ha vuelto al funcionamiento normal.";
+      // 🎭 DEMO DENTAL - Verificar activación de demo
+      if (this.checkDemoActivation(message)) {
+        console.log(`[${new Date().toISOString()}] 🎭 Activando demo dental para ${phoneNumber}`);
+        this.activateDemo(phoneNumber);
+
+        // Enviar mensaje inicial de la demo
+        const demoResponse = "🎭 **[DEMO ACTIVADA]**\n\n¡Hola! Soy el asistente virtual de Clínica Dental Recoleta 🦷\n\n¿Sos paciente ya de nuestra clínica o sos nuevo?\n\n💡 **Enviar \"Desactivar demo\" para desactivar**";
+
         try {
           await this.simulateTyping(phoneNumber);
-          await this.client.sendMessage(phoneNumber, deactivateResponse);
-          console.log(`[${new Date().toISOString()}] 🎭 Demo dental desactivada manualmente para ${phoneNumber}`);
+          await this.client.sendMessage(phoneNumber, demoResponse);
+          console.log(`[${new Date().toISOString()}] 🎭 Demo dental iniciado para ${phoneNumber}`);
         } catch (error) {
-          console.error('❌ Error enviando mensaje de desactivación:', error.message);
+          console.error('❌ Error enviando mensaje inicial de demo:', error.message);
         }
         return;
       }
 
-      const demoResult = this.getDemoResponse(phoneNumber, message.body);
-      if (demoResult && demoResult.response) {
-        try {
-          await this.simulateTyping(phoneNumber);
-          await this.client.sendMessage(phoneNumber, demoResult.response);
-          console.log(`[${new Date().toISOString()}] 🎭 Respuesta de demo enviada a ${phoneNumber}`);
+      // 🎭 DEMO DENTAL - Verificar si hay demo activa
+      if (this.isDemoActivated(phoneNumber)) {
+        console.log(`[${new Date().toISOString()}] 🎭 Procesando demo dental para ${phoneNumber}`);
 
-          // Si la demo terminó, desactivar
-          if (!demoResult.shouldContinue) {
-            this.deactivateDemo(phoneNumber);
+        // Verificar si quiere desactivar la demo
+        if (message.body.toLowerCase().includes('desactivar demo')) {
+          this.deactivateDemo(phoneNumber);
+          const deactivateResponse = "🎭 **Demo desactivada**\n\n¡Gracias por probar la demo! El sistema ha vuelto al funcionamiento normal.";
+          try {
+            await this.simulateTyping(phoneNumber);
+            await this.client.sendMessage(phoneNumber, deactivateResponse);
+            console.log(`[${new Date().toISOString()}] 🎭 Demo dental desactivada manualmente para ${phoneNumber}`);
+          } catch (error) {
+            console.error('❌ Error enviando mensaje de desactivación:', error.message);
           }
-        } catch (error) {
-          console.error('❌ Error enviando respuesta de demo:', error.message);
+          return;
         }
+
+        const demoResult = this.getDemoResponse(phoneNumber, message.body);
+        if (demoResult && demoResult.response) {
+          try {
+            await this.simulateTyping(phoneNumber);
+            await this.client.sendMessage(phoneNumber, demoResult.response);
+            console.log(`[${new Date().toISOString()}] 🎭 Respuesta de demo enviada a ${phoneNumber}`);
+
+            // Si la demo terminó, desactivar
+            if (!demoResult.shouldContinue) {
+              this.deactivateDemo(phoneNumber);
+            }
+          } catch (error) {
+            console.error('❌ Error enviando respuesta de demo:', error.message);
+          }
+        }
+        return; // No procesar como lead normal si está en demo
       }
-      return; // No procesar como lead normal si está en demo
-    }
 
-    // 🔍 FLUJO NORMAL - Buscar lead asociado a este número
-    const lead = await this.findLeadByPhone(phoneNumber);
+      // 🔍 FLUJO NORMAL - Buscar lead asociado a este número
+      const lead = await this.findLeadByPhone(phoneNumber);
 
-    if (!lead) {
-      console.log(`[${new Date().toISOString()}] ⚠️ No se encontró lead para ${phoneNumber} - IGNORANDO MENSAJE`);
-      return; // No responder a números que no son leads
-    }
+      if (!lead) {
+        console.log(`[${new Date().toISOString()}] ⚠️ No se encontró lead para ${phoneNumber} - IGNORANDO MENSAJE`);
+        return; // No responder a números que no son leads
+      }
 
-    // Verificar que el lead esté en estado 'contacted' (ya le enviamos mensajes)
-    if (lead.status !== 'contacted') {
-      console.log(`[${new Date().toISOString()}] ⚠️ Lead ${lead.name} no está en estado 'contacted' - IGNORANDO MENSAJE`);
-      return;
-    }
+      // Verificar que el lead esté en estado 'contacted' (ya le enviamos mensajes)
+      if (lead.status !== 'contacted') {
+        console.log(`[${new Date().toISOString()}] ⚠️ Lead ${lead.name} no está en estado 'contacted' - IGNORANDO MENSAJE`);
+        return;
+      }
 
-    // 🎯 VERIFICAR SI ES RESPUESTA A SESIÓN DE VERIFICACIÓN
-    const sessionConfirmation = this.whatsappChecker.confirmSession(phoneNumber);
-    if (sessionConfirmation.success) {
-      console.log(`[${new Date().toLocaleTimeString()}] ✅ Sesión de verificación confirmada para ${phoneNumber}`);
-      return;
-    }
+      // 🎯 VERIFICAR SI ES RESPUESTA A SESIÓN DE VERIFICACIÓN
+      const sessionConfirmation = this.whatsappChecker.confirmSession(phoneNumber);
+      if (sessionConfirmation.success) {
+        console.log(`[${new Date().toLocaleTimeString()}] ✅ Sesión de verificación confirmada para ${phoneNumber}`);
+        return;
+      }
 
-    // 🔍 DEBUG: Loggear timestamp y mensaje
-    console.log(`[${new Date().toLocaleTimeString()}] 📨 Mensaje de ${phoneNumber}: "${message.body.substring(0, 50)}..."`);
+      // 🔍 DEBUG: Loggear timestamp y mensaje
+      console.log(`[${new Date().toLocaleTimeString()}] 📨 Mensaje de ${phoneNumber}: "${message.body.substring(0, 50)}..."`);
 
-    // 🤖 DETECTAR AUTO-REPLY (Tiempo < 10s O Patrón de texto)
-    const lastMsgTime = this.lastMessageTimestamps.get(phoneNumber);
-    const timeDiff = lastMsgTime ? Date.now() - lastMsgTime : 999999;
-    const isFastReply = timeDiff < 10000; // 10 segundos
+      // 🤖 DETECTAR AUTO-REPLY (Tiempo < 10s O Patrón de texto)
+      const lastMsgTime = this.lastMessageTimestamps.get(phoneNumber);
+      const timeDiff = lastMsgTime ? Date.now() - lastMsgTime : 999999;
+      const isFastReply = timeDiff < 10000; // 10 segundos
 
-    const autoReplyCheck = this.responseAnalyzer.isAutoResponse(message.body);
+      const autoReplyCheck = this.responseAnalyzer.isAutoResponse(message.body);
 
-    // LOG DE DIAGNÓSTICO
-    console.log(`   🔍 Auto-Reply Debug:
+      // LOG DE DIAGNÓSTICO
+      console.log(`   🔍 Auto-Reply Debug:
          - Último msg enviado: ${lastMsgTime ? new Date(lastMsgTime).toLocaleTimeString() : 'N/A'}
          - Tiempo transcurrido: ${(timeDiff / 1000).toFixed(1)}s (Umbral: 10s)
          - ¿Es veloz?: ${isFastReply ? 'SÍ' : 'NO'}
          - ¿Es patrón texto?: ${autoReplyCheck.isAutoResponse ? 'SÍ' : 'NO'} (${autoReplyCheck.reason || '-'})`);
 
-    if (isFastReply || autoReplyCheck.isAutoResponse) {
-      console.log(`[${new Date().toLocaleTimeString()}] 🤖 AUTO-RESPUESTA DETECTADA. Enviando pitch de bot...`);
-      console.log(`   Razón: ${isFastReply ? `Respuesta rápida (${(timeDiff / 1000).toFixed(1)}s)` : 'Patrón de texto'}`);
+      if (isFastReply || autoReplyCheck.isAutoResponse) {
+        console.log(`[${new Date().toLocaleTimeString()}] 🤖 AUTO-RESPUESTA DETECTADA. Enviando pitch de bot...`);
+        console.log(`   Razón: ${isFastReply ? `Respuesta rápida (${(timeDiff / 1000).toFixed(1)}s)` : 'Patrón de texto'}`);
 
-      // Seleccionar mensaje de venta de bot de las plantillas avanzadas
-      if (this.aiGenerator && this.aiGenerator.templateGenerator && this.aiGenerator.templateGenerator.respuestasBotAutomatico) {
-        const botPitch = this.aiGenerator.templateGenerator.random(this.aiGenerator.templateGenerator.respuestasBotAutomatico);
+        // Seleccionar mensaje de venta de bot de las plantillas avanzadas
+        if (this.aiGenerator && this.aiGenerator.templateGenerator && this.aiGenerator.templateGenerator.respuestasBotAutomatico) {
+          const botPitch = this.aiGenerator.templateGenerator.random(this.aiGenerator.templateGenerator.respuestasBotAutomatico);
 
-        // Añadir delay humano antes de responder al bot
-        await new Promise(resolve => setTimeout(resolve, 8000 + Math.random() * 5000));
+          // Añadir delay humano antes de responder al bot
+          await new Promise(resolve => setTimeout(resolve, 8000 + Math.random() * 5000));
 
-        await this.client.sendMessage(message.from, botPitch);
-        console.log(`📤 Enviado pitch de bot a ${phoneNumber}: "${botPitch}"`);
+          await this.client.sendMessage(message.from, botPitch);
+          console.log(`📤 Enviado pitch de bot a ${phoneNumber}: "${botPitch}"`);
+        }
+
+        return; // Detener flujo para evitar loops
       }
 
-      return; // Detener flujo para evitar loops
-    }
+      // 🛑 VERIFICAR SI ES RESPUESTA HUMANA DURANTE SECUENCIA
+      const humanResponse = await this.whatsappChecker.handleUserResponse(phoneNumber, message, lead, phoneNumber);
+      if (humanResponse && humanResponse.action === 'stop_sequence') {
+        console.log(`🛑 Respuesta humana detectada - cortando secuencia automática para ${phoneNumber}`);
 
-    // 🛑 VERIFICAR SI ES RESPUESTA HUMANA DURANTE SECUENCIA
-    const humanResponse = await this.whatsappChecker.handleUserResponse(phoneNumber, message, lead, phoneNumber);
-    if (humanResponse && humanResponse.action === 'stop_sequence') {
-      console.log(`🛑 Respuesta humana detectada - cortando secuencia automática para ${phoneNumber}`);
+        // Trackear respuesta humana
+        this.statsTracker.trackResponse(phoneNumber, 'human', message.body, humanResponse.responseTime);
 
-      // Trackear respuesta humana
-      this.statsTracker.trackResponse(phoneNumber, 'human', message.body, humanResponse.responseTime);
+        // Analizar la respuesta para determinar siguiente acción
+        const response = this.analyzeResponse(message);
+        if (response.type === 'interested' || response.type === 'services_request' ||
+          response.type === 'not_interested' || response.type === 'neutral') {
+          await this.sendAutoResponse(message, response);
+        }
 
-      // Analizar la respuesta para determinar siguiente acción
+        return;
+      }
+
+      // Analizar respuesta del lead
       const response = this.analyzeResponse(message);
+
+      // Actualizar lead con la respuesta
+      await this.updateLeadResponse(lead.id, response, lead.name);
+
+      // Enviar respuesta automática para diferentes tipos de respuestas
       if (response.type === 'interested' || response.type === 'services_request' ||
         response.type === 'not_interested' || response.type === 'neutral') {
         await this.sendAutoResponse(message, response);
       }
 
-      return;
+      // Notificar a Slack si está configurado
+      if (this.slackWebhook) {
+        await this.notifySlack(lead, response);
+      }
+
+    } catch (error) {
+      console.error('❌ Error procesando mensaje entrante:', error.message);
     }
-
-    // Analizar respuesta del lead
-    const response = this.analyzeResponse(message);
-
-    // Actualizar lead con la respuesta
-    await this.updateLeadResponse(lead.id, response, lead.name);
-
-    // Enviar respuesta automática para diferentes tipos de respuestas
-    if (response.type === 'interested' || response.type === 'services_request' ||
-      response.type === 'not_interested' || response.type === 'neutral') {
-      await this.sendAutoResponse(message, response);
-    }
-
-    // Notificar a Slack si está configurado
-    if (this.slackWebhook) {
-      await this.notifySlack(lead, response);
-    }
-
-  } catch (error) {
-    console.error('❌ Error procesando mensaje entrante:', error.message);
   }
-}
 
   async findLeadByPhone(phoneNumber) {
-  try {
-    // 🛠️ FIX: Manejo de IDs de WhatsApp Business (@lid)
-    if (phoneNumber.includes('@lid')) {
-      console.log(`🔍 Detectado ID de WhatsApp Business (LID): ${phoneNumber}. Intentando resolver número real...`);
-      try {
-        const chat = await this.client.getChatById(phoneNumber);
-        if (chat) {
-          const contact = await chat.getContact();
-          if (contact && contact.number) {
-            console.log(`✅ LID resuelto a número: ${contact.number}`);
-            phoneNumber = contact.number + '@c.us'; // Usar el número real estándar
+    try {
+      // 🛠️ FIX: Manejo de IDs de WhatsApp Business (@lid)
+      if (phoneNumber.includes('@lid')) {
+        console.log(`🔍 Detectado ID de WhatsApp Business (LID): ${phoneNumber}. Intentando resolver número real...`);
+        try {
+          const chat = await this.client.getChatById(phoneNumber);
+          if (chat) {
+            const contact = await chat.getContact();
+            if (contact && contact.number) {
+              console.log(`✅ LID resuelto a número: ${contact.number}`);
+              phoneNumber = contact.number + '@c.us'; // Usar el número real estándar
+            }
           }
+        } catch (err) {
+          console.warn(`⚠️ No se pudo resolver LID ${phoneNumber}:`, err.message);
+          // Intentar continuar con el LID original por si acaso está guardado así (raro)
         }
-      } catch (err) {
-        console.warn(`⚠️ No se pudo resolver LID ${phoneNumber}:`, err.message);
-        // Intentar continuar con el LID original por si acaso está guardado así (raro)
       }
+
+      // Limpiar número de teléfono (quitar @c.us y caracteres no numéricos)
+      const cleanPhone = phoneNumber.replace('@c.us', '').replace(/\D/g, '');
+
+      console.log(`🔍 Buscando lead para número: ${phoneNumber} (limpio: ${cleanPhone})`);
+
+      // Buscar en el backend con diferentes formatos
+      const searchQueries = [
+        cleanPhone, // Número limpio
+        cleanPhone.replace(/^549/, ''), // Sin prefijo 549
+        cleanPhone.replace(/^54/, ''), // Sin prefijo 54
+        phoneNumber.replace('@c.us', '') // Número original sin @c.us
+      ];
+
+      for (const query of searchQueries) {
+        if (query.length < 8) continue; // Saltar números muy cortos
+
+        // console.log(`🔍 Intentando búsqueda con: ${query}`);
+
+        try {
+          const response = await axios.get(`${this.backendUrl}/leads?search=${query}&limit=10`);
+
+          if (response.data.success && response.data.leads.length > 0) {
+            console.log(`✅ Lead encontrado: ${response.data.leads[0].name} (tel: ${response.data.leads[0].phone})`);
+            return response.data.leads[0];
+          }
+        } catch (error) {
+          // Silenciar errores de búsqueda repetitivos
+          // console.log(`❌ Error en búsqueda con ${query}:`, error.message);
+        }
+      }
+
+      console.log(`❌ No se encontró lead para ${phoneNumber}`);
+      return null;
+
+    } catch (error) {
+      console.error('❌ Error buscando lead por teléfono:', error.message);
+      return null;
     }
+  }
 
-    // Limpiar número de teléfono (quitar @c.us y caracteres no numéricos)
-    const cleanPhone = phoneNumber.replace('@c.us', '').replace(/\D/g, '');
+  analyzeResponse(message) {
+    const body = message.body.toLowerCase();
 
-    console.log(`🔍 Buscando lead para número: ${phoneNumber} (limpio: ${cleanPhone})`);
-
-    // Buscar en el backend con diferentes formatos
-    const searchQueries = [
-      cleanPhone, // Número limpio
-      cleanPhone.replace(/^549/, ''), // Sin prefijo 549
-      cleanPhone.replace(/^54/, ''), // Sin prefijo 54
-      phoneNumber.replace('@c.us', '') // Número original sin @c.us
+    // Palabras clave para diferentes tipos de respuestas
+    const interestedKeywords = [
+      'interesado', 'interesa', 'me interesa', 'cuéntame más', 'más información',
+      'precio', 'costos', 'cuánto cuesta', 'presupuesto', 'cotización',
+      'sí', 'si', 'ok', 'okay', 'perfecto', 'genial', 'excelente',
+      'cuando', 'cuándo', 'dónde', 'donde', 'cómo', 'como',
+      'contacto', 'llamar', 'llamada', 'reunión', 'cita'
     ];
 
-    for (const query of searchQueries) {
-      if (query.length < 8) continue; // Saltar números muy cortos
+    // Palabras clave para pedir servicios (con regex para variaciones)
+    const servicesKeywords = [
+      'servicios', 'servicio', 'qué hacen', 'que hacen', 'qué ofrecen', 'que ofrecen',
+      'qué tienen', 'que tienen', 'qué más', 'que más', 'más servicios',
+      'catálogo', 'catalogo', 'lista', 'todos los servicios', 'todos los servicios',
+      'qué más hacen', 'que mas hacen', 'qué más ofrecen', 'que mas ofrecen',
+      'cuáles son', 'cuales son', 'qué servicios', 'que servicios',
+      'más info', 'mas info', 'más información', 'mas informacion',
+      'detalles', 'más detalles', 'mas detalles', 'todo lo que hacen',
+      'qué incluye', 'que incluye', 'qué incluyen', 'que incluyen',
+      'pack', 'paquete', 'oferta', 'ofertas', 'promoción', 'promocion',
+      'promociones', 'promociones', 'todo', 'completo', 'integral'
+    ];
 
-      // console.log(`🔍 Intentando búsqueda con: ${query}`);
+    const notInterestedKeywords = [
+      'no', 'no me interesa', 'no estoy interesado', 'no gracias',
+      'no quiero', 'no necesito', 'no estoy buscando',
+      'no por ahora', 'más adelante', 'después', 'despues',
+      'no tengo tiempo', 'no tengo presupuesto', 'no tengo dinero',
+      'ya cuento', 'ya tengo', 'ya tengo proveedor', 'ya tengo alguien',
+      'no por el momento', 'no por ahora', 'más tarde', 'mas tarde',
+      'no estoy necesitando', 'no lo necesito', 'no lo requiero',
+      'gracias por el momento', 'gracias pero no', 'gracias pero ya tengo',
+      'no estoy en el mercado', 'no estoy buscando ahora',
+      'no tengo interés', 'no me interesa por ahora',
+      'ya tengo todo', 'ya tengo lo que necesito', 'ya estoy cubierto'
+    ];
 
-      try {
-        const response = await axios.get(`${this.backendUrl}/leads?search=${query}&limit=10`);
+    const neutralKeywords = [
+      'gracias', 'grasias', 'gracia', 'ok', 'okay', 'perfecto',
+      'entendido', 'claro', 'vale', 'bueno', 'bien'
+    ];
 
-        if (response.data.success && response.data.leads.length > 0) {
-          console.log(`✅ Lead encontrado: ${response.data.leads[0].name} (tel: ${response.data.leads[0].phone})`);
-          return response.data.leads[0];
+    // Verificar si pide servicios (prioridad alta)
+    for (const keyword of servicesKeywords) {
+      if (body.includes(keyword)) {
+        return {
+          type: 'services_request',
+          confidence: 0.9,
+          keywords: [keyword],
+          message: body
+        };
+      }
+    }
+
+    // Verificar si contiene palabras clave de interés
+    for (const keyword of interestedKeywords) {
+      if (body.includes(keyword)) {
+        return {
+          type: 'interested',
+          confidence: 0.8,
+          keywords: [keyword],
+          message: body
+        };
+      }
+    }
+
+    // Verificar si contiene palabras clave de no interés
+    for (const keyword of notInterestedKeywords) {
+      if (body.includes(keyword)) {
+        return {
+          type: 'not_interested',
+          confidence: 0.8,
+          keywords: [keyword],
+          message: body
+        };
+      }
+    }
+
+    // Verificar si contiene palabras neutrales
+    for (const keyword of neutralKeywords) {
+      if (body.includes(keyword)) {
+        return {
+          type: 'neutral',
+          confidence: 0.6,
+          keywords: [keyword],
+          message: body
+        };
+      }
+    }
+
+    // Si no coincide con ningún patrón, considerar como neutral
+    return {
+      type: 'neutral',
+      confidence: 0.3,
+      keywords: [],
+      message: body
+    };
+  }
+
+  // DEMO DENTAL - Sistema independiente
+  isDemoActivated(phoneNumber) {
+    return this.demoSessions.has(phoneNumber);
+  }
+
+  activateDemo(phoneNumber) {
+    this.demoSessions.set(phoneNumber, {
+      step: 0,
+      data: {
+        isPatient: null,
+        specialty: null,
+        contactSource: null,
+        name: null,
+        phone: null
+      },
+      startTime: Date.now()
+    });
+    console.log(`🎭 Demo dental activado para ${phoneNumber}`);
+  }
+
+  deactivateDemo(phoneNumber) {
+    this.demoSessions.delete(phoneNumber);
+    console.log(`🎭 Demo dental desactivado para ${phoneNumber}`);
+  }
+
+  getDemoResponse(phoneNumber, userMessage) {
+    const session = this.demoSessions.get(phoneNumber);
+    if (!session) return null;
+
+    const message = userMessage.toLowerCase();
+    let response = '';
+    let shouldContinue = true;
+
+    switch (session.step) {
+      case 0: // Pregunta si es paciente
+        if (message.includes('sí') || message.includes('si') || message.includes('paciente') || message.includes('cliente')) {
+          session.data.isPatient = true;
+          response = "¡Perfecto! ¿Para qué especialidad necesitás el turno?\n\n🦷 Ortodoncia\n🦷 Implantes\n🦷 Endodoncia\n🦷 Periodoncia\n🦷 Odontología general\n🦷 Blanqueamiento";
+          session.step = 1;
+        } else if (message.includes('no') || message.includes('nuevo')) {
+          session.data.isPatient = false;
+          response = "¡Bienvenido! ¿Para qué especialidad te gustaría consultar?\n\n🦷 Ortodoncia\n🦷 Implantes\n🦷 Endodoncia\n🦷 Periodoncia\n🦷 Odontología general\n🦷 Blanqueamiento";
+          session.step = 1;
+        } else {
+          response = "No entendí bien. ¿Sos paciente ya de nuestra clínica o sos nuevo? Respondé con 'sí' o 'no' por favor.";
         }
-      } catch (error) {
-        // Silenciar errores de búsqueda repetitivos
-        // console.log(`❌ Error en búsqueda con ${query}:`, error.message);
-      }
-    }
+        break;
 
-    console.log(`❌ No se encontró lead para ${phoneNumber}`);
-    return null;
+      case 1: // Pregunta especialidad
+        if (message.includes('ortodoncia') || message.includes('brackets') || message.includes('frenillos')) {
+          session.data.specialty = 'ortodoncia';
+          response = "Excelente elección. ¿A través de quién te contactaste con nosotros?\n\n📱 Instagram\n📱 Facebook\n📱 Google\n📱 Recomendación\n📱 Otro";
+          session.step = 2;
+        } else if (message.includes('implante') || message.includes('implantes')) {
+          session.data.specialty = 'implantes';
+          response = "Muy buena opción. ¿A través de quién te contactaste con nosotros?\n\n📱 Instagram\n📱 Facebook\n📱 Google\n📱 Recomendación\n📱 Otro";
+          session.step = 2;
+        } else if (message.includes('endodoncia') || message.includes('conducto')) {
+          session.data.specialty = 'endodoncia';
+          response = "Perfecto. ¿A través de quién te contactaste con nosotros?\n\n📱 Instagram\n📱 Facebook\n📱 Google\n📱 Recomendación\n📱 Otro";
+          session.step = 2;
+        } else if (message.includes('periodoncia') || message.includes('encía')) {
+          session.data.specialty = 'periodoncia';
+          response = "Muy bien. ¿A través de quién te contactaste con nosotros?\n\n📱 Instagram\n📱 Facebook\n📱 Google\n📱 Recomendación\n📱 Otro";
+          session.step = 2;
+        } else if (message.includes('general') || message.includes('limpieza') || message.includes('caries')) {
+          session.data.specialty = 'general';
+          response = "Excelente. ¿A través de quién te contactaste con nosotros?\n\n📱 Instagram\n📱 Facebook\n📱 Google\n📱 Recomendación\n📱 Otro";
+          session.step = 2;
+        } else if (message.includes('blanqueamiento') || message.includes('blanqueo')) {
+          session.data.specialty = 'blanqueamiento';
+          response = "Perfecto. ¿A través de quién te contactaste con nosotros?\n\n📱 Instagram\n📱 Facebook\n📱 Google\n📱 Recomendación\n📱 Otro";
+          session.step = 2;
+        } else {
+          response = "No entendí la especialidad. Por favor elegí una:\n\n🦷 Ortodoncia\n🦷 Implantes\n🦷 Endodoncia\n🦷 Periodoncia\n🦷 Odontología general\n🦷 Blanqueamiento";
+        }
+        break;
 
-  } catch (error) {
-    console.error('❌ Error buscando lead por teléfono:', error.message);
-    return null;
-  }
-}
+      case 2: // Pregunta fuente de contacto
+        if (message.includes('instagram') || message.includes('ig')) {
+          session.data.contactSource = 'instagram';
+          response = "¡Gracias! Ahora necesito algunos datos para agendar tu turno:\n\n¿Cuál es tu nombre completo?";
+          session.step = 3;
+        } else if (message.includes('facebook') || message.includes('fb')) {
+          session.data.contactSource = 'facebook';
+          response = "¡Gracias! Ahora necesito algunos datos para agendar tu turno:\n\n¿Cuál es tu nombre completo?";
+          session.step = 3;
+        } else if (message.includes('google') || message.includes('maps')) {
+          session.data.contactSource = 'google';
+          response = "¡Gracias! Ahora necesito algunos datos para agendar tu turno:\n\n¿Cuál es tu nombre completo?";
+          session.step = 3;
+        } else if (message.includes('recomendación') || message.includes('recomendacion') || message.includes('amigo')) {
+          session.data.contactSource = 'recomendacion';
+          response = "¡Gracias! Ahora necesito algunos datos para agendar tu turno:\n\n¿Cuál es tu nombre completo?";
+          session.step = 3;
+        } else {
+          session.data.contactSource = 'otro';
+          response = "¡Gracias! Ahora necesito algunos datos para agendar tu turno:\n\n¿Cuál es tu nombre completo?";
+          session.step = 3;
+        }
+        break;
 
-analyzeResponse(message) {
-  const body = message.body.toLowerCase();
+      case 3: // Pregunta nombre
+        if (message.length > 2) {
+          session.data.name = userMessage; // Guardar nombre original
+          response = `¡Perfecto ${session.data.name}! ¿Cuál es tu número de teléfono para confirmar el turno?`;
+          session.step = 4;
+        } else {
+          response = "Por favor, escribí tu nombre completo para poder agendar tu turno correctamente.";
+        }
+        break;
 
-  // Palabras clave para diferentes tipos de respuestas
-  const interestedKeywords = [
-    'interesado', 'interesa', 'me interesa', 'cuéntame más', 'más información',
-    'precio', 'costos', 'cuánto cuesta', 'presupuesto', 'cotización',
-    'sí', 'si', 'ok', 'okay', 'perfecto', 'genial', 'excelente',
-    'cuando', 'cuándo', 'dónde', 'donde', 'cómo', 'como',
-    'contacto', 'llamar', 'llamada', 'reunión', 'cita'
-  ];
+      case 4: // Pregunta teléfono
+        if (message.includes('11') || message.includes('15') || message.length >= 8) {
+          session.data.phone = userMessage;
+          response = `¡Excelente ${session.data.name}! Te cuento nuestros horarios y precios:\n\n🕐 **Horarios de atención:**\nLunes a Viernes: 9:00 - 18:00\nSábados: 9:00 - 13:00\n\n💰 **Precios aproximados:**\n🦷 Ortodoncia: desde $150.000\n🦷 Implantes: desde $300.000\n🦷 Endodoncia: desde $80.000\n🦷 Periodoncia: desde $60.000\n🦷 Limpieza: $15.000\n🦷 Blanqueamiento: $25.000\n\n📍 **Ubicación:** Av. Santa Fe 1234, Recoleta\n\n¿Te gustaría agendar tu turno para esta semana?`;
+          session.step = 5;
+        } else {
+          response = "Por favor, escribí tu número de teléfono completo para poder contactarte.";
+        }
+        break;
 
-  // Palabras clave para pedir servicios (con regex para variaciones)
-  const servicesKeywords = [
-    'servicios', 'servicio', 'qué hacen', 'que hacen', 'qué ofrecen', 'que ofrecen',
-    'qué tienen', 'que tienen', 'qué más', 'que más', 'más servicios',
-    'catálogo', 'catalogo', 'lista', 'todos los servicios', 'todos los servicios',
-    'qué más hacen', 'que mas hacen', 'qué más ofrecen', 'que mas ofrecen',
-    'cuáles son', 'cuales son', 'qué servicios', 'que servicios',
-    'más info', 'mas info', 'más información', 'mas informacion',
-    'detalles', 'más detalles', 'mas detalles', 'todo lo que hacen',
-    'qué incluye', 'que incluye', 'qué incluyen', 'que incluyen',
-    'pack', 'paquete', 'oferta', 'ofertas', 'promoción', 'promocion',
-    'promociones', 'promociones', 'todo', 'completo', 'integral'
-  ];
+      case 5: // Confirmación final
+        if (message.includes('sí') || message.includes('si') || message.includes('agendar') || message.includes('turno')) {
+          response = `¡Perfecto ${session.data.name}! 🎉\n\nTu turno está confirmado para ${session.data.specialty}.\n\n📅 **Próximos turnos disponibles:**\nMartes 18/7: 10:00, 14:00, 16:00\nMiércoles 19/7: 9:00, 11:00, 15:00\nJueves 20/7: 10:00, 13:00, 17:00\n\n¿Cuál horario te queda mejor?`;
+          session.step = 6;
+        } else if (message.includes('no') || message.includes('después') || message.includes('despues')) {
+          response = "No hay problema. Te guardamos la información y cuando quieras agendar nos escribís. ¡Gracias por tu interés! 😊";
+          this.deactivateDemo(phoneNumber);
+          shouldContinue = false;
+        } else {
+          response = "No entendí bien. ¿Te gustaría agendar tu turno para esta semana? Respondé con 'sí' o 'no' por favor.";
+        }
+        break;
 
-  const notInterestedKeywords = [
-    'no', 'no me interesa', 'no estoy interesado', 'no gracias',
-    'no quiero', 'no necesito', 'no estoy buscando',
-    'no por ahora', 'más adelante', 'después', 'despues',
-    'no tengo tiempo', 'no tengo presupuesto', 'no tengo dinero',
-    'ya cuento', 'ya tengo', 'ya tengo proveedor', 'ya tengo alguien',
-    'no por el momento', 'no por ahora', 'más tarde', 'mas tarde',
-    'no estoy necesitando', 'no lo necesito', 'no lo requiero',
-    'gracias por el momento', 'gracias pero no', 'gracias pero ya tengo',
-    'no estoy en el mercado', 'no estoy buscando ahora',
-    'no tengo interés', 'no me interesa por ahora',
-    'ya tengo todo', 'ya tengo lo que necesito', 'ya estoy cubierto'
-  ];
+      case 6: // Selección de horario
+        if (message.includes('10') || message.includes('martes')) {
+          response = `¡Excelente elección! Tu turno está confirmado para el **Martes 18/7 a las 10:00**.\n\n📋 **Recordá traer:**\n• DNI\n• Obra social (si tenés)\n• Estudios previos (si tenés)\n\n📍 **Dirección:** Av. Santa Fe 1234, Recoleta\n🚇 **Subte:** Línea D - Estación Callao\n\n¿Necesitás que te envíe la ubicación por Maps?`;
+          this.deactivateDemo(phoneNumber);
+          shouldContinue = false;
+        } else if (message.includes('14') || message.includes('16')) {
+          response = `¡Perfecto! Tu turno está confirmado para el **Martes 18/7 a las ${message.includes('14') ? '14:00' : '16:00'}**.\n\n📋 **Recordá traer:**\n• DNI\n• Obra social (si tenés)\n• Estudios previos (si tenés)\n\n📍 **Dirección:** Av. Santa Fe 1234, Recoleta\n🚇 **Subte:** Línea D - Estación Callao\n\n¿Necesitás que te envíe la ubicación por Maps?`;
+          this.deactivateDemo(phoneNumber);
+          shouldContinue = false;
+        } else if (message.includes('9') || message.includes('11') || message.includes('15') || message.includes('miércoles') || message.includes('miercoles')) {
+          response = `¡Genial! Tu turno está confirmado para el **Miércoles 19/7**.\n\n📋 **Recordá traer:**\n• DNI\n• Obra social (si tenés)\n• Estudios previos (si tenés)\n\n📍 **Dirección:** Av. Santa Fe 1234, Recoleta\n🚇 **Subte:** Línea D - Estación Callao\n\n¿Necesitás que te envíe la ubicación por Maps?`;
+          this.deactivateDemo(phoneNumber);
+          shouldContinue = false;
+        } else if (message.includes('13') || message.includes('17') || message.includes('jueves')) {
+          response = `¡Perfecto! Tu turno está confirmado para el **Jueves 20/7**.\n\n📋 **Recordá traer:**\n• DNI\n• Obra social (si tenés)\n• Estudios previos (si tenés)\n\n📍 **Dirección:** Av. Santa Fe 1234, Recoleta\n🚇 **Subte:** Línea D - Estación Callao\n\n¿Necesitás que te envíe la ubicación por Maps?`;
+          this.deactivateDemo(phoneNumber);
+          shouldContinue = false;
+        } else {
+          response = "Por favor elegí un horario disponible:\n\nMartes 18/7: 10:00, 14:00, 16:00\nMiércoles 19/7: 9:00, 11:00, 15:00\nJueves 20/7: 10:00, 13:00, 17:00";
+        }
+        break;
 
-  const neutralKeywords = [
-    'gracias', 'grasias', 'gracia', 'ok', 'okay', 'perfecto',
-    'entendido', 'claro', 'vale', 'bueno', 'bien'
-  ];
-
-  // Verificar si pide servicios (prioridad alta)
-  for (const keyword of servicesKeywords) {
-    if (body.includes(keyword)) {
-      return {
-        type: 'services_request',
-        confidence: 0.9,
-        keywords: [keyword],
-        message: body
-      };
-    }
-  }
-
-  // Verificar si contiene palabras clave de interés
-  for (const keyword of interestedKeywords) {
-    if (body.includes(keyword)) {
-      return {
-        type: 'interested',
-        confidence: 0.8,
-        keywords: [keyword],
-        message: body
-      };
-    }
-  }
-
-  // Verificar si contiene palabras clave de no interés
-  for (const keyword of notInterestedKeywords) {
-    if (body.includes(keyword)) {
-      return {
-        type: 'not_interested',
-        confidence: 0.8,
-        keywords: [keyword],
-        message: body
-      };
-    }
-  }
-
-  // Verificar si contiene palabras neutrales
-  for (const keyword of neutralKeywords) {
-    if (body.includes(keyword)) {
-      return {
-        type: 'neutral',
-        confidence: 0.6,
-        keywords: [keyword],
-        message: body
-      };
-    }
-  }
-
-  // Si no coincide con ningún patrón, considerar como neutral
-  return {
-    type: 'neutral',
-    confidence: 0.3,
-    keywords: [],
-    message: body
-  };
-}
-
-// DEMO DENTAL - Sistema independiente
-isDemoActivated(phoneNumber) {
-  return this.demoSessions.has(phoneNumber);
-}
-
-activateDemo(phoneNumber) {
-  this.demoSessions.set(phoneNumber, {
-    step: 0,
-    data: {
-      isPatient: null,
-      specialty: null,
-      contactSource: null,
-      name: null,
-      phone: null
-    },
-    startTime: Date.now()
-  });
-  console.log(`🎭 Demo dental activado para ${phoneNumber}`);
-}
-
-deactivateDemo(phoneNumber) {
-  this.demoSessions.delete(phoneNumber);
-  console.log(`🎭 Demo dental desactivado para ${phoneNumber}`);
-}
-
-getDemoResponse(phoneNumber, userMessage) {
-  const session = this.demoSessions.get(phoneNumber);
-  if (!session) return null;
-
-  const message = userMessage.toLowerCase();
-  let response = '';
-  let shouldContinue = true;
-
-  switch (session.step) {
-    case 0: // Pregunta si es paciente
-      if (message.includes('sí') || message.includes('si') || message.includes('paciente') || message.includes('cliente')) {
-        session.data.isPatient = true;
-        response = "¡Perfecto! ¿Para qué especialidad necesitás el turno?\n\n🦷 Ortodoncia\n🦷 Implantes\n🦷 Endodoncia\n🦷 Periodoncia\n🦷 Odontología general\n🦷 Blanqueamiento";
-        session.step = 1;
-      } else if (message.includes('no') || message.includes('nuevo')) {
-        session.data.isPatient = false;
-        response = "¡Bienvenido! ¿Para qué especialidad te gustaría consultar?\n\n🦷 Ortodoncia\n🦷 Implantes\n🦷 Endodoncia\n🦷 Periodoncia\n🦷 Odontología general\n🦷 Blanqueamiento";
-        session.step = 1;
-      } else {
-        response = "No entendí bien. ¿Sos paciente ya de nuestra clínica o sos nuevo? Respondé con 'sí' o 'no' por favor.";
-      }
-      break;
-
-    case 1: // Pregunta especialidad
-      if (message.includes('ortodoncia') || message.includes('brackets') || message.includes('frenillos')) {
-        session.data.specialty = 'ortodoncia';
-        response = "Excelente elección. ¿A través de quién te contactaste con nosotros?\n\n📱 Instagram\n📱 Facebook\n📱 Google\n📱 Recomendación\n📱 Otro";
-        session.step = 2;
-      } else if (message.includes('implante') || message.includes('implantes')) {
-        session.data.specialty = 'implantes';
-        response = "Muy buena opción. ¿A través de quién te contactaste con nosotros?\n\n📱 Instagram\n📱 Facebook\n📱 Google\n📱 Recomendación\n📱 Otro";
-        session.step = 2;
-      } else if (message.includes('endodoncia') || message.includes('conducto')) {
-        session.data.specialty = 'endodoncia';
-        response = "Perfecto. ¿A través de quién te contactaste con nosotros?\n\n📱 Instagram\n📱 Facebook\n📱 Google\n📱 Recomendación\n📱 Otro";
-        session.step = 2;
-      } else if (message.includes('periodoncia') || message.includes('encía')) {
-        session.data.specialty = 'periodoncia';
-        response = "Muy bien. ¿A través de quién te contactaste con nosotros?\n\n📱 Instagram\n📱 Facebook\n📱 Google\n📱 Recomendación\n📱 Otro";
-        session.step = 2;
-      } else if (message.includes('general') || message.includes('limpieza') || message.includes('caries')) {
-        session.data.specialty = 'general';
-        response = "Excelente. ¿A través de quién te contactaste con nosotros?\n\n📱 Instagram\n📱 Facebook\n📱 Google\n📱 Recomendación\n📱 Otro";
-        session.step = 2;
-      } else if (message.includes('blanqueamiento') || message.includes('blanqueo')) {
-        session.data.specialty = 'blanqueamiento';
-        response = "Perfecto. ¿A través de quién te contactaste con nosotros?\n\n📱 Instagram\n📱 Facebook\n📱 Google\n📱 Recomendación\n📱 Otro";
-        session.step = 2;
-      } else {
-        response = "No entendí la especialidad. Por favor elegí una:\n\n🦷 Ortodoncia\n🦷 Implantes\n🦷 Endodoncia\n🦷 Periodoncia\n🦷 Odontología general\n🦷 Blanqueamiento";
-      }
-      break;
-
-    case 2: // Pregunta fuente de contacto
-      if (message.includes('instagram') || message.includes('ig')) {
-        session.data.contactSource = 'instagram';
-        response = "¡Gracias! Ahora necesito algunos datos para agendar tu turno:\n\n¿Cuál es tu nombre completo?";
-        session.step = 3;
-      } else if (message.includes('facebook') || message.includes('fb')) {
-        session.data.contactSource = 'facebook';
-        response = "¡Gracias! Ahora necesito algunos datos para agendar tu turno:\n\n¿Cuál es tu nombre completo?";
-        session.step = 3;
-      } else if (message.includes('google') || message.includes('maps')) {
-        session.data.contactSource = 'google';
-        response = "¡Gracias! Ahora necesito algunos datos para agendar tu turno:\n\n¿Cuál es tu nombre completo?";
-        session.step = 3;
-      } else if (message.includes('recomendación') || message.includes('recomendacion') || message.includes('amigo')) {
-        session.data.contactSource = 'recomendacion';
-        response = "¡Gracias! Ahora necesito algunos datos para agendar tu turno:\n\n¿Cuál es tu nombre completo?";
-        session.step = 3;
-      } else {
-        session.data.contactSource = 'otro';
-        response = "¡Gracias! Ahora necesito algunos datos para agendar tu turno:\n\n¿Cuál es tu nombre completo?";
-        session.step = 3;
-      }
-      break;
-
-    case 3: // Pregunta nombre
-      if (message.length > 2) {
-        session.data.name = userMessage; // Guardar nombre original
-        response = `¡Perfecto ${session.data.name}! ¿Cuál es tu número de teléfono para confirmar el turno?`;
-        session.step = 4;
-      } else {
-        response = "Por favor, escribí tu nombre completo para poder agendar tu turno correctamente.";
-      }
-      break;
-
-    case 4: // Pregunta teléfono
-      if (message.includes('11') || message.includes('15') || message.length >= 8) {
-        session.data.phone = userMessage;
-        response = `¡Excelente ${session.data.name}! Te cuento nuestros horarios y precios:\n\n🕐 **Horarios de atención:**\nLunes a Viernes: 9:00 - 18:00\nSábados: 9:00 - 13:00\n\n💰 **Precios aproximados:**\n🦷 Ortodoncia: desde $150.000\n🦷 Implantes: desde $300.000\n🦷 Endodoncia: desde $80.000\n🦷 Periodoncia: desde $60.000\n🦷 Limpieza: $15.000\n🦷 Blanqueamiento: $25.000\n\n📍 **Ubicación:** Av. Santa Fe 1234, Recoleta\n\n¿Te gustaría agendar tu turno para esta semana?`;
-        session.step = 5;
-      } else {
-        response = "Por favor, escribí tu número de teléfono completo para poder contactarte.";
-      }
-      break;
-
-    case 5: // Confirmación final
-      if (message.includes('sí') || message.includes('si') || message.includes('agendar') || message.includes('turno')) {
-        response = `¡Perfecto ${session.data.name}! 🎉\n\nTu turno está confirmado para ${session.data.specialty}.\n\n📅 **Próximos turnos disponibles:**\nMartes 18/7: 10:00, 14:00, 16:00\nMiércoles 19/7: 9:00, 11:00, 15:00\nJueves 20/7: 10:00, 13:00, 17:00\n\n¿Cuál horario te queda mejor?`;
-        session.step = 6;
-      } else if (message.includes('no') || message.includes('después') || message.includes('despues')) {
-        response = "No hay problema. Te guardamos la información y cuando quieras agendar nos escribís. ¡Gracias por tu interés! 😊";
+      default:
+        response = "Gracias por tu interés. Para más información visitá nuestra web o escribinos nuevamente.";
         this.deactivateDemo(phoneNumber);
         shouldContinue = false;
-      } else {
-        response = "No entendí bien. ¿Te gustaría agendar tu turno para esta semana? Respondé con 'sí' o 'no' por favor.";
-      }
-      break;
-
-    case 6: // Selección de horario
-      if (message.includes('10') || message.includes('martes')) {
-        response = `¡Excelente elección! Tu turno está confirmado para el **Martes 18/7 a las 10:00**.\n\n📋 **Recordá traer:**\n• DNI\n• Obra social (si tenés)\n• Estudios previos (si tenés)\n\n📍 **Dirección:** Av. Santa Fe 1234, Recoleta\n🚇 **Subte:** Línea D - Estación Callao\n\n¿Necesitás que te envíe la ubicación por Maps?`;
-        this.deactivateDemo(phoneNumber);
-        shouldContinue = false;
-      } else if (message.includes('14') || message.includes('16')) {
-        response = `¡Perfecto! Tu turno está confirmado para el **Martes 18/7 a las ${message.includes('14') ? '14:00' : '16:00'}**.\n\n📋 **Recordá traer:**\n• DNI\n• Obra social (si tenés)\n• Estudios previos (si tenés)\n\n📍 **Dirección:** Av. Santa Fe 1234, Recoleta\n🚇 **Subte:** Línea D - Estación Callao\n\n¿Necesitás que te envíe la ubicación por Maps?`;
-        this.deactivateDemo(phoneNumber);
-        shouldContinue = false;
-      } else if (message.includes('9') || message.includes('11') || message.includes('15') || message.includes('miércoles') || message.includes('miercoles')) {
-        response = `¡Genial! Tu turno está confirmado para el **Miércoles 19/7**.\n\n📋 **Recordá traer:**\n• DNI\n• Obra social (si tenés)\n• Estudios previos (si tenés)\n\n📍 **Dirección:** Av. Santa Fe 1234, Recoleta\n🚇 **Subte:** Línea D - Estación Callao\n\n¿Necesitás que te envíe la ubicación por Maps?`;
-        this.deactivateDemo(phoneNumber);
-        shouldContinue = false;
-      } else if (message.includes('13') || message.includes('17') || message.includes('jueves')) {
-        response = `¡Perfecto! Tu turno está confirmado para el **Jueves 20/7**.\n\n📋 **Recordá traer:**\n• DNI\n• Obra social (si tenés)\n• Estudios previos (si tenés)\n\n📍 **Dirección:** Av. Santa Fe 1234, Recoleta\n🚇 **Subte:** Línea D - Estación Callao\n\n¿Necesitás que te envíe la ubicación por Maps?`;
-        this.deactivateDemo(phoneNumber);
-        shouldContinue = false;
-      } else {
-        response = "Por favor elegí un horario disponible:\n\nMartes 18/7: 10:00, 14:00, 16:00\nMiércoles 19/7: 9:00, 11:00, 15:00\nJueves 20/7: 10:00, 13:00, 17:00";
-      }
-      break;
-
-    default:
-      response = "Gracias por tu interés. Para más información visitá nuestra web o escribinos nuevamente.";
-      this.deactivateDemo(phoneNumber);
-      shouldContinue = false;
-  }
-
-  return { response, shouldContinue };
-}
-
-checkDemoActivation(message) {
-  const body = message.body.toLowerCase();
-  const demoKeywords = [
-    'dental recoleta demo',
-    'demo dental',
-    'recoleta demo',
-    'demo recoleta',
-    'dental demo',
-    'demo odontologia',
-    'odontologia demo'
-  ];
-
-  for (const keyword of demoKeywords) {
-    if (body.includes(keyword)) {
-      return true;
     }
+
+    return { response, shouldContinue };
   }
-  return false;
-}
+
+  checkDemoActivation(message) {
+    const body = message.body.toLowerCase();
+    const demoKeywords = [
+      'dental recoleta demo',
+      'demo dental',
+      'recoleta demo',
+      'demo recoleta',
+      'dental demo',
+      'demo odontologia',
+      'odontologia demo'
+    ];
+
+    for (const keyword of demoKeywords) {
+      if (body.includes(keyword)) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   async sendAutoResponse(message, response) {
-  let autoResponse = '';
+    let autoResponse = '';
 
-  switch (response.type) {
-    case 'interested':
-      autoResponse = '¡Excelente! 😊 Te envío más información por privado. ¿En qué horario prefieres que te contacte?';
-      break;
-    case 'services_request':
-      // Obtener mensaje de servicios (índice 6 - último mensaje)
-      const servicesMessage = this.getServicesMessage();
-      autoResponse = servicesMessage;
-      break;
-    case 'not_interested':
-      // Respuestas variadas para "no gracias"
-      const notInterestedResponses = [
-        'Gracias a usted por su respuesta 😊 ¡Que tenga un excelente día!',
-        'Perfecto, gracias por su tiempo. ¡Que tenga un muy buen día! 😊',
-        'Entiendo perfectamente. Gracias por su respuesta. ¡Que tenga un excelente día! 😊',
-        'Gracias por su tiempo. ¡Que tenga un muy buen día! 😊',
-        'Perfecto, gracias por su respuesta. ¡Que tenga un excelente día! 😊',
-        'Gracias a usted por su tiempo. ¡Que tenga un muy buen día! 😊',
-        'Entiendo, gracias por su respuesta. ¡Que tenga un excelente día! 😊',
-        'Perfecto, gracias por su tiempo. ¡Que tenga un muy buen día! 😊'
-      ];
-      autoResponse = notInterestedResponses[Math.floor(Math.random() * notInterestedResponses.length)];
-      break;
-    case 'neutral':
-      // Respuestas para mensajes neutrales como "gracias"
-      const neutralResponses = [
-        '¡De nada! 😊 ¡Que tenga un excelente día!',
-        '¡Por nada! 😊 ¡Que tenga un muy buen día!',
-        '¡Un placer! 😊 ¡Que tenga un excelente día!',
-        '¡De nada! 😊 ¡Que tenga un muy buen día!',
-        '¡Por nada! 😊 ¡Que tenga un excelente día!',
-        '¡Un placer! 😊 ¡Que tenga un muy buen día!'
-      ];
-      autoResponse = neutralResponses[Math.floor(Math.random() * neutralResponses.length)];
-      break;
-    default:
-      // No enviar respuesta automática para otros tipos
-      return;
+    switch (response.type) {
+      case 'interested':
+        autoResponse = '¡Excelente! 😊 Te envío más información por privado. ¿En qué horario prefieres que te contacte?';
+        break;
+      case 'services_request':
+        // Obtener mensaje de servicios (índice 6 - último mensaje)
+        const servicesMessage = this.getServicesMessage();
+        autoResponse = servicesMessage;
+        break;
+      case 'not_interested':
+        // Respuestas variadas para "no gracias"
+        const notInterestedResponses = [
+          'Gracias a usted por su respuesta 😊 ¡Que tenga un excelente día!',
+          'Perfecto, gracias por su tiempo. ¡Que tenga un muy buen día! 😊',
+          'Entiendo perfectamente. Gracias por su respuesta. ¡Que tenga un excelente día! 😊',
+          'Gracias por su tiempo. ¡Que tenga un muy buen día! 😊',
+          'Perfecto, gracias por su respuesta. ¡Que tenga un excelente día! 😊',
+          'Gracias a usted por su tiempo. ¡Que tenga un muy buen día! 😊',
+          'Entiendo, gracias por su respuesta. ¡Que tenga un excelente día! 😊',
+          'Perfecto, gracias por su tiempo. ¡Que tenga un muy buen día! 😊'
+        ];
+        autoResponse = notInterestedResponses[Math.floor(Math.random() * notInterestedResponses.length)];
+        break;
+      case 'neutral':
+        // Respuestas para mensajes neutrales como "gracias"
+        const neutralResponses = [
+          '¡De nada! 😊 ¡Que tenga un excelente día!',
+          '¡Por nada! 😊 ¡Que tenga un muy buen día!',
+          '¡Un placer! 😊 ¡Que tenga un excelente día!',
+          '¡De nada! 😊 ¡Que tenga un muy buen día!',
+          '¡Por nada! 😊 ¡Que tenga un excelente día!',
+          '¡Un placer! 😊 ¡Que tenga un muy buen día!'
+        ];
+        autoResponse = neutralResponses[Math.floor(Math.random() * neutralResponses.length)];
+        break;
+      default:
+        // No enviar respuesta automática para otros tipos
+        return;
+    }
+
+    try {
+      // Simular que está escribiendo
+      await this.simulateTyping(message.from);
+
+      // Enviar respuesta
+      await this.client.sendMessage(message.from, autoResponse);
+      console.log(`📤 Respuesta automática enviada a ${message.from}: ${autoResponse}`);
+
+    } catch (error) {
+      console.error('❌ Error enviando respuesta automática:', error.message);
+    }
   }
-
-  try {
-    // Simular que está escribiendo
-    await this.simulateTyping(message.from);
-
-    // Enviar respuesta
-    await this.client.sendMessage(message.from, autoResponse);
-    console.log(`📤 Respuesta automática enviada a ${message.from}: ${autoResponse}`);
-
-  } catch (error) {
-    console.error('❌ Error enviando respuesta automática:', error.message);
-  }
-}
 
   async updateLeadStatus(leadId, status, leadName = null) {
-  // ... existing implementation ...
-}
+    // ... existing implementation ...
+  }
 
   /**
    * 💾 Guardar mensaje en el backend (Persistencia completa)
    */
   async saveMessageToBackend(msg) {
-  try {
-    const phone = msg.fromMe ? msg.to.split('@')[0] : msg.from.split('@')[0];
-    if (!phone || phone.length < 5) return;
+    try {
+      const phone = msg.fromMe ? msg.to.split('@')[0] : msg.from.split('@')[0];
+      if (!phone || phone.length < 5) return;
 
-    await axios.post(`${this.backendUrl}/messages`, {
-      phone: phone,
-      content: msg.body || `[Archivo: ${msg.type}]`,
-      fromMe: msg.fromMe,
-      type: msg.type || 'text',
-      sentAt: new Date(msg.timestamp * 1000),
-      whatsappMessageId: msg.id._serialized,
-      instanceId: this.instanceId,
-      sentFromNumber: this.connectedNumber,
-      metadata: {
+      await axios.post(`${this.backendUrl}/messages`, {
+        phone: phone,
+        content: msg.body || `[Archivo: ${msg.type}]`,
         fromMe: msg.fromMe,
-        device: msg.deviceType
-      }
-    });
-  } catch (e) {
-    // Silencioso para no afectar flujo principal
+        type: msg.type || 'text',
+        sentAt: new Date(msg.timestamp * 1000),
+        whatsappMessageId: msg.id._serialized,
+        instanceId: this.instanceId,
+        sentFromNumber: this.connectedNumber,
+        metadata: {
+          fromMe: msg.fromMe,
+          device: msg.deviceType
+        }
+      });
+    } catch (e) {
+      // Silencioso para no afectar flujo principal
+    }
   }
-}
 
   /**
    * 🔄 Sincronizar historial de un lead específico
    */
   async syncLeadHistory(whatsappFormat, leadName = '') {
-  try {
-    console.log(`🔄 Sincronizando historial de ${leadName} (${whatsappFormat})...`);
-    const chat = await this.client.getChatById(whatsappFormat);
-    if (!chat) return;
+    try {
+      console.log(`🔄 Sincronizando historial de ${leadName} (${whatsappFormat})...`);
+      const chat = await this.client.getChatById(whatsappFormat);
+      if (!chat) return;
 
-    const messages = await chat.fetchMessages({ limit: 20 });
-    let syncedCount = 0;
+      const messages = await chat.fetchMessages({ limit: 20 });
+      let syncedCount = 0;
 
-    for (const msg of messages) {
-      if (msg.type === 'chat' || msg.type === 'image') {
-        try {
-          const phone = msg.fromMe ? msg.to.split('@')[0] : msg.from.split('@')[0];
-          const res = await axios.post(`${this.backendUrl}/messages`, {
-            phone: phone,
-            leadName: leadName || phone,
-            content: msg.body || `[${msg.type}]`,
-            fromMe: msg.fromMe,
-            type: msg.type,
-            sentAt: new Date(msg.timestamp * 1000),
-            whatsappMessageId: msg.id._serialized,
-            instanceId: this.instanceId,
-            sentFromNumber: this.connectedNumber
-          });
-          if (res.data.success && !res.data.isDuplicate) syncedCount++;
-        } catch (e) { }
+      for (const msg of messages) {
+        if (msg.type === 'chat' || msg.type === 'image') {
+          try {
+            const phone = msg.fromMe ? msg.to.split('@')[0] : msg.from.split('@')[0];
+            const res = await axios.post(`${this.backendUrl}/messages`, {
+              phone: phone,
+              leadName: leadName || phone,
+              content: msg.body || `[${msg.type}]`,
+              fromMe: msg.fromMe,
+              type: msg.type,
+              sentAt: new Date(msg.timestamp * 1000),
+              whatsappMessageId: msg.id._serialized,
+              instanceId: this.instanceId,
+              sentFromNumber: this.connectedNumber
+            });
+            if (res.data.success && !res.data.isDuplicate) syncedCount++;
+          } catch (e) { }
+        }
       }
+      console.log(`✅ Historial sincronizado: ${syncedCount} mensajes nuevos para ${leadName}`);
+    } catch (e) {
+      console.warn(`⚠️ Error sincronizando historial de ${whatsappFormat}: ${e.message}`);
     }
-    console.log(`✅ Historial sincronizado: ${syncedCount} mensajes nuevos para ${leadName}`);
-  } catch (e) {
-    console.warn(`⚠️ Error sincronizando historial de ${whatsappFormat}: ${e.message}`);
   }
-}
 
   async updateLeadResponse(leadId, response, leadName = null) {
-  try {
-    await axios.put(`${this.backendUrl}/lead/${leadId}/status`, {
-      whatsappResponse: response
-    });
-    const displayName = leadName || leadId;
-    console.log(`✅ Respuesta actualizada para lead ${displayName}: ${response}`);
-  } catch (error) {
-    console.error('❌ Error actualizando respuesta del lead:', error.message);
+    try {
+      await axios.put(`${this.backendUrl}/lead/${leadId}/status`, {
+        whatsappResponse: response
+      });
+      const displayName = leadName || leadId;
+      console.log(`✅ Respuesta actualizada para lead ${displayName}: ${response}`);
+    } catch (error) {
+      console.error('❌ Error actualizando respuesta del lead:', error.message);
+    }
   }
-}
 
   async notifySlack(lead, response) {
-  if (!this.slackWebhook) {
-    console.log('⚠️ Slack webhook no configurado');
-    return;
+    if (!this.slackWebhook) {
+      console.log('⚠️ Slack webhook no configurado');
+      return;
+    }
+
+    try {
+      const message = {
+        text: '🎉 ¡Nuevo lead interesado!',
+        attachments: [{
+          color: 'good',
+          fields: [
+            {
+              title: 'Nombre',
+              value: lead.name,
+              short: true
+            },
+            {
+              title: 'Teléfono',
+              value: lead.phone || 'No disponible',
+              short: true
+            },
+            {
+              title: 'Categoría',
+              value: lead.category || 'No especificada',
+              short: true
+            },
+            {
+              title: 'Respuesta',
+              value: response.type === 'interested' ? 'Positiva 😊' : 'Neutral',
+              short: true
+            }
+          ],
+          footer: 'GMaps Leads Bot',
+          ts: Math.floor(Date.now() / 1000)
+        }]
+      };
+
+      await axios.post(this.slackWebhook, message);
+      console.log('✅ Notificación enviada a Slack');
+
+    } catch (error) {
+      console.error('❌ Error enviando notificación a Slack:', error.message);
+    }
   }
-
-  try {
-    const message = {
-      text: '🎉 ¡Nuevo lead interesado!',
-      attachments: [{
-        color: 'good',
-        fields: [
-          {
-            title: 'Nombre',
-            value: lead.name,
-            short: true
-          },
-          {
-            title: 'Teléfono',
-            value: lead.phone || 'No disponible',
-            short: true
-          },
-          {
-            title: 'Categoría',
-            value: lead.category || 'No especificada',
-            short: true
-          },
-          {
-            title: 'Respuesta',
-            value: response.type === 'interested' ? 'Positiva 😊' : 'Neutral',
-            short: true
-          }
-        ],
-        footer: 'GMaps Leads Bot',
-        ts: Math.floor(Date.now() / 1000)
-      }]
-    };
-
-    await axios.post(this.slackWebhook, message);
-    console.log('✅ Notificación enviada a Slack');
-
-  } catch (error) {
-    console.error('❌ Error enviando notificación a Slack:', error.message);
-  }
-}
 
   async validateAndFormatPhone(phone) {
-  const validation = phoneValidator.cleanAndFormatArgentinianNumber(phone);
-  if (!validation.valid) {
-    console.log(`❌ Teléfono inválido: ${phone} - Motivo: ${validation.error}`);
-    return { valid: false, formatted: null, whatsappFormat: null, error: validation.error };
+    const validation = phoneValidator.cleanAndFormatArgentinianNumber(phone);
+    if (!validation.valid) {
+      console.log(`❌ Teléfono inválido: ${phone} - Motivo: ${validation.error}`);
+      return { valid: false, formatted: null, whatsappFormat: null, error: validation.error };
+    }
+
+    // Crear formato para WhatsApp Web: [numero]@c.us
+    const whatsappFormat = `${validation.formatted}@c.us`;
+
+    console.log(`✅ Teléfono validado y formateado: ${validation.formatted}`);
+    console.log(`📱 Formato WhatsApp: ${whatsappFormat}`);
+
+    return {
+      valid: true,
+      formatted: validation.formatted,
+      whatsappFormat: whatsappFormat
+    };
   }
-
-  // Crear formato para WhatsApp Web: [numero]@c.us
-  const whatsappFormat = `${validation.formatted}@c.us`;
-
-  console.log(`✅ Teléfono validado y formateado: ${validation.formatted}`);
-  console.log(`📱 Formato WhatsApp: ${whatsappFormat}`);
-
-  return {
-    valid: true,
-    formatted: validation.formatted,
-    whatsappFormat: whatsappFormat
-  };
-}
 
   /**
    * Verificar sesiones completadas y enviar mensajes 3-8
    */
   async checkCompletedSessions() {
-  // Evitar envío simultáneo de mensajes
-  if (this.isSendingMessages) {
-    console.log(`⚠️ Ya se están enviando mensajes - saltando checkCompletedSessions`);
-    return;
-  }
+    // Evitar envío simultáneo de mensajes
+    if (this.isSendingMessages) {
+      console.log(`⚠️ Ya se están enviando mensajes - saltando checkCompletedSessions`);
+      return;
+    }
 
-  // Evitar ejecución si el bot está procesando leads
-  if (this.isProcessing) {
-    console.log(`⚠️ Bot está procesando leads - saltando checkCompletedSessions`);
-    return;
-  }
+    // Evitar ejecución si el bot está procesando leads
+    if (this.isProcessing) {
+      console.log(`⚠️ Bot está procesando leads - saltando checkCompletedSessions`);
+      return;
+    }
 
-  try {
-    // Obtener todas las sesiones activas del WhatsAppChecker
-    const activeSessions = this.whatsappChecker.verificationSessions;
+    try {
+      // Obtener todas las sesiones activas del WhatsAppChecker
+      const activeSessions = this.whatsappChecker.verificationSessions;
 
-    for (const [sessionId, session] of activeSessions) {
-      if (session.status === 'active' && session.bothMessagesDelivered && !session.messages3to8Sent) {
-        console.log(`✅ Sesión completa detectada para ${session.phoneNumber} - verificando antes de enviar`);
+      for (const [sessionId, session] of activeSessions) {
+        if (session.status === 'active' && session.bothMessagesDelivered && !session.messages3to8Sent) {
+          console.log(`✅ Sesión completa detectada para ${session.phoneNumber} - verificando antes de enviar`);
 
-        // Marcar que se van a enviar los mensajes 3-8 para evitar duplicados
-        session.messages3to8Sent = true;
+          // Marcar que se van a enviar los mensajes 3-8 para evitar duplicados
+          session.messages3to8Sent = true;
 
-        // Buscar el lead correspondiente
-        const response = await axios.get(`${this.backendUrl}/leads?search=${session.phoneNumber}&limit=1`);
-        if (response.data.success && response.data.leads.length > 0) {
-          const lead = response.data.leads[0];
+          // Buscar el lead correspondiente
+          const response = await axios.get(`${this.backendUrl}/leads?search=${session.phoneNumber}&limit=1`);
+          if (response.data.success && response.data.leads.length > 0) {
+            const lead = response.data.leads[0];
 
-          // Verificar que el lead no esté ya marcado como contacted y que no se hayan enviado mensajes 3-8
-          if (lead.status !== 'contacted' || !lead.messages3to8Sent) {
-            // Verificar mensajes ya enviados en el chat antes de enviar
-            const sentMessages = await this.getSentMessagesFromChat(`${session.phoneNumber}@c.us`);
-            console.log(`🔍 Verificando mensajes ya enviados para ${lead.name}: ${sentMessages.length} mensajes encontrados`);
+            // Verificar que el lead no esté ya marcado como contacted y que no se hayan enviado mensajes 3-8
+            if (lead.status !== 'contacted' || !lead.messages3to8Sent) {
+              // Verificar mensajes ya enviados en el chat antes de enviar
+              const sentMessages = await this.getSentMessagesFromChat(`${session.phoneNumber}@c.us`);
+              console.log(`🔍 Verificando mensajes ya enviados para ${lead.name}: ${sentMessages.length} mensajes encontrados`);
 
-            // Verificar si ya se enviaron mensajes 3-8 basándose en el contenido del chat
-            let messagesAlreadySent = 0;
-            let specificMessagesSent = {
-              message3: false,
-              message4: false,
-              message5: false,
-              message6: false,
-              message7: false,
-              message8: false
-            };
+              // Verificar si ya se enviaron mensajes 3-8 basándose en el contenido del chat
+              let messagesAlreadySent = 0;
+              let specificMessagesSent = {
+                message3: false,
+                message4: false,
+                message5: false,
+                message6: false,
+                message7: false,
+                message8: false
+              };
 
-            for (let i = 2; i < this.messageSequences.length; i++) {
-              if (await this.isMessageAlreadySent(i, sentMessages)) {
-                messagesAlreadySent++;
-                specificMessagesSent[`message${i + 1}`] = true;
+              for (let i = 2; i < this.messageSequences.length; i++) {
+                if (await this.isMessageAlreadySent(i, sentMessages)) {
+                  messagesAlreadySent++;
+                  specificMessagesSent[`message${i + 1}`] = true;
+                }
               }
-            }
 
-            console.log(`📊 Mensajes ya enviados: ${messagesAlreadySent}/6`, specificMessagesSent);
+              console.log(`📊 Mensajes ya enviados: ${messagesAlreadySent}/6`, specificMessagesSent);
 
-            if (messagesAlreadySent >= 3) { // Si ya se enviaron al menos 3 mensajes de la secuencia 3-8
-              console.log(`⚠️ Ya se enviaron ${messagesAlreadySent} mensajes de la secuencia 3-8 para ${lead.name} - saltando`);
-              // Marcar como enviados en la base de datos
-              try {
-                await axios.put(`${this.backendUrl}/lead/${lead.id}/status`, {
-                  messages3to8Sent: true
-                });
-              } catch (error) {
-                console.error('Error marcando mensajes 3-8 como enviados:', error.message);
+              if (messagesAlreadySent >= 3) { // Si ya se enviaron al menos 3 mensajes de la secuencia 3-8
+                console.log(`⚠️ Ya se enviaron ${messagesAlreadySent} mensajes de la secuencia 3-8 para ${lead.name} - saltando`);
+                // Marcar como enviados en la base de datos
+                try {
+                  await axios.put(`${this.backendUrl}/lead/${lead.id}/status`, {
+                    messages3to8Sent: true
+                  });
+                } catch (error) {
+                  console.error('Error marcando mensajes 3-8 como enviados:', error.message);
+                }
+              } else {
+                console.log(`📤 Enviando ${6 - messagesAlreadySent} mensajes restantes para ${lead.name}`);
+                // Enviar mensajes 3-8 - verificará automáticamente cuáles ya fueron enviados
+                await this.sendRemainingSequence(lead, `${session.phoneNumber}@c.us`, 2);
+                this.statsTracker.trackLead(lead, 'valid', { method: 'verification_session', messagesSent: 8 });
+                await this.updateLeadStatus(lead.id, 'contacted', lead.name);
+
+                console.log(`✅ Mensajes 3-8 enviados para ${lead.name}`);
               }
             } else {
-              console.log(`📤 Enviando ${6 - messagesAlreadySent} mensajes restantes para ${lead.name}`);
-              // Enviar mensajes 3-8 - verificará automáticamente cuáles ya fueron enviados
-              await this.sendRemainingSequence(lead, `${session.phoneNumber}@c.us`, 2);
-              this.statsTracker.trackLead(lead, 'valid', { method: 'verification_session', messagesSent: 8 });
-              await this.updateLeadStatus(lead.id, 'contacted', lead.name);
-
-              console.log(`✅ Mensajes 3-8 enviados para ${lead.name}`);
+              console.log(`⚠️ Lead ${lead.name} ya está marcado como contacted y mensajes 3-8 enviados - saltando`);
             }
           } else {
-            console.log(`⚠️ Lead ${lead.name} ya está marcado como contacted y mensajes 3-8 enviados - saltando`);
+            console.log(`⚠️ No se encontró lead para ${session.phoneNumber}`);
           }
-        } else {
-          console.log(`⚠️ No se encontró lead para ${session.phoneNumber}`);
-        }
 
-        // Eliminar sesión después de enviar mensajes
-        this.whatsappChecker.verificationSessions.delete(sessionId);
+          // Eliminar sesión después de enviar mensajes
+          this.whatsappChecker.verificationSessions.delete(sessionId);
+        }
       }
+    } catch (error) {
+      console.error('❌ Error verificando sesiones completadas:', error.message);
     }
-  } catch (error) {
-    console.error('❌ Error verificando sesiones completadas:', error.message);
   }
-}
 
   // Función para verificar si ya existe conversación en WhatsApp
   async checkWhatsAppConversation(phoneNumber) {
-  try {
-    // Verificar si el número está registrado en WhatsApp
-    const isRegistered = await this.client.isRegisteredUser(phoneNumber);
-    if (!isRegistered) {
-      console.log(`❌ Número ${phoneNumber} no está registrado en WhatsApp`);
-      return { hasConversation: false, reason: 'not_registered' };
+    try {
+      // Verificar si el número está registrado en WhatsApp
+      const isRegistered = await this.client.isRegisteredUser(phoneNumber);
+      if (!isRegistered) {
+        console.log(`❌ Número ${phoneNumber} no está registrado en WhatsApp`);
+        return { hasConversation: false, reason: 'not_registered' };
+      }
+
+      // Buscar chat existente
+      const chat = await this.client.getChatById(phoneNumber);
+      if (!chat) {
+        console.log(`✅ No hay conversación previa con ${phoneNumber}`);
+        return { hasConversation: false, reason: 'no_conversation' };
+      }
+
+      // Verificar si hay mensajes en el chat
+      const messages = await chat.fetchMessages({ limit: 1 });
+      if (messages.length === 0) {
+        console.log(`✅ Chat vacío con ${phoneNumber}`);
+        return { hasConversation: false, reason: 'empty_chat' };
+      }
+
+      console.log(`⚠️ Ya existe conversación con ${phoneNumber} (${messages.length} mensajes)`);
+      return { hasConversation: true, reason: 'existing_conversation', messageCount: messages.length };
+
+    } catch (error) {
+      console.log(`❌ Error verificando conversación con ${phoneNumber}: ${error.message}`);
+      // En caso de error, asumir que no hay conversación para ser seguro
+      return { hasConversation: false, reason: 'error_checking', error: error.message };
     }
-
-    // Buscar chat existente
-    const chat = await this.client.getChatById(phoneNumber);
-    if (!chat) {
-      console.log(`✅ No hay conversación previa con ${phoneNumber}`);
-      return { hasConversation: false, reason: 'no_conversation' };
-    }
-
-    // Verificar si hay mensajes en el chat
-    const messages = await chat.fetchMessages({ limit: 1 });
-    if (messages.length === 0) {
-      console.log(`✅ Chat vacío con ${phoneNumber}`);
-      return { hasConversation: false, reason: 'empty_chat' };
-    }
-
-    console.log(`⚠️ Ya existe conversación con ${phoneNumber} (${messages.length} mensajes)`);
-    return { hasConversation: true, reason: 'existing_conversation', messageCount: messages.length };
-
-  } catch (error) {
-    console.log(`❌ Error verificando conversación con ${phoneNumber}: ${error.message}`);
-    // En caso de error, asumir que no hay conversación para ser seguro
-    return { hasConversation: false, reason: 'error_checking', error: error.message };
   }
-}
 
-sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
   // Método para detener el bot
   async stop() {
-  console.log('🛑 Deteniendo WhatsApp Bot...');
-  if (this.client) {
-    try {
-      await this.client.destroy();
-    } catch (error) {
-      console.error('⚠️ Error al cerrar el cliente de WhatsApp:', error.message);
+    console.log('🛑 Deteniendo WhatsApp Bot...');
+    if (this.client) {
+      try {
+        await this.client.destroy();
+      } catch (error) {
+        console.error('⚠️ Error al cerrar el cliente de WhatsApp:', error.message);
+      }
     }
+    process.exit(0);
   }
-  process.exit(0);
-}
 
   /**
    * Obtener mensajes ya enviados desde el chat de WhatsApp
    */
   async getSentMessagesFromChat(whatsappFormat) {
-  try {
-    const chat = await this.client.getChatById(whatsappFormat);
-    if (!chat) {
-      console.log(`❌ No se pudo obtener chat para ${whatsappFormat}`);
+    try {
+      const chat = await this.client.getChatById(whatsappFormat);
+      if (!chat) {
+        console.log(`❌ No se pudo obtener chat para ${whatsappFormat}`);
+        return [];
+      }
+
+      // Obtener los últimos 20 mensajes del chat
+      const messages = await chat.fetchMessages({ limit: 20 });
+
+      // Filtrar solo mensajes enviados por nosotros
+      const sentMessages = messages.filter(msg => msg.fromMe);
+
+      console.log(`📱 Encontrados ${sentMessages.length} mensajes enviados en el chat`);
+      return sentMessages;
+
+    } catch (error) {
+      console.error(`❌ Error obteniendo mensajes del chat: ${error.message}`);
       return [];
     }
-
-    // Obtener los últimos 20 mensajes del chat
-    const messages = await chat.fetchMessages({ limit: 20 });
-
-    // Filtrar solo mensajes enviados por nosotros
-    const sentMessages = messages.filter(msg => msg.fromMe);
-
-    console.log(`📱 Encontrados ${sentMessages.length} mensajes enviados en el chat`);
-    return sentMessages;
-
-  } catch (error) {
-    console.error(`❌ Error obteniendo mensajes del chat: ${error.message}`);
-    return [];
   }
-}
 
   /**
    * Verificar si un mensaje específico ya fue enviado comparando con las variaciones
    */
   async isMessageAlreadySent(messageIndex, sentMessages) {
-  if (!sentMessages || sentMessages.length === 0) {
-    return false;
-  }
-
-  // Obtener todas las variaciones del mensaje
-  const messageVariations = this.messageSequences[messageIndex];
-  if (!messageVariations) {
-    return false;
-  }
-
-  // Comparar cada mensaje enviado con las variaciones
-  for (const sentMessage of sentMessages) {
-    const sentContent = sentMessage.body.toLowerCase().trim();
-
-    // DETECCIÓN ESPECÍFICA POR TIPO DE MENSAJE
-
-    // Mensaje 1 (Saludo) - Detectar por palabras clave
-    if (messageIndex === 0) {
-      if (sentContent.includes('hola') && sentContent.includes('juan cruz') && sentContent.includes('nexte')) {
-        console.log(`✅ Mensaje 1 ya enviado (detectado por saludo con Juan Cruz)`);
-        return true;
-      }
-      if (sentContent.includes('buen día') && sentContent.includes('juan cruz') && sentContent.includes('nexte')) {
-        console.log(`✅ Mensaje 1 ya enviado (detectado por saludo con Juan Cruz)`);
-        return true;
-      }
+    if (!sentMessages || sentMessages.length === 0) {
+      return false;
     }
 
-    // Mensaje 2 (Presentación) - Detectar por palabras clave específicas
-    if (messageIndex === 1) {
-      // Detectar cualquier mensaje que contenga las palabras clave de presentación
-      const presentationKeywords = [
-        'nexte marketing',
-        'llevamos 10 años',
-        'tenemos 10 años',
-        '2015-2025',
-        'potenciando marcas',
-        'empresas en 5 países',
-        'estudio freelance',
-        'boutique de growth',
-        'especialistas multidisciplinarios'
-      ];
+    // Obtener todas las variaciones del mensaje
+    const messageVariations = this.messageSequences[messageIndex];
+    if (!messageVariations) {
+      return false;
+    }
 
-      let keywordMatches = 0;
-      for (const keyword of presentationKeywords) {
-        if (sentContent.includes(keyword)) {
-          keywordMatches++;
+    // Comparar cada mensaje enviado con las variaciones
+    for (const sentMessage of sentMessages) {
+      const sentContent = sentMessage.body.toLowerCase().trim();
+
+      // DETECCIÓN ESPECÍFICA POR TIPO DE MENSAJE
+
+      // Mensaje 1 (Saludo) - Detectar por palabras clave
+      if (messageIndex === 0) {
+        if (sentContent.includes('hola') && sentContent.includes('juan cruz') && sentContent.includes('nexte')) {
+          console.log(`✅ Mensaje 1 ya enviado (detectado por saludo con Juan Cruz)`);
+          return true;
+        }
+        if (sentContent.includes('buen día') && sentContent.includes('juan cruz') && sentContent.includes('nexte')) {
+          console.log(`✅ Mensaje 1 ya enviado (detectado por saludo con Juan Cruz)`);
+          return true;
         }
       }
 
-      // Si tiene al menos 4 palabras clave de presentación, es el mensaje 2
-      if (keywordMatches >= 4) {
-        console.log(`✅ Mensaje 2 ya enviado (detectado por ${keywordMatches} palabras clave de presentación)`);
-        return true;
-      }
+      // Mensaje 2 (Presentación) - Detectar por palabras clave específicas
+      if (messageIndex === 1) {
+        // Detectar cualquier mensaje que contenga las palabras clave de presentación
+        const presentationKeywords = [
+          'nexte marketing',
+          'llevamos 10 años',
+          'tenemos 10 años',
+          '2015-2025',
+          'potenciando marcas',
+          'empresas en 5 países',
+          'estudio freelance',
+          'boutique de growth',
+          'especialistas multidisciplinarios'
+        ];
 
-      // DETECCIÓN ADICIONAL: Verificar si contiene la estructura típica del mensaje 2
-      const hasNexteMarketing = sentContent.includes('nexte marketing');
-      const hasYears = sentContent.includes('10 años') || sentContent.includes('2015-2025');
-      const hasGrowth = sentContent.includes('growth') || sentContent.includes('especialistas');
+        let keywordMatches = 0;
+        for (const keyword of presentationKeywords) {
+          if (sentContent.includes(keyword)) {
+            keywordMatches++;
+          }
+        }
 
-      if (hasNexteMarketing && hasYears && hasGrowth) {
-        console.log(`✅ Mensaje 2 ya enviado (detectado por estructura típica)`);
-        return true;
-      }
+        // Si tiene al menos 4 palabras clave de presentación, es el mensaje 2
+        if (keywordMatches >= 4) {
+          console.log(`✅ Mensaje 2 ya enviado (detectado por ${keywordMatches} palabras clave de presentación)`);
+          return true;
+        }
 
-      // DETECCIÓN POR LONGITUD Y CONTENIDO ESPECÍFICO
-      if (sentContent.length > 100 && sentContent.includes('nexte marketing') && sentContent.includes('años')) {
-        console.log(`✅ Mensaje 2 ya enviado (detectado por longitud y contenido)`);
-        return true;
-      }
-    }
+        // DETECCIÓN ADICIONAL: Verificar si contiene la estructura típica del mensaje 2
+        const hasNexteMarketing = sentContent.includes('nexte marketing');
+        const hasYears = sentContent.includes('10 años') || sentContent.includes('2015-2025');
+        const hasGrowth = sentContent.includes('growth') || sentContent.includes('especialistas');
 
-    // Mensaje 3 (Sitio web $150.000) - Detectar por precio
-    if (messageIndex === 2) {
-      if (sentContent.includes('$150.000') || sentContent.includes('150.000')) {
-        console.log(`✅ Mensaje 3 ya enviado (detectado por precio $150.000)`);
-        return true;
-      }
-      if (sentContent.includes('sitio web completo') && sentContent.includes('diseño personalizado')) {
-        console.log(`✅ Mensaje 3 ya enviado (detectado por descripción de sitio web)`);
-        return true;
-      }
-    }
+        if (hasNexteMarketing && hasYears && hasGrowth) {
+          console.log(`✅ Mensaje 2 ya enviado (detectado por estructura típica)`);
+          return true;
+        }
 
-    // Mensaje 4 (Sitio web $500.000) - Detectar por precio
-    if (messageIndex === 3) {
-      if (sentContent.includes('$500.000') || sentContent.includes('500.000')) {
-        console.log(`✅ Mensaje 4 ya enviado (detectado por precio $500.000)`);
-        return true;
-      }
-      if (sentContent.includes('sitio web premium') && sentContent.includes('diseño exclusivo')) {
-        console.log(`✅ Mensaje 4 ya enviado (detectado por descripción de sitio premium)`);
-        return true;
-      }
-    }
-
-    // Mensaje 5 (Pack 360°) - Detectar por Pack 360°
-    if (messageIndex === 4) {
-      if (sentContent.includes('pack 360°') || sentContent.includes('pack 360')) {
-        console.log(`✅ Mensaje 5 ya enviado (detectado por Pack 360°)`);
-        return true;
-      }
-      if (sentContent.includes('odontólogos') && sentContent.includes('chatbot dental')) {
-        console.log(`✅ Mensaje 5 ya enviado (detectado por servicios odontológicos)`);
-        return true;
-      }
-    }
-
-    // Mensaje 6 (Servicios específicos) - Detectar por servicios
-    if (messageIndex === 5) {
-      if (sentContent.includes('publicidad para google') || sentContent.includes('manejo de redes sociales')) {
-        console.log(`✅ Mensaje 6 ya enviado (detectado por servicios específicos)`);
-        return true;
-      }
-    }
-
-    // Mensaje 7 (Website) - Detectar por URL
-    if (messageIndex === 6) {
-      if (sentContent.includes('nextemarketing.com') || sentContent.includes('visitá')) {
-        console.log(`✅ Mensaje 7 ya enviado (detectado por URL del website)`);
-        return true;
-      }
-    }
-
-    // Mensaje 8 (Cierre) - Detectar por cierre
-    if (messageIndex === 7) {
-      if (sentContent.includes('cualquier consulta') || sentContent.includes('estoy disponible')) {
-        console.log(`✅ Mensaje 8 ya enviado (detectado por mensaje de cierre)`);
-        return true;
-      }
-    }
-
-    // COMPARACIÓN POR SIMILITUD CON VARIACIONES (más estricta)
-    for (const variation of messageVariations) {
-      const variationContent = variation.toLowerCase().trim();
-
-      // Comparación exacta
-      if (sentContent === variationContent) {
-        console.log(`✅ Mensaje ${messageIndex + 1} ya enviado (variación exacta encontrada)`);
-        return true;
-      }
-
-      // Comparación por similitud (más estricta - 85%)
-      const similarity = this.calculateSimilarity(sentContent, variationContent);
-      if (similarity > 0.85) {
-        console.log(`✅ Mensaje ${messageIndex + 1} ya enviado (similitud alta: ${similarity.toFixed(2)})`);
-        return true;
-      }
-
-      // Comparación por longitud y palabras clave
-      const sentWords = sentContent.split(' ').filter(word => word.length > 3);
-      const variationWords = variationContent.split(' ').filter(word => word.length > 3);
-
-      let commonWords = 0;
-      for (const sentWord of sentWords) {
-        if (variationWords.includes(sentWord)) {
-          commonWords++;
+        // DETECCIÓN POR LONGITUD Y CONTENIDO ESPECÍFICO
+        if (sentContent.length > 100 && sentContent.includes('nexte marketing') && sentContent.includes('años')) {
+          console.log(`✅ Mensaje 2 ya enviado (detectado por longitud y contenido)`);
+          return true;
         }
       }
 
-      const wordSimilarity = commonWords / Math.max(sentWords.length, variationWords.length);
-      if (wordSimilarity > 0.7 && sentWords.length > 5) {
-        console.log(`✅ Mensaje ${messageIndex + 1} ya enviado (similitud de palabras: ${wordSimilarity.toFixed(2)})`);
-        return true;
+      // Mensaje 3 (Sitio web $150.000) - Detectar por precio
+      if (messageIndex === 2) {
+        if (sentContent.includes('$150.000') || sentContent.includes('150.000')) {
+          console.log(`✅ Mensaje 3 ya enviado (detectado por precio $150.000)`);
+          return true;
+        }
+        if (sentContent.includes('sitio web completo') && sentContent.includes('diseño personalizado')) {
+          console.log(`✅ Mensaje 3 ya enviado (detectado por descripción de sitio web)`);
+          return true;
+        }
+      }
+
+      // Mensaje 4 (Sitio web $500.000) - Detectar por precio
+      if (messageIndex === 3) {
+        if (sentContent.includes('$500.000') || sentContent.includes('500.000')) {
+          console.log(`✅ Mensaje 4 ya enviado (detectado por precio $500.000)`);
+          return true;
+        }
+        if (sentContent.includes('sitio web premium') && sentContent.includes('diseño exclusivo')) {
+          console.log(`✅ Mensaje 4 ya enviado (detectado por descripción de sitio premium)`);
+          return true;
+        }
+      }
+
+      // Mensaje 5 (Pack 360°) - Detectar por Pack 360°
+      if (messageIndex === 4) {
+        if (sentContent.includes('pack 360°') || sentContent.includes('pack 360')) {
+          console.log(`✅ Mensaje 5 ya enviado (detectado por Pack 360°)`);
+          return true;
+        }
+        if (sentContent.includes('odontólogos') && sentContent.includes('chatbot dental')) {
+          console.log(`✅ Mensaje 5 ya enviado (detectado por servicios odontológicos)`);
+          return true;
+        }
+      }
+
+      // Mensaje 6 (Servicios específicos) - Detectar por servicios
+      if (messageIndex === 5) {
+        if (sentContent.includes('publicidad para google') || sentContent.includes('manejo de redes sociales')) {
+          console.log(`✅ Mensaje 6 ya enviado (detectado por servicios específicos)`);
+          return true;
+        }
+      }
+
+      // Mensaje 7 (Website) - Detectar por URL
+      if (messageIndex === 6) {
+        if (sentContent.includes('nextemarketing.com') || sentContent.includes('visitá')) {
+          console.log(`✅ Mensaje 7 ya enviado (detectado por URL del website)`);
+          return true;
+        }
+      }
+
+      // Mensaje 8 (Cierre) - Detectar por cierre
+      if (messageIndex === 7) {
+        if (sentContent.includes('cualquier consulta') || sentContent.includes('estoy disponible')) {
+          console.log(`✅ Mensaje 8 ya enviado (detectado por mensaje de cierre)`);
+          return true;
+        }
+      }
+
+      // COMPARACIÓN POR SIMILITUD CON VARIACIONES (más estricta)
+      for (const variation of messageVariations) {
+        const variationContent = variation.toLowerCase().trim();
+
+        // Comparación exacta
+        if (sentContent === variationContent) {
+          console.log(`✅ Mensaje ${messageIndex + 1} ya enviado (variación exacta encontrada)`);
+          return true;
+        }
+
+        // Comparación por similitud (más estricta - 85%)
+        const similarity = this.calculateSimilarity(sentContent, variationContent);
+        if (similarity > 0.85) {
+          console.log(`✅ Mensaje ${messageIndex + 1} ya enviado (similitud alta: ${similarity.toFixed(2)})`);
+          return true;
+        }
+
+        // Comparación por longitud y palabras clave
+        const sentWords = sentContent.split(' ').filter(word => word.length > 3);
+        const variationWords = variationContent.split(' ').filter(word => word.length > 3);
+
+        let commonWords = 0;
+        for (const sentWord of sentWords) {
+          if (variationWords.includes(sentWord)) {
+            commonWords++;
+          }
+        }
+
+        const wordSimilarity = commonWords / Math.max(sentWords.length, variationWords.length);
+        if (wordSimilarity > 0.7 && sentWords.length > 5) {
+          console.log(`✅ Mensaje ${messageIndex + 1} ya enviado (similitud de palabras: ${wordSimilarity.toFixed(2)})`);
+          return true;
+        }
       }
     }
+
+    return false;
   }
 
-  return false;
-}
+  /**
+   * Calcular similitud entre dos strings
+   */
+  calculateSimilarity(str1, str2) {
+    if (str1 === str2) return 1.0;
 
-/**
- * Calcular similitud entre dos strings
- */
-calculateSimilarity(str1, str2) {
-  if (str1 === str2) return 1.0;
+    const longer = str1.length > str2.length ? str1 : str2;
+    const shorter = str1.length > str2.length ? str2 : str1;
 
-  const longer = str1.length > str2.length ? str1 : str2;
-  const shorter = str1.length > str2.length ? str2 : str1;
+    if (longer.length === 0) return 1.0;
 
-  if (longer.length === 0) return 1.0;
-
-  // Calcular distancia de Levenshtein
-  const distance = this.levenshteinDistance(longer, shorter);
-  return (longer.length - distance) / longer.length;
-}
-
-/**
- * Calcular distancia de Levenshtein
- */
-levenshteinDistance(str1, str2) {
-  const matrix = [];
-
-  for (let i = 0; i <= str2.length; i++) {
-    matrix[i] = [i];
+    // Calcular distancia de Levenshtein
+    const distance = this.levenshteinDistance(longer, shorter);
+    return (longer.length - distance) / longer.length;
   }
 
-  for (let j = 0; j <= str1.length; j++) {
-    matrix[0][j] = j;
-  }
+  /**
+   * Calcular distancia de Levenshtein
+   */
+  levenshteinDistance(str1, str2) {
+    const matrix = [];
 
-  for (let i = 1; i <= str2.length; i++) {
-    for (let j = 1; j <= str1.length; j++) {
-      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
-        );
+    for (let i = 0; i <= str2.length; i++) {
+      matrix[i] = [i];
+    }
+
+    for (let j = 0; j <= str1.length; j++) {
+      matrix[0][j] = j;
+    }
+
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
       }
     }
-  }
 
-  return matrix[str2.length][str1.length];
-}
+    return matrix[str2.length][str1.length];
+  }
 
   /**
    * 🏷️ Sincronizar etiquetas de WhatsApp con el CRM
    */
   async syncTagsWithBackend() {
-  if (!this.client || !this.isReady) return;
+    if (!this.client || !this.isReady) return;
 
-  try {
-    this.log('↻ Sincronizando etiquetas de WhatsApp...');
-    const chats = await this.client.getChats();
+    try {
+      this.log('↻ Sincronizando etiquetas de WhatsApp...');
+      const chats = await this.client.getChats();
 
-    let syncCount = 0;
-    for (const chat of chats) {
-      if (chat.labels && chat.labels.length > 0) {
-        const labels = await this.client.getLabels();
-        const chatLabels = chat.labels.map(lId => {
-          const found = labels.find(l => l.id === lId);
-          return found ? found.name : lId;
-        });
+      let syncCount = 0;
+      for (const chat of chats) {
+        if (chat.labels && chat.labels.length > 0) {
+          const labels = await this.client.getLabels();
+          const chatLabels = chat.labels.map(lId => {
+            const found = labels.find(l => l.id === lId);
+            return found ? found.name : lId;
+          });
 
-        let newStatus = null;
-        if (chatLabels.some(l => l.toLowerCase().includes('interesad'))) newStatus = 'interested';
-        else if (chatLabels.some(l => l.toLowerCase().includes('no interesa'))) newStatus = 'not_interested';
-        else if (chatLabels.some(l => l.toLowerCase().includes('vendido') || l.toLowerCase().includes('cliente'))) newStatus = 'completed';
+          let newStatus = null;
+          if (chatLabels.some(l => l.toLowerCase().includes('interesad'))) newStatus = 'interested';
+          else if (chatLabels.some(l => l.toLowerCase().includes('no interesa'))) newStatus = 'not_interested';
+          else if (chatLabels.some(l => l.toLowerCase().includes('vendido') || l.toLowerCase().includes('cliente'))) newStatus = 'completed';
 
-        if (newStatus) {
-          axios.post(`${this.backendUrl}/webhooks/whatsapp-status`, {
-            phone: chat.id.user,
-            status: newStatus,
-            tags: chatLabels
-          }).catch(() => { });
-          syncCount++;
+          if (newStatus) {
+            axios.post(`${this.backendUrl}/webhooks/whatsapp-status`, {
+              phone: chat.id.user,
+              status: newStatus,
+              tags: chatLabels
+            }).catch(() => { });
+            syncCount++;
+          }
         }
       }
-    }
-    if (syncCount > 0) this.log(`✅ Sincronizados ${syncCount} leads desde etiquetas WA`);
+      if (syncCount > 0) this.log(`✅ Sincronizados ${syncCount} leads desde etiquetas WA`);
 
-  } catch (e) {
-    this.log(`⚠️ Error sincronizando etiquetas: ${e.message}`, 'warn');
+    } catch (e) {
+      this.log(`⚠️ Error sincronizando etiquetas: ${e.message}`, 'warn');
+    }
   }
-}
 }
 
 // Manejo de señales para cierre graceful
