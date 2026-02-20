@@ -330,44 +330,42 @@ class WhatsAppChecker {
    */
   async quickVerify(phoneNumber) {
     try {
-      // Estrategia 1: isRegisteredUser con Reintentos (Flaky en algunas versiones)
+      // Estrategia 1: isRegisteredUser con Reintentos (Robustez mejorada)
       let isRegistered = false;
       let attempts = 0;
-      const maxAttempts = 2; // Intentar 2 veces máximo
+      const maxAttempts = 3; // Aumentado a 3
 
       while (attempts < maxAttempts) {
         try {
-          isRegistered = await this.client.isRegisteredUser(phoneNumber);
-          break; // Éxito, salir del loop
+          // Race condition protection: Timeout manual si Chrome se cuelga
+          const checkPromise = this.client.isRegisteredUser(phoneNumber);
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_CHECK')), 5000));
+
+          isRegistered = await Promise.race([checkPromise, timeoutPromise]);
+          break; // Éxito
         } catch (err) {
           attempts++;
-          console.log(`⚠️ Falló isRegisteredUser (${phoneNumber}) intento ${attempts}: ${err.message}`);
-          // 🔥 DETECCIÓN INMEDIATA: Si Chrome crasheó, NO seguir intentando
+          console.log(`      ⚠️ Falló isRegisteredUser (${phoneNumber}) intento ${attempts}: ${err.message}`);
+
           if (err.message.includes('detached') || err.message.includes('Target closed') || err.message.includes('Session closed')) {
-            console.error(`🔥 [quickVerify] SESIÓN MUERTA en isRegisteredUser: ${err.message}`);
+            console.error(`      🔥 [quickVerify] SESIÓN MUERTA: ${err.message}`);
             return { valid: false, method: 'session_dead', error: err.message };
           }
-          if (attempts < maxAttempts) await this.sleep(1000); // Wait 1s before retry
+          if (attempts < maxAttempts) await this.sleep(1500);
         }
       }
 
-      // Estrategia 2: Fallback a getNumberId (Más costoso pero más seguro)
+      // Estrategia 2: Fallback a getNumberId
       if (!isRegistered) {
-        // A veces isRegisteredUser da falso negativo, probamos getNumberId
-        console.log(`⚠️ isRegisteredUser dio false para ${phoneNumber}, probando getNumberId...`);
+        console.log(`      ⚠️ isRegisteredUser dio false, probando getNumberId (Fallback)...`);
         try {
           const profile = await this.client.getNumberId(phoneNumber);
           if (profile && profile._serialized) {
-            console.log(`✅ Recuperado con getNumberId: ${phoneNumber}`);
+            console.log(`      ✅ Recuperado con getNumberId: ${phoneNumber}`);
             isRegistered = true;
           }
         } catch (e) {
-          console.log(`❌ getNumberId también falló: ${e.message}`);
-          // 🔥 DETECCIÓN INMEDIATA: Si Chrome crasheó, NO marcar como no_whatsapp
-          if (e.message.includes('detached') || e.message.includes('Target closed') || e.message.includes('Session closed')) {
-            console.error(`🔥 [quickVerify] SESIÓN MUERTA en getNumberId: ${e.message}`);
-            return { valid: false, method: 'session_dead', error: e.message };
-          }
+          console.log(`      ❌ getNumberId también falló: ${e.message}`);
         }
       }
 

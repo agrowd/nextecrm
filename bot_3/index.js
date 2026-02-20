@@ -1124,11 +1124,11 @@ class WhatsAppBot {
 
         // Paso 2: Si no hay historial, marcar como check_failed para reintentar después.
         if (!hasExistingMessages) {
-          console.log(`      ❌ Sin historial de mensajes. Marcando como check_failed para reintento.`);
-          this.log(`⚠️ ${phoneNumber} quickVerify negativo sin historial — check_failed`, 'warn', null, lead.id);
+          console.log(`      ❌ Sin historial de mensajes. Marcando como manual_review para verificación.`);
+          this.log(`⚠️ ${phoneNumber} quickVerify negativo sin historial — manual_review`, 'warn', null, lead.id);
           this.statsTracker.trackLead(lead, 'invalid', { method: 'quick_verify_no_history' });
-          await this.updateLeadStatus(lead.id, 'check_failed', lead.name);
-          return { success: false, reason: 'no_whatsapp_no_history' };
+          await this.updateLeadStatus(lead.id, 'manual_review', lead.name); // Changed from check_failed
+          return { success: false, reason: 'quick_verify_failed_manual_review' };
         }
       }
 
@@ -1157,13 +1157,11 @@ class WhatsAppBot {
         });
 
         if (!safetyCheck.data.safeToSend) {
-          console.log(`      ⛔ SEGURIDAD: Mensajes previos detectados en servidor. ABORTANDO.`);
+          // MODIFICACIÓN: No abortar, solo loggear advertencia (Usuario pidió re-contactar)
+          console.log(`      ⚠️ SEGURIDAD: Mensajes previos detectados, pero CONTINUANDO por configuración.`);
           console.log(`      Razón: ${safetyCheck.data.reason}`);
 
-          // Marcar como contactado para que no vuelva a salir
-          await this.updateLeadStatus(lead.id, 'contacted', lead.name);
-
-          return { success: false, reason: 'server_safety_check_failed' };
+          // No retornamos false, dejamos que continúe
         }
         console.log(`      ✅ Seguridad OK: Lead limpio en base de datos.`);
       } catch (err) {
@@ -1226,23 +1224,35 @@ class WhatsAppBot {
           if (i === 0 && chatForCheck && (chatForCheck.unreadCount > 0 || chatForCheck.lastMessage)) {
             const lastMsg = chatForCheck.lastMessage;
             if (lastMsg && !lastMsg.fromMe) {
-              console.log(`      🤖 Posible auto-respuesta detectada: "${lastMsg.body.substring(0, 50)}..."`);
+              const incomingText = lastMsg.body.toLowerCase();
+              console.log(`      🤖 Posible auto-respuesta detectada: "${incomingText.substring(0, 50)}..."`);
 
-              // Pedir a Gemini que analice si es bot y genere respuesta de venta
-              try {
-                const isAutoReply = await this.aiGenerator.detectAutoReply(lastMsg.body);
-                if (isAutoReply) {
-                  console.log(`      🎯 Auto-respuesta CONFIRMADA. Adaptando estrategia de venta...`);
-                  // Generar mensaje específico vendiendo la mejora del bot
-                  // Le pasamos el lead y el mensaje del bot
-                  const botsalesMessage = await this.aiGenerator.generateBotSalesPitch(lead, lastMsg.body);
-                  if (botsalesMessage) {
-                    this.messageSequences[1] = botsalesMessage; // Reemplazar el segundo mensaje con el pitch
-                    console.log(`      ✅ Mensaje 2 reemplazado con pitch de venta de bot.`);
-                  }
+              // 🔍 DICCIONARIO DE DETECCIÓN DE BOTS (Expandido)
+              const botKeywords = [
+                'horario de atenci', 'gracias por comunicarte', 'para urgencias',
+                'marque una opci', 'marque la opci', 'en breves momentos',
+                'este es un mensaje auto', 'respondere', 'responderé', 'responderemos',
+                'menú', 'menu', 'opción', 'opcion', 'guardia', 'casilla',
+                'deje su mensaje', 'momentos un asesor', 'presione', 'digite'
+              ];
+
+              const isAutoReply = botKeywords.some(keyword => incomingText.includes(keyword));
+
+              if (isAutoReply) {
+                console.log(`      🎯 Auto-respuesta CONFIRMADA (Keywords). Adaptando estrategia de venta...`);
+
+                // 🗣️ PITCH DE VENTA DE BOT (Hardcoded)
+                const botSalesPitch = `¡Hola! Veo que utilizan una respuesta automática. 👋\n\nJustamente nosotros nos especializamos en *desarrollo de bots inteligentes y sistemas de gestión de turnos*.\n\nSi ya usan algún software de gestión, podemos *conectar todo* para que tu sistema de turnos alimente al bot automáticamente y tengas tu propia plataforma 100% personalizada y actualizada. 🚀\n\n¿Te interesaría ver cómo podríamos mejorar esta automatización que ya tenés?`;
+
+                // Decisión: INSERTAR el Pitch de Bot como mensaje 2 (index 1)
+                // Usamos splice para no perder los otros mensajes
+                if (messages.length > 0) {
+                  messages.splice(1, 0, botSalesPitch); // Insertar en posición 1
+                  console.log(`      ✅ Pitch de bot INSERTADO en la secuencia (Total: ${messages.length}).`);
+                } else {
+                  messages.push(botSalesPitch);
+                  console.log(`      ✅ Pitch de bot agregado al final.`);
                 }
-              } catch (err) {
-                console.log(`      ⚠️ Error analizando auto-respuesta: ${err.message}`);
               }
             }
           }

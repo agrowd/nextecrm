@@ -1175,11 +1175,11 @@ class WhatsAppBot {
 
         // Paso 2: Si no hay historial, marcar como check_failed para reintentar después.
         if (!hasExistingMessages) {
-          console.log(`      ❌ Sin historial de mensajes. Marcando como check_failed para reintento.`);
-          this.log(`⚠️ ${phoneNumber} quickVerify negativo sin historial — check_failed`, 'warn', null, lead.id);
+          console.log(`      ❌ Sin historial de mensajes. Marcando como manual_review para verificación.`);
+          this.log(`⚠️ ${phoneNumber} quickVerify negativo sin historial — manual_review`, 'warn', null, lead.id);
           this.statsTracker.trackLead(lead, 'invalid', { method: 'quick_verify_no_history' });
-          await this.updateLeadStatus(lead.id, 'check_failed', lead.name);
-          return { success: false, reason: 'no_whatsapp_no_history' };
+          await this.updateLeadStatus(lead.id, 'manual_review', lead.name); // Changed from check_failed
+          return { success: false, reason: 'quick_verify_failed_manual_review' };
         }
       }
 

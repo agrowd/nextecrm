@@ -1117,11 +1117,45 @@ class WhatsAppBot {
       console.log(`      ℹ️ Resultado QuickVerify:`, JSON.stringify(quickCheck));
 
       if (!quickCheck.valid) {
-        console.log(`      ❌ Número NO registrado en WhatsApp.`);
-        this.log(`❌ ${phoneNumber} NO tiene WhatsApp registrado`, 'warn', null, lead.id);
-        this.statsTracker.trackLead(lead, 'invalid', { method: 'quick_verify' });
-        await this.updateLeadStatus(lead.id, 'not_interested', lead.name);
-        return { success: false, reason: 'no_whatsapp' };
+        if (quickCheck.method === 'session_dead') {
+          console.error(`      🔥 SESIÓN MUERTA detectada en QuickVerify. NO marcando lead como inválido.`);
+          console.error(`      🔥 Error: ${quickCheck.error}`);
+          this.log(`🔥 Sesión muerta detectada durante QuickVerify. Abortando procesamiento.`, 'error');
+          throw new Error(`SESSION_DEAD: ${quickCheck.error}`);
+        }
+        // 🛡️ FIX FALSOS NEGATIVOS: isRegisteredUser es poco confiable con WhatsApp Business.
+        // Paso 1: Revisar últimos 100 mensajes del chat para ver si ya le enviamos algo.
+        console.log(`      ⚠️ QuickVerify negativo (${quickCheck.method}). Revisando historial de chat...`);
+        let hasExistingMessages = false;
+        try {
+          const existingChat = await this.client.getChatById(whatsappFormat);
+          if (existingChat) {
+            const chatMessages = await existingChat.fetchMessages({ limit: 100 });
+            const sentByUs = chatMessages.filter(m => m.fromMe);
+            if (sentByUs.length > 0) {
+              hasExistingMessages = true;
+              console.log(`      ✅ FALSO NEGATIVO: Encontrados ${sentByUs.length} mensajes enviados por nosotros.`);
+              console.log(`      ℹ️ QuickVerify dijo no_registered pero YA le enviamos mensajes.`);
+              console.log(`      ⚠️ Marcando como 'contacted' para no re-enviar.`);
+              this.statsTracker.trackLead(lead, 'existing_conversation', { method: 'history_check' });
+              await this.updateLeadStatus(lead.id, 'contacted', lead.name);
+              return { success: false, reason: 'already_contacted_history' };
+            } else {
+              console.log(`      ℹ️ Chat existe pero sin mensajes nuestros. Posible falso negativo.`);
+            }
+          }
+        } catch (chatError) {
+          console.log(`      ⚠️ No se pudo obtener historial: ${chatError.message}`);
+        }
+
+        // Paso 2: Si no hay historial, marcar como manual_review para verificación.
+        if (!hasExistingMessages) {
+          console.log(`      ❌ Sin historial de mensajes. Marcando como manual_review para verificación.`);
+          this.log(`⚠️ ${phoneNumber} quickVerify negativo sin historial — manual_review`, 'warn', null, lead.id);
+          this.statsTracker.trackLead(lead, 'invalid', { method: 'quick_verify_no_history' });
+          await this.updateLeadStatus(lead.id, 'manual_review', lead.name);
+          return { success: false, reason: 'quick_verify_failed_manual_review' };
+        }
       }
 
       if (quickCheck.hasConversation) {
