@@ -1279,30 +1279,27 @@ class WhatsAppBot {
           console.log(`      ⌨️  Escribiendo... (duración calculada: ${(typingTime / 1000).toFixed(1)}s)`);
 
           // Mostrar indicador "escribiendo..." en WhatsApp
+          // Mostrar indicador "escribiendo..." en WhatsApp
           try {
-            // Intentar simular typing, pero si falla (ej: función no existe), continuar
-            if (typeof this.client.sendStateTyping === 'function') {
+            // Intentar simular typing de forma segura
+            if (this.client.sendStateTyping) {
               await this.client.sendStateTyping(whatsappFormat);
             } else {
-              // Fallback para versiones nvas/viejas de wwebjs o usar getChatById
               const chat = await this.client.getChatById(whatsappFormat);
-              await chat.sendStateTyping();
+              if (chat && chat.sendStateTyping) await chat.sendStateTyping();
             }
+
             await this.sleep(typingTime);
 
-            if (typeof this.client.sendStateTyping === 'function') {
+            if (this.client.sendStateTyping) {
               await this.client.sendStateTyping(whatsappFormat, false);
             } else {
               const chat = await this.client.getChatById(whatsappFormat);
-              if (typeof chat.clearStateTyping === 'function') {
-                await chat.clearStateTyping();
-              }
+              if (chat && chat.clearStateTyping) await chat.clearStateTyping();
             }
           } catch (typingError) {
-            console.log(`      ⚠️ Simulando espera (typing error: ${typingError.message})`);
-            // Capar el tiempo de espera si hay error para no parecer colgado
-            const safeWait = Math.min(typingTime, 5000);
-            await this.sleep(safeWait);
+            console.log(`      ⚠️ Warning: Error simulando typing (${typingError.message}). Continuando...`);
+            await this.sleep(Math.min(typingTime, 2000));
           }
 
           // Enviar mensaje usando el objeto chat directamente (más estable)
