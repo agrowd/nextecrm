@@ -488,7 +488,7 @@ class WhatsAppBot {
       };
 
       console.log('⏱️ Inicializando Rate Limiter...');
-      this.rateLimiter = new IntelligentRateLimiter();
+      this.rateLimiter = new IntelligentRateLimiter(this.instanceId);
 
       console.log('👤 Human Behavior Simulator: ACTIVO');
       console.log('📊 Response Analyzer: ACTIVO');
@@ -1726,9 +1726,9 @@ class WhatsAppBot {
         return;
       }
 
-      // 3. IGNORAR GRUPOS
-      if (message.from.endsWith('@g.us')) {
-        // console.log(`[${new Date().toISOString()}] ⚠️ Mensaje de grupo ignorado: ${message.from}`);
+      // 3. IGNORAR GRUPOS Y ESTADOS
+      if (message.from.endsWith('@g.us') || message.from === 'status@broadcast') {
+        // console.log(`[${new Date().toISOString()}] ⚠️ Mensaje de grupo o estado ignorado: ${message.from}`);
         return;
       }
 
@@ -2349,6 +2349,7 @@ class WhatsAppBot {
    */
   async saveMessageToBackend(msg) {
     try {
+      if (msg.from === 'status@broadcast' || msg.to === 'status@broadcast') return;
       const phone = msg.fromMe ? msg.to.split('@')[0] : msg.from.split('@')[0];
       if (!phone || phone.length < 5) return;
 

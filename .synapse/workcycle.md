@@ -1,10 +1,12 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-02-18 (02:00-05:10 Argentina)
-- **Objective:** Fix auto-reply abort + lead discard loop + sync bot_2.
-- **Status:** ✅ ALL FIXES DEPLOYED & VERIFIED ON VPS.
-- **Commit:** `350b108` — `fix: auto-reply detection + smart lead discard + retry counter`
-- **Deploy:** `docker system prune -af --volumes` (liberó 43GB) → `docker compose build --no-cache` → `docker compose up -d`
+## Current Session: 2026-02-23 (12:00-12:30 Argentina)
+- **Objective:** Fix Bot 2 inactivity, status@broadcast DB crash, and Bot 1 hands.
+- **Status:** ✅ ALL FIXES DEPLOYED.
+- **Git Info:** Changes not yet committed.
+- **Deploy:** Ready for deployment via Docker build.
+
+## Previous Session: 2026-02-18 (02:00-05:10 Argentina)
 
 ## Estado Actual de los Bots (FUNCIONANDO)
 | Bot | Número | Status | Fixes Aplicados |
@@ -19,6 +21,22 @@
 ↑ Esto apareció en los logs inmediatamente al prender Bot 1. El fix funciona.
 
 ## Fixes Applied This Session
+
+### 19. Fix Bot 2 Inactivity (ERR-13, RateLimiter instanceId bug)
+- **Problema:** Bot 2 se quedaba inactivo ("ready" pero durmiendo +600 mins por `outside_business_hours`).
+- **Solución:** Descubrimos que `IntelligentRateLimiter` necesitaba el `instanceId` en su inicialización (`new IntelligentRateLimiter(this.instanceId)`). Al no enviarlo, los bots compartían el archivo de estado `global`, pisándose las cuotas. Corregido en los 4 bots.
+- **Archivos:** `bot/index.js`, `bot_2/index.js`, `bot_3/index.js`, `bot_4/index.js`.
+
+### 20. Fix `status@broadcast` DB Crash (ERR-14)
+- **Problema:** Errores 500 y promesas rotas en Node.js al guardar mensajes en la DB, causadas por estados de WhatsApp (`status@broadcast`). Al no tener formato de teléfono válido, crasheaba al limpiarlo en el server.
+- **Solución:** Filtro en `handleIncomingMessage` y `saveMessageToBackend` para abortar si el emisor/receptor es `status@broadcast`. Validación de `null`/`undefined` phone en el endpoint de Express `/messages`.
+- **Archivos:** `bot/index.js`, `bot_2/index.js`, `bot_3/index.js`, `bot_4/index.js`, `server/index.js`.
+
+### 21. Multi-Bot Services Synchronization & Quarantine List
+- **Problema:** Desincronización de código, causando falsos positivos de QuickVerify y faltaba mecanismo para aislar leads problemáticos.
+- **Solución:** Copiados los `bot_2/services` hacia el resto, con parcheos correctos de "Sales Pitch injection". Implementado script `export-manual-review.js` y estado BD de Quarantine (`manual_review`).
+
+## Previous Fixes (2026-02-18)
 
 ### 15. Auto-Reply Detection + Acknowledgment (ERR-09, D-21, D-23)
 - **Problema:** Auto-replies de WhatsApp Business abortaban la secuencia.
@@ -36,11 +54,18 @@
 - **Bug encontrado:** `else` perdido en el if/else del handler → corregido.
 - **Archivos:** `bot_2/index.js`
 
+### 18. Auto-Reply Timestamp Bugfix (ERR-12)
+- **Problema:** Auto-respuesta triggeraba en mensajes muy antiguos (ej: +24hs) al reiniciarse el bot o recargar el chat.
+- **Solución:** Agregado check `isRecent` (últimos 5 minutos) en `bot_1`, `bot_2`, `bot_3` y `bot_4`.
+- **Incidente:** El parcheo inicial rompió la sintaxis en los 4 bots (ERR-12). Se arregló usando `node -c` para validar.
+- **Archivos:** `bot/index.js`, `bot_2/index.js`, `bot_3/index.js`, `bot_4/index.js`
+
 ## Lecciones Clave de Esta Sesión
 1. **NUNCA poner errores permanentes como `pending`** — crea loops infinitos. Usar `discarded`.
-2. **Cada bot tiene código independiente (D-11)** — SIEMPRE verificar que fixes estén en TODOS los bots.
-3. **Al hacer multi-replace en el mismo archivo, verificar que el if/else no se rompa** — la herramienta puede comer el `else` si los chunks están mal definidos.
-4. **`docker system prune -af --volumes`** libera espacio (43GB en este caso) cuando el build falla por `no space left on device`.
+2. **Cada bot tiene código independiente (D-11)** — SIEMPRE verificar que fixes estén en TODOS los bots (incluyendo bot 3 y 4).
+3. **Al hacer multi-replace en el mismo archivo, verificar que el if/else no se rompa** — además, cuidado con los cierres de corchetes `{}` al agregar nuevas condiciones.
+4. **Validar sintaxis antes de dar por terminado** — siempre correr `node -c [archivo]` después de refactors.
+5. **`docker system prune -af --volumes`** libera espacio (43GB en este caso) cuando el build falla por `no space left on device`.
 
 ## Previous Session: 2026-02-11 (20:00 Argentina)
 - **Objective:** Fix 3 critical bot issues causing lead burning.

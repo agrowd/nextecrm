@@ -490,7 +490,7 @@ class WhatsAppBot {
       };
 
       console.log('⏱️ Inicializando Rate Limiter...');
-      this.rateLimiter = new IntelligentRateLimiter();
+      this.rateLimiter = new IntelligentRateLimiter(this.instanceId);
 
       console.log('👤 Human Behavior Simulator: ACTIVO');
       console.log('📊 Response Analyzer: ACTIVO');
@@ -1226,23 +1226,31 @@ class WhatsAppBot {
           if (i === 0 && chatForCheck && (chatForCheck.unreadCount > 0 || chatForCheck.lastMessage)) {
             const lastMsg = chatForCheck.lastMessage;
             if (lastMsg && !lastMsg.fromMe) {
-              console.log(`      🤖 Posible auto-respuesta detectada: "${lastMsg.body.substring(0, 50)}..."`);
+              const incomingText = (lastMsg.body || '').toLowerCase();
+              console.log(`      🤖 Posible auto-respuesta detectada: "${incomingText.substring(0, 50)}..."`);
 
-              // Pedir a Gemini que analice si es bot y genere respuesta de venta
-              try {
-                const isAutoReply = await this.aiGenerator.detectAutoReply(lastMsg.body);
-                if (isAutoReply) {
-                  console.log(`      🎯 Auto-respuesta CONFIRMADA. Adaptando estrategia de venta...`);
-                  // Generar mensaje específico vendiendo la mejora del bot
-                  // Le pasamos el lead y el mensaje del bot
-                  const botsalesMessage = await this.aiGenerator.generateBotSalesPitch(lead, lastMsg.body);
-                  if (botsalesMessage) {
-                    this.messageSequences[1] = botsalesMessage; // Reemplazar el segundo mensaje con el pitch
-                    console.log(`      ✅ Mensaje 2 reemplazado con pitch de venta de bot.`);
+              // ⏱️ Solo considerar si el mensaje es RECIENTE (menos de 5 minutos)
+              const msgTimestamp = lastMsg.timestamp * 1000; // Convertir a ms
+              const now = Date.now();
+              const isRecent = (now - msgTimestamp) < (5 * 60 * 1000);
+
+              if (isRecent) {
+                // Pedir a Gemini que analice si es bot y genere respuesta de venta
+                try {
+                  const isAutoReply = await this.aiGenerator.detectAutoReply(lastMsg.body);
+                  if (isAutoReply) {
+                    console.log(`      🎯 Auto-respuesta CONFIRMADA. Adaptando estrategia de venta...`);
+                    // Generar mensaje específico vendiendo la mejora del bot
+                    // Le pasamos el lead y el mensaje del bot
+                    const botsalesMessage = await this.aiGenerator.generateBotSalesPitch(lead, lastMsg.body);
+                    if (botsalesMessage) {
+                      this.messageSequences[1] = botsalesMessage; // Reemplazar el segundo mensaje con el pitch
+                      console.log(`      ✅ Mensaje 2 reemplazado con pitch de venta de bot.`);
+                    }
                   }
+                } catch (err) {
+                  console.log(`      ⚠️ Error analizando auto-respuesta: ${err.message}`);
                 }
-              } catch (err) {
-                console.log(`      ⚠️ Error analizando auto-respuesta: ${err.message}`);
               }
             }
           }
@@ -1676,9 +1684,9 @@ class WhatsAppBot {
         return;
       }
 
-      // 3. IGNORAR GRUPOS
-      if (message.from.endsWith('@g.us')) {
-        // console.log(`[${new Date().toISOString()}] ⚠️ Mensaje de grupo ignorado: ${message.from}`);
+      // 3. IGNORAR GRUPOS Y ESTADOS
+      if (message.from.endsWith('@g.us') || message.from === 'status@broadcast') {
+        // console.log(`[${new Date().toISOString()}] ⚠️ Mensaje de grupo o estado ignorado: ${message.from}`);
         return;
       }
 
@@ -2323,6 +2331,7 @@ class WhatsAppBot {
    */
   async saveMessageToBackend(msg) {
     try {
+      if (msg.from === 'status@broadcast' || msg.to === 'status@broadcast') return;
       const phone = msg.fromMe ? msg.to.split('@')[0] : msg.from.split('@')[0];
       if (!phone || phone.length < 5) return;
 

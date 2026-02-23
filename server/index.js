@@ -326,6 +326,10 @@ app.post('/messages', async (req, res) => {
   try {
     const { phone, content, fromMe, type, timestamp, instanceId, senderName, whatsappMessageId, metadata } = req.body;
 
+    if (!phone) {
+      return res.status(400).json({ success: false, error: 'Phone is required' });
+    }
+
     // Normalizar teléfono (solo números)
     const cleanPhone = phone.replace(/\D/g, '');
 

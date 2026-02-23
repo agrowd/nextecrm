@@ -497,7 +497,7 @@ class WhatsAppBot {
       };
 
       console.log('⏱️ Inicializando Rate Limiter...');
-      this.rateLimiter = new IntelligentRateLimiter();
+      this.rateLimiter = new IntelligentRateLimiter(this.instanceId);
 
       console.log('👤 Human Behavior Simulator: ACTIVO');
       console.log('📊 Response Analyzer: ACTIVO');
@@ -1298,28 +1298,39 @@ class WhatsAppBot {
           if (i === 0 && chatForCheck && (chatForCheck.unreadCount > 0 || chatForCheck.lastMessage)) {
             const lastMsg = chatForCheck.lastMessage;
             if (lastMsg && !lastMsg.fromMe) {
-              const incomingText = lastMsg.body.toLowerCase();
+              const incomingText = (lastMsg.body || '').toLowerCase();
               console.log(`      🤖 Posible auto-respuesta detectada: "${incomingText.substring(0, 50)}..."`);
 
-              const botKeywords = [
-                'horario de atenci', 'gracias por comunicarte', 'para urgencias',
-                'marque una opci', 'marque la opci', 'en breves momentos',
-                'este es un mensaje auto', 'respondere', 'responderé', 'responderemos',
-                'menú', 'menu', 'opción', 'opcion', 'guardia', 'casilla',
-                'deje su mensaje', 'momentos un asesor', 'presione', 'digite'
-              ];
+              // ⏱️ Solo considerar si el mensaje es RECIENTE (menos de 5 minutos)
+              const msgTimestamp = lastMsg.timestamp * 1000; // Convertir a ms
+              const now = Date.now();
+              const isRecent = (now - msgTimestamp) < (5 * 60 * 1000);
 
-              const isAutoReply = botKeywords.some(keyword => incomingText.includes(keyword));
+              if (isRecent) {
+                // 🔍 DICCIONARIO DE DETECCIÓN DE BOTS (Expandido)
+                const botKeywords = [
+                  'horario de atenci', 'gracias por comunicarte', 'para urgencias',
+                  'marque una opci', 'marque la opci', 'en breves momentos',
+                  'este es un mensaje auto', 'respondere', 'responderé', 'responderemos',
+                  'menú', 'menu', 'opción', 'opcion', 'guardia', 'casilla',
+                  'deje su mensaje', 'momentos un asesor', 'presione', 'digite',
+                  'hola', 'buen dia', 'buenas tardes', 'info' // Palabras comunes para triggers simples si es instantáneo
+                ];
 
-              if (isAutoReply) {
-                console.log(`      🎯 Auto-respuesta CONFIRMADA (Keywords). Adaptando estrategia de venta...`);
-                const botSalesPitch = `¡Hola! Veo que utilizan una respuesta automática. 👋\n\nJustamente nosotros nos especializamos en *desarrollo de bots inteligentes y sistemas de gestión de turnos*.\n\nSi ya usan algún software de gestión, podemos *conectar todo* para que tu sistema de turnos alimente al bot automáticamente y tengas tu propia plataforma 100% personalizada y actualizada. 🚀\n\n¿Te interesaría ver cómo podríamos mejorar esta automatización que ya tenés?`;
-                if (messages.length > 0) {
-                  messages.splice(1, 0, botSalesPitch);
-                  console.log(`      ✅ Pitch de bot INSERTADO en la secuencia (Total: ${messages.length}).`);
-                } else {
-                  messages.push(botSalesPitch);
-                  console.log(`      ✅ Pitch de bot agregado al final.`);
+                // Si es un mensaje MUY corto y rápido, también sospechar (ej: "Hola", "Menú")
+                const isShortAndFast = incomingText.length < 10;
+                const isAutoReply = botKeywords.some(keyword => incomingText.includes(keyword)) || isShortAndFast;
+
+                if (isAutoReply) {
+                  console.log(`      🎯 Auto-respuesta CONFIRMADA (Keywords). Adaptando estrategia de venta...`);
+                  const botSalesPitch = `¡Hola! Veo que utilizan una respuesta automática. 👋\n\nJustamente nosotros nos especializamos en *desarrollo de bots inteligentes y sistemas de gestión de turnos*.\n\nSi ya usan algún software de gestión, podemos *conectar todo* para que tu sistema de turnos alimente al bot automáticamente y tengas tu propia plataforma 100% personalizada y actualizada. 🚀\n\n¿Te interesaría ver cómo podríamos mejorar esta automatización que ya tenés?`;
+                  if (messages.length > 0) {
+                    messages.splice(1, 0, botSalesPitch);
+                    console.log(`      ✅ Pitch de bot INSERTADO en la secuencia (Total: ${messages.length}).`);
+                  } else {
+                    messages.push(botSalesPitch);
+                    console.log(`      ✅ Pitch de bot agregado al final.`);
+                  }
                 }
               }
             }
@@ -1819,9 +1830,9 @@ class WhatsAppBot {
         return;
       }
 
-      // 3. IGNORAR GRUPOS
-      if (message.from.endsWith('@g.us')) {
-        // console.log(`[${new Date().toISOString()}] ⚠️ Mensaje de grupo ignorado: ${message.from}`);
+      // 3. IGNORAR GRUPOS Y ESTADOS
+      if (message.from.endsWith('@g.us') || message.from === 'status@broadcast') {
+        // console.log(`[${new Date().toISOString()}] ⚠️ Mensaje de grupo o estado ignorado: ${message.from}`);
         return;
       }
 
@@ -2483,6 +2494,7 @@ class WhatsAppBot {
    */
   async saveMessageToBackend(msg) {
     try {
+      if (msg.from === 'status@broadcast' || msg.to === 'status@broadcast') return;
       const phone = msg.fromMe ? msg.to.split('@')[0] : msg.from.split('@')[0];
       if (!phone || phone.length < 5) return;
 

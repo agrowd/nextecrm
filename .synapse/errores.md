@@ -120,3 +120,27 @@ Este archivo documenta errores encontrados y sus soluciones para NO repetirlos.
 **Bug encontrado durante sync:** Al aplicar el segundo chunk del fix, el `else` se perdió, causando que el branch de auto-reply Y el de respuesta real se ejecutaran juntos. Corregido inmediatamente.
 **Commit:** `350b108`
 **Estado:** ✅ FIXED
+
+---
+
+## ERR-12: Syntax errors by naive string replacement in bot files (Current Session)
+**Síntoma:** `SyntaxError: Missing catch or finally after try` o `Unexpected token }` al correr los bots.
+**Root Cause:** Añadir el bloque `if (isRecent)` usando reemplazo de texto puro rompió el anidamiento de corchetes e incluso borró líneas accidentalmente en `bot_4`.
+**Solución:** Validar siempre con `node -c bot/index.js` tras cada parche masivo. Restauración de corchetes manual en los 4 bots.
+**Estado:** ✅ FIXED
+
+---
+
+## ERR-13: Bot stays inactive, sleeping 600+ minutes (2026-02-23)
+**Síntoma:** Bot inicia correctamente con status "ready" pero el Smart Loop pausa inmediatamente reportando `Rate Limit (outside_business_hours)` a una hora en la que debería trabajar.
+**Root Cause:** Los bots instanciaban `new IntelligentRateLimiter()` sin el atributo `this.instanceId`. El limiter caía en el fallback "global", guardando todos los stats en el mismo `daily-limits-global.json`. Por lo tanto, un bot (ej. Bot 1) gastaba la cuota o alteraba la fecha/fase forzando a los demás (Bot 2, 3, 4) al límite.
+**Solución:** Inicializar siempre pasándole la variable correcta: `this.rateLimiter = new IntelligentRateLimiter(this.instanceId)`.
+**Estado:** ✅ FIXED
+
+---
+
+## ERR-14: Endpoint POST /messages 500 TypeError (2026-02-23)
+**Síntoma:** Excepciones no capturadas rompiendo el proceso o impidiendo procesados futuros. Error TypeError con `replace()` is not a function al llamar a la BD.
+**Root Cause:** Mensajes nativos de sistema de WhatsApp (`status@broadcast` - estados y actualizaciones de canales) entran por el event listener de `message`. Como no traen un JID estándar numeríco, al llegar al backend, `req.body.phone` venía inválido o nulo.
+**Solución:** Abortar el flujo temprano chequeando `if (message.from === 'status@broadcast') return;` directamente en los bots. Y agregar un if validando `!phone` en `/messages` de `server/index.js` retornando un Bad Request (400) en lugar de un Error 500.
+**Estado:** ✅ FIXED

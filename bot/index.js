@@ -1394,38 +1394,45 @@ class WhatsAppBot {
               const incomingText = (lastMsg.body || '').toLowerCase();
               console.log(`      🤖 Posible auto-respuesta detectada: "${incomingText.substring(0, 50)}..."`);
 
-              // 🔍 DICCIONARIO DE DETECCIÓN DE BOTS (Expandido)
-              const botKeywords = [
-                'horario de atenci', 'gracias por comunicarte', 'para urgencias',
-                'marque una opci', 'marque la opci', 'en breves momentos',
-                'este es un mensaje auto', 'respondere', 'responderé', 'responderemos',
-                'menú', 'menu', 'opción', 'opcion', 'guardia', 'casilla',
-                'deje su mensaje', 'momentos un asesor', 'presione', 'digite',
-                'hola', 'buen dia', 'buenas tardes', 'info' // Palabras comunes para triggers simples si es instantáneo
-              ];
+              // ⏱️ Solo considerar si el mensaje es RECIENTE (menos de 5 minutos)
+              const msgTimestamp = lastMsg.timestamp * 1000; // Convertir a ms
+              const now = Date.now();
+              const isRecent = (now - msgTimestamp) < (5 * 60 * 1000);
 
-              // Si es un mensaje MUY corto y rápido, también sospechar (ej: "Hola", "Menú")
-              const isShortAndFast = incomingText.length < 10;
-              const isAutoReply = botKeywords.some(keyword => incomingText.includes(keyword)) || isShortAndFast;
+              if (isRecent) {
+                // 🔍 DICCIONARIO DE DETECCIÓN DE BOTS (Expandido)
+                const botKeywords = [
+                  'horario de atenci', 'gracias por comunicarte', 'para urgencias',
+                  'marque una opci', 'marque la opci', 'en breves momentos',
+                  'este es un mensaje auto', 'respondere', 'responderé', 'responderemos',
+                  'menú', 'menu', 'opción', 'opcion', 'guardia', 'casilla',
+                  'deje su mensaje', 'momentos un asesor', 'presione', 'digite',
+                  'hola', 'buen dia', 'buenas tardes', 'info' // Palabras comunes para triggers simples si es instantáneo
+                ];
 
-              if (isAutoReply) {
-                console.log(`      🎯 Auto-respuesta CONFIRMADA. Adaptando estrategia de venta...`);
+                // Si es un mensaje MUY corto y rápido, también sospechar (ej: "Hola", "Menú")
+                const isShortAndFast = incomingText.length < 10;
+                const isAutoReply = botKeywords.some(keyword => incomingText.includes(keyword)) || isShortAndFast;
 
-                // Marcar para el próximo loop (ack)
-                if (this.currentlyProcessingLead) {
-                  this.currentlyProcessingLead.autoReplyDetected = true;
-                }
+                if (isAutoReply) {
+                  console.log(`      🎯 Auto-respuesta CONFIRMADA. Adaptando estrategia de venta...`);
 
-                // 🗣️ PITCH DE VENTA DE BOT
-                const botSalesPitch = `¡Hola! Veo que utilizan una respuesta automática. 👋\n\nJustamente nosotros nos especializamos en *desarrollo de bots inteligentes y sistemas de gestión de turnos*.\n\nSi ya usan algún software de gestión, podemos *conectar todo* para que tu sistema de turnos alimente al bot automáticamente. 🚀\n\n¿Te interesaría ver cómo podríamos mejorar esta automatización?`;
+                  // Marcar para el próximo loop (ack)
+                  if (this.currentlyProcessingLead) {
+                    this.currentlyProcessingLead.autoReplyDetected = true;
+                  }
 
-                // Forzar la inyección en el array de mensajes
-                if (messages.length > 1) {
-                  messages.splice(1, 0, botSalesPitch); // Insertar en posición 1
-                  console.log(`      ✅ Pitch de bot INSERTADO como segundo mensaje.`);
-                } else {
-                  messages.push(botSalesPitch);
-                  console.log(`      ✅ Pitch de bot AGREGADO al final.`);
+                  // 🗣️ PITCH DE VENTA DE BOT
+                  const botSalesPitch = `¡Hola! Veo que utilizan una respuesta automática. 👋\n\nJustamente nosotros nos especializamos en *desarrollo de bots inteligentes y sistemas de gestión de turnos*.\n\nSi ya usan algún software de gestión, podemos *conectar todo* para que tu sistema de turnos alimente al bot automáticamente. 🚀\n\n¿Te interesaría ver cómo podríamos mejorar esta automatización?`;
+
+                  // Forzar la inyección en el array de mensajes
+                  if (messages.length > 1) {
+                    messages.splice(1, 0, botSalesPitch); // Insertar en posición 1
+                    console.log(`      ✅ Pitch de bot INSERTADO como segundo mensaje.`);
+                  } else {
+                    messages.push(botSalesPitch);
+                    console.log(`      ✅ Pitch de bot AGREGADO al final.`);
+                  }
                 }
               }
             }
