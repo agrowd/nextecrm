@@ -1229,6 +1229,7 @@ class WhatsAppBot {
         stopSending: false,
         respondedAt: null
       };
+      let msg1SentAt = null; // Timestamp de envio del msg1 para detectar auto-replies
       for (let i = 0; i < messages.length; i++) {
         let message = messages[i];
         console.log(`      --- Procesando Mensaje ${i + 1}/${messages.length} ---`);
@@ -1276,36 +1277,19 @@ class WhatsAppBot {
 
           let isAutoReply = false;
 
-          if (i === 0 && chatForCheck && (chatForCheck.unreadCount > 0 || chatForCheck.lastMessage)) {
+          if (i > 0 && msg1SentAt && chatForCheck) {
             const lastMsg = chatForCheck.lastMessage;
             if (lastMsg && !lastMsg.fromMe) {
-              const incomingText = (lastMsg.body || '').toLowerCase();
-              console.log(`      🤖 Posible auto-respuesta detectada: "${incomingText.substring(0, 50)}..."`);
-
-              // ⏱️ Solo considerar si el mensaje es RECIENTE (menos de 5 minutos)
-              const msgTimestamp = lastMsg.timestamp * 1000; // Convertir a ms
-              const now = Date.now();
-              const isRecent = (now - msgTimestamp) < (5 * 60 * 1000);
-
-              if (isRecent) {
-                // 🔍 DICCIONARIO DE DETECCIÓN DE BOTS (Expandido)
-                const botKeywords = [
-                  'horario de atenci', 'gracias por comunicarte', 'para urgencias',
-                  'marque una opci', 'marque la opci', 'en breves momentos',
-                  'este es un mensaje auto', 'respondere', 'responderé', 'responderemos',
-                  'menú', 'menu', 'opción', 'opcion', 'guardia', 'casilla',
-                  'deje su mensaje', 'momentos un asesor', 'presione', 'digite',
-                  'hola', 'buen dia', 'buenas tardes', 'info' // Palabras comunes para triggers simples si es instantáneo
-                ];
-
-                // Si es un mensaje MUY corto y rápido, también sospechar (ej: "Hola", "Menú")
-                const isShortAndFast = incomingText.length < 10;
-                isAutoReply = botKeywords.some(keyword => incomingText.includes(keyword)) || isShortAndFast;
+              const replyTimestamp = lastMsg.timestamp * 1000;
+              const secondsToReply = (replyTimestamp - msg1SentAt) / 1000;
+              if (replyTimestamp > msg1SentAt && secondsToReply < 10) {
+                console.log('      Auto-respuesta por TIEMPO: ' + secondsToReply.toFixed(1) + 's < 10s = automatica');
+                isAutoReply = true;
               }
             }
           }
 
-          // Combinar con detección en tiempo real (si whatsappChecker lo detectó luego de MSG 1)
+          // Combinar con deteccion del checker en tiempo real
           if (this.currentlyProcessingLead && this.currentlyProcessingLead.autoReplyDetected) {
             isAutoReply = true;
           }
@@ -1392,7 +1376,8 @@ class WhatsAppBot {
             throw criticalError;
           }
 
-          // ⏱️ Auto-reply Timer
+          // Grabar cuando enviamos el primer mensaje
+          if (i === 0) msg1SentAt = Date.now();
           this.lastMessageTimestamps.set(whatsappFormat, Date.now());
           console.log(`      ✅ Mensaje ENVIADO (ID: ${sentMessage.id._serialized})`);
 
