@@ -8,7 +8,7 @@
 (() => {
   /* ───── helpers básicos ───── */
   const delay = ms => new Promise(r => setTimeout(r, ms));
-  const rand  = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+  const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
   const rwait = () => delay(rand(400, 800));
 
   const log = (m, l = 'info') => {
@@ -70,7 +70,7 @@
           return el;
         }
       }
-      
+
       // Estrategia 2: XPath proporcionado por el usuario
       const xpathSelectors = [
         '/html/body/div[1]/div[2]/div[9]/div[3]/div[1]/div[1]/div/div[2]/form/input',
@@ -96,7 +96,7 @@
           // Continuar con el siguiente selector
         }
       }
-      
+
       await delay(200);
     }
     throw new Error('Timeout: No se pudo encontrar el input de búsqueda');
@@ -115,7 +115,7 @@
         const voces = speechSynthesis.getVoices();
         if (!voces.length) return;
         const femenina = voces.find(v => v.lang.startsWith('es') && /female|mujer/i.test(v.name)) ||
-                         voces.find(v => v.lang.startsWith('es'));
+          voces.find(v => v.lang.startsWith('es'));
         if (femenina) utt.voice = femenina;
         speechSynthesis.speak(utt);
       };
@@ -128,14 +128,14 @@
       try {
         const beep = new Audio(chrome.runtime.getURL('notification.mp3'));
         beep.play();
-      } catch {}
+      } catch { }
     }
   }
-  
+
   /* ───── filtro de duplicados ───── */
   const sentLeads = new Set(); // leads ya enviados en esta sesión
   const getLeadKey = lead => `${lead.name}|${lead.phone}|${lead.address}`.toLowerCase().trim();
-  
+
   const isDuplicate = lead => {
     const key = getLeadKey(lead);
     if (sentLeads.has(key)) {
@@ -159,14 +159,16 @@
     '//div[@role="main"]//h1'
   ];
   const PHONE_CSS = ['a[href^="tel:"]', 'button[data-item-id*="phone"]'];
-  const PHONE_XP  = [
+  const PHONE_XP = [
     '//button[contains(@data-item-id,"phone")]/div/div[2]/div[1]',
     '//a[starts-with(@href,"tel:")]'
   ];
-  const ADDR_CSS  = ['button[data-item-id="address"]', 'button[data-item-id="address"] .Io6YTe'];
-  const ADDR_XP   = ['//button[@data-item-id="address"]/div/div[2]/div[1]'];
-  const WEB_CSS   = ['a[data-item-id="authority"]'];
-  const WEB_XP    = ['//a[@data-item-id="authority"]'];
+  const ADDR_CSS = ['button[data-item-id="address"]', 'button[data-item-id="address"] .Io6YTe'];
+  const ADDR_XP = ['//button[@data-item-id="address"]/div/div[2]/div[1]'];
+  const WEB_CSS = ['a[data-item-id="authority"]'];
+  const WEB_XP = ['//a[@data-item-id="authority"]'];
+  const CAT_CSS = ['button.DkEaL', 'button[jsaction*="category"]'];
+  const CAT_XP = ['//button[contains(@class, "DkEaL")]'];
 
   async function getTitleEl(timeout = 20000) {
     const t0 = Date.now();
@@ -211,9 +213,9 @@
     const feed = await waitForFeed(20000);
     let scrollCount = 0;
     const maxScrolls = 50; // Aumentar significativamente para casos con muchos resultados
-    
+
     log('📜 Iniciando scroll del feed...', 'info');
-    
+
     // Selectores para el texto "Has llegado al final de la lista"
     const END_TEXT_CSS = [
       'p.fontBodyMedium span.HlvSq',
@@ -225,7 +227,7 @@
       '//span[contains(@class,"HlvSq") and contains(text(),"Has llegado al final de la lista")]',
       '//p[contains(@class,"fontBodyMedium")]//span[contains(text(),"final de la lista")]'
     ];
-    
+
     // Función para verificar si llegamos al final
     const checkEndReached = () => {
       const endTexts = ['Has llegado al final de la lista', "You've reached the end of the list"];
@@ -236,7 +238,7 @@
           return true;
         }
       }
-      
+
       // Buscar con XPath
       for (const xpath of END_TEXT_XP) {
         const el = xp(xpath);
@@ -244,26 +246,26 @@
           return true;
         }
       }
-      
+
       return false;
     };
-    
+
     while (scrollCount < maxScrolls) {
       feed.scrollTo({ top: feed.scrollHeight, behavior: 'smooth' });
       scrollCount++;
-      
+
       // Esperar para que carguen más resultados
       await delay(rand(2000, 3500));
-      
+
       // Verificar si llegamos al final
       if (checkEndReached()) {
         log(`🏁 Scroll ${scrollCount}: ¡Llegamos al final de la lista!`, 'success');
         break;
       }
-      
+
       log(`📈 Scroll ${scrollCount}: Continuando...`, 'info');
     }
-    
+
     const totalCards = cardsList().length;
     log(`✅ Feed scrolleado completamente - ${totalCards} tarjetas encontradas`, 'success');
   }
@@ -281,10 +283,10 @@
   async function doSearch(q) {
     try {
       log(`🔍 Buscando input para: "${q}"`, 'info');
-      
+
       // Buscar el input con múltiples estrategias
       const input = await waitForInput(25000);
-      
+
       if (!input) {
         throw new Error('Input no encontrado después de múltiples intentos');
       }
@@ -296,19 +298,19 @@
       input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
       input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
       await delay(200);
-      
+
       // Escribir la búsqueda
       setInputValue(input, q);
       input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
       input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
       await delay(500);
-      
+
       // Disparar eventos de teclado
       ['keydown', 'keyup', 'keypress'].forEach(e =>
         input.dispatchEvent(new KeyboardEvent(e, { key: 'Enter', keyCode: 13, bubbles: true, cancelable: true }))
       );
       await delay(300);
-      
+
       // Buscar y hacer click en el botón de búsqueda con múltiples estrategias
       const buttonSelectors = [
         '#searchbox-searchbutton',
@@ -317,7 +319,7 @@
         'button[type="submit"]',
         'button[jsaction*="search"]'
       ];
-      
+
       let buttonClicked = false;
       for (const sel of buttonSelectors) {
         const btn = document.querySelector(sel);
@@ -328,7 +330,7 @@
           break;
         }
       }
-      
+
       // Si no se encontró el botón, intentar presionar Enter en el input
       if (!buttonClicked) {
         const form = input.closest('form');
@@ -351,10 +353,10 @@
         input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
         log(`?o. Enter presionado en input (bot??n no encontrado)`, 'info');
       }
-      
+
       log(`🔎 Búsqueda enviada → ${q}`, 'success');
       await delay(2000); // Esperar a que la búsqueda se procese
-      
+
     } catch (error) {
       log(`❌ Error en doSearch: ${error.message}`, 'error');
       throw error;
@@ -363,13 +365,13 @@
 
   /* ───── utilidades de extracción ───── */
   const getText = (css, xpArr, scope) => {
-    for (const s of css)  { const el = scope.querySelector(s); if (el?.innerText.trim()) return el.innerText.trim(); }
-    for (const p of xpArr){ const el = xp(p, scope);             if (el?.textContent.trim()) return el.textContent.trim(); }
+    for (const s of css) { const el = scope.querySelector(s); if (el?.innerText.trim()) return el.innerText.trim(); }
+    for (const p of xpArr) { const el = xp(p, scope); if (el?.textContent.trim()) return el.textContent.trim(); }
     return '';
   };
   const getHref = (css, xpArr, scope) => {
-    for (const s of css)  { const el = scope.querySelector(s); if (el?.href) return el.href; }
-    for (const p of xpArr){ const el = xp(p, scope);           if (el?.href) return el.href; }
+    for (const s of css) { const el = scope.querySelector(s); if (el?.href) return el.href; }
+    for (const p of xpArr) { const el = xp(p, scope); if (el?.href) return el.href; }
     return '';
   };
 
@@ -382,18 +384,37 @@
         await rwait(); anchor.click();
 
         await waitForSel('[role="main"]', 15000);
-        const main  = document.querySelector('[role="main"]');
+        const main = document.querySelector('[role="main"]');
         const title = await getTitleEl();
 
         const lead = {
-          name    : title.textContent.trim(),
-          phone   : getText(PHONE_CSS, PHONE_XP, main),
-          address : getText(ADDR_CSS,  ADDR_XP,  main),
-          website : getHref(WEB_CSS,   WEB_XP,   main),
-          keyword : kw,
+          name: title.textContent.trim(),
+          phone: getText(PHONE_CSS, PHONE_XP, main),
+          address: getText(ADDR_CSS, ADDR_XP, main),
+          website: getHref(WEB_CSS, WEB_XP, main),
+          keyword: kw,
           location: loc,
-          mapsUrl : location.href.split(/[?#]/)[0]
+          mapsUrl: location.href.split(/[?#]/)[0],
+          category: getText(CAT_CSS, CAT_XP, main)
         };
+
+        // Extraer Rating
+        let ratingStr = getText(['div.F7nice span[aria-hidden="true"]'], [], main);
+        if (!ratingStr) {
+          const starsEl = main.querySelector('span[role="img"][aria-label*="estrella"], span[role="img"][aria-label*="star"]');
+          if (starsEl && starsEl.getAttribute('aria-label')) {
+            const match = starsEl.getAttribute('aria-label').match(/([\d,\.]+)/);
+            if (match) ratingStr = match[1];
+          }
+        }
+        if (ratingStr) lead.rating = parseFloat(ratingStr.replace(',', '.'));
+
+        // Extraer ReviewCount
+        let reviewsStr = getText(['span[aria-label*="reseña"]', 'span[aria-label*="review"]', 'button[jsaction*="pane.rating.moreReviews"]'], [], main);
+        if (reviewsStr) {
+          const val = parseInt(reviewsStr.replace(/\D/g, ''), 10);
+          if (!isNaN(val)) lead.reviewCount = val;
+        }
 
         // Verificar si es duplicado antes de enviar
         if (isDuplicate(lead)) {
@@ -444,17 +465,17 @@
         log(`🚦 Scraping iniciado – total búsquedas: ${msg.queue.length}`, 'info');
         sentLeads.clear(); // Limpiar duplicados al iniciar nueva sesión
         log(`🧹 Filtro de duplicados reiniciado`, 'info');
-        
+
         outer:
         for (const { keyword, location } of msg.queue) {
           if (checkStop()) break;
-          
+
           try {
             const searchQuery = `${keyword} ${location}`;
             log(`🔍 Iniciando búsqueda: "${searchQuery}"`, 'info');
-            
+
             await doSearch(searchQuery);
-            
+
             // Esperar a que aparezcan las tarjetas con más tiempo y mejor manejo
             log(`⏳ Esperando resultados de búsqueda...`, 'info');
             try {
@@ -462,20 +483,20 @@
                 const cards = cardsList();
                 return cards.length > 0;
               }, 25000);
-              
+
               // Dar tiempo adicional para que se carguen más elementos
               await delay(2000);
-              
+
             } catch (e) {
               log(`⚠️ No se encontraron tarjetas para "${searchQuery}": ${e.message}`, 'warn');
               log(`⏭️ Continuando con la siguiente búsqueda...`, 'info');
               continue; // Continuar con la siguiente búsqueda
             }
-            
+
             await scrollFeed();
             const cards = cardsList();
             log(`📋 ${cards.length} tarjetas encontradas para "${searchQuery}"`, 'info');
-            
+
             if (cards.length === 0) {
               log(`⚠️ No hay tarjetas para procesar en "${searchQuery}"`, 'warn');
               continue;

@@ -180,3 +180,18 @@ docker compose logs -f
 - **Objetivo:** Analizar la DB y corregir leads que quedaron como `failed` o `phoneInvalid` por el bug del doble prefijo.
 - **Script:** `/gmaps-leads-scraper/server/recover-leads.js`
 - **Backup:** Solo modifica leads inválidos y los pone en `pending`.
+
+### 22. Add NexteMarketing Services List to 4th Message
+- **Problem:** The user requested to add the Nexte Marketing services after the promotion message (Message 3), meaning a 5-message sequence total.
+- **Solution:** Edited `bot/services/advancedTemplateGenerator.js` to include 10 variations of 'serviciosCompletos' and ensured the script returns 5 messages instead of 4. Updated `aiTextGenerator.js` fallback array from 4 to 5 messages to match. Synced bots.
+- **Archivos:** `bot/services/advancedTemplateGenerator.js`, `bot/services/aiTextGenerator.js`, `scripts/sync-bots.js`
+
+### 23. Remove Promo Expiration from Message 5 (CTA)
+- **Problem:** The user requested the removal of the urgency clauses (promo valid until Saturday) from the final call to action message.
+- **Solution:** Edited `bot/services/advancedTemplateGenerator.js` to remove the  clauses from all 10 CTA variations. Synced bots.
+- **Archivos:** `bot/services/advancedTemplateGenerator.js`, `scripts/sync-bots.js`
+
+### 24. Heavy Refactor of Bot Messages (B2B, Short, No Emojis)
+- **Problem:** The user requested the removal of all long, spam-looking texts and legacy unused arrays from the bot's messaging system, moving to a short, serious, B2B tone with dynamic variables.
+- **Solution:** Fully rewrote `bot/services/advancedTemplateGenerator.js`. Removed legacy `saludos`, `introsNegocio`, `categoryKeywords`, `categoryPhrases`, and old fallback arrays. Created 5 clean arrays (`mensajes1ConWeb`, `mensajes1NoWeb`, `mensajes2Presentacion`, `mensajes3Propuesta`, `mensajes4Precios`, `mensajes5Cta`) with 10 high-quality variations each. Added support for `{rubro}`, `{rating}`, and `{reviews}` injection strings by extracting data directly from the lead object. Updated `aiTextGenerator.js` fallback to match the serious tone. Synced bots.
+- **Archivos:** `bot/services/advancedTemplateGenerator.js`, `bot/services/aiTextGenerator.js`

@@ -1230,7 +1230,7 @@ class WhatsAppBot {
         respondedAt: null
       };
       for (let i = 0; i < messages.length; i++) {
-        const message = messages[i];
+        let message = messages[i];
         console.log(`      --- Procesando Mensaje ${i + 1}/${messages.length} ---`);
 
         // 0. VERIFICAR SI SE DEBE ABORTAR LA SECUENCIA (rechazo detectado)
@@ -1245,27 +1245,6 @@ class WhatsAppBot {
           console.log(`      🛑 SECUENCIA CORTADA — Cliente respondió durante el envío`);
           console.log(`      📨 Respondió a las: ${this.currentlyProcessingLead.respondedAt}`);
           break;
-        }
-
-        // 0.2 RECONOCER AUTO-REPLY SI SE DETECTÓ (no aborta, pero lo menciona)
-        if (this.currentlyProcessingLead && this.currentlyProcessingLead.autoReplyDetected && i > 0) {
-          console.log(`      🤖 Auto-reply detectado — enviando reconocimiento antes del siguiente mensaje`);
-          try {
-            const ackMessages = [
-              '¡Veo que tienen respuesta automática! Igual les dejo la info 😊',
-              '¡Noto que tienen un bot de respuestas! Les comparto esto de todas formas 👇',
-              '¡Vi que tienen mensaje automático! Les dejo esta info que puede interesarles 😉'
-            ];
-            const ackMsg = ackMessages[Math.floor(Math.random() * ackMessages.length)];
-            await this.simulateTyping(whatsappFormat);
-            const chatAck = await this.client.getChatById(whatsappFormat);
-            await chatAck.sendMessage(ackMsg);
-            console.log(`      ✅ Reconocimiento enviado: "${ackMsg}"`);
-            this.currentlyProcessingLead.autoReplyDetected = false;
-            await this.sleep(3000 + Math.random() * 2000);
-          } catch (ackError) {
-            console.log(`      ⚠️ Error enviando reconocimiento: ${ackError.message}`);
-          }
         }
 
         // 1. VALIDACIÓN DE MENSAJE VACÍO O INCORRECTO (CRÍTICO)
@@ -1295,6 +1274,8 @@ class WhatsAppBot {
             console.log(`      ⚠️ No se pudo obtener chat para verificación: ${e.message}`);
           }
 
+          let isAutoReply = false;
+
           if (i === 0 && chatForCheck && (chatForCheck.unreadCount > 0 || chatForCheck.lastMessage)) {
             const lastMsg = chatForCheck.lastMessage;
             if (lastMsg && !lastMsg.fromMe) {
@@ -1319,19 +1300,51 @@ class WhatsAppBot {
 
                 // Si es un mensaje MUY corto y rápido, también sospechar (ej: "Hola", "Menú")
                 const isShortAndFast = incomingText.length < 10;
-                const isAutoReply = botKeywords.some(keyword => incomingText.includes(keyword)) || isShortAndFast;
+                isAutoReply = botKeywords.some(keyword => incomingText.includes(keyword)) || isShortAndFast;
+              }
+            }
+          }
 
-                if (isAutoReply) {
-                  console.log(`      🎯 Auto-respuesta CONFIRMADA (Keywords). Adaptando estrategia de venta...`);
-                  const botSalesPitch = `¡Hola! Veo que utilizan una respuesta automática. 👋\n\nJustamente nosotros nos especializamos en *desarrollo de bots inteligentes y sistemas de gestión de turnos*.\n\nSi ya usan algún software de gestión, podemos *conectar todo* para que tu sistema de turnos alimente al bot automáticamente y tengas tu propia plataforma 100% personalizada y actualizada. 🚀\n\n¿Te interesaría ver cómo podríamos mejorar esta automatización que ya tenés?`;
-                  if (messages.length > 0) {
-                    messages.splice(1, 0, botSalesPitch);
-                    console.log(`      ✅ Pitch de bot INSERTADO en la secuencia (Total: ${messages.length}).`);
-                  } else {
-                    messages.push(botSalesPitch);
-                    console.log(`      ✅ Pitch de bot agregado al final.`);
-                  }
+          // Combinar con detección en tiempo real (si whatsappChecker lo detectó luego de MSG 1)
+          if (this.currentlyProcessingLead && this.currentlyProcessingLead.autoReplyDetected) {
+            isAutoReply = true;
+          }
+
+          if (isAutoReply) {
+            console.log(`      🎯 Auto-respuesta CONFIRMADA. Evaluando inyección...`);
+
+            // Inyectar solo si no lo hemos inyectado antes
+            if (this.currentlyProcessingLead && !this.currentlyProcessingLead.botPitchInjected) {
+              this.currentlyProcessingLead.botPitchInjected = true;
+
+              // 🗣️ PITCH DE VENTA DE BOT (Variaciones)
+              const salesPitches = [
+                `¡Hola! Veo que utilizan una respuesta automática. 👋\n\nJustamente nosotros nos especializamos en *desarrollo de bots inteligentes y sistemas de gestión de turnos*.\n\nSi ya usan algún software de gestión, podemos *conectar todo* para que tu sistema de turnos alimente al bot automáticamente. 🚀\n\n¿Te interesaría ver cómo podríamos mejorar esta automatización?`,
+                `¡Qué tal! Noto que tienen un bot o respuesta automática configurada. 👋\n\nEn Nexte nos dedicamos a armar *bots inteligentes y sistemas de reservas* mucho más avanzados.\n\nPodemos hacer que tu bot atienda consultas complejas y agende turnos directo en tu calendario. 🚀\n\n¿Les gustaría ver un ejemplo de cómo funciona?`,
+                `¡Hola! Vi su mensaje automático. 👋\n\nNosotros nos especializamos en llevar esas automatizaciones al siguiente nivel con *sistemas de gestión* inteligentes.\n\nPodemos *conectar su WhatsApp* para que califique clientes y tome reservas genuinas por su cuenta. 🚀\n\n¿Les interesaría charlar sobre cómo optimizar su canal automático?`
+              ];
+
+              const botSalesPitch = salesPitches[Math.floor(Math.random() * salesPitches.length)];
+
+              if (i === 0) {
+                // Si estamos en el primer mensaje, inyectar como el segundo mensaje (índice 1) 
+                if (messages.length > 1) {
+                  messages.splice(1, 0, botSalesPitch);
+                  console.log(`      ✅ Pitch de bot INSERTADO como segundo mensaje.`);
+                } else {
+                  messages.push(botSalesPitch);
+                  console.log(`      ✅ Pitch de bot AGREGADO al final.`);
                 }
+              } else {
+                // Si estamos lanzando el pitch a mitad de secuencia, empujamos el current message +1 y disparamos pitch AHORA
+                messages.splice(i, 0, botSalesPitch);
+                message = messages[i]; // El current message pasa a ser el pitch, y la secuencia no se pierde
+                console.log(`      ✅ Pitch de bot INYECTADO inmediatamente en posición ${i + 1}. Total de mensajes ahora: ${messages.length}`);
+              }
+
+              // Limpiamos el flag del checker para que no vuelva a entrar en el mismo lead
+              if (this.currentlyProcessingLead) {
+                this.currentlyProcessingLead.autoReplyDetected = false;
               }
             }
           }

@@ -390,6 +390,7 @@ class WhatsAppBot {
         clientId: this.instanceId,
         dataPath: sessionsDir
       }),
+      authTimeoutMs: 300000, // ⏳ 5 minutos (VPS Lenta)
       // webVersionCache REMOVIDO — la versión 2.2412.54 ya no existe (404)
       // whatsapp-web.js usará su versión built-in
       puppeteer: {
@@ -439,7 +440,13 @@ class WhatsAppBot {
     this.client.on('ready', async () => {
       console.log(`✅ [${this.instanceId}] WhatsApp Bot listo!`);
       console.log(`🔍 [DEBUG] ready event FIRED at ${new Date().toISOString()}`);
-      // La bandera isReady se activará al final de la inicialización
+
+      // 🛡️ GUARD: Prevenir inicializaciones duplicadas por re-auth
+      if (this._leadProcessingStarted) {
+        console.log(`⚠️ [${this.instanceId}] ready event duplicado IGNORADO - procesamiento ya iniciado`);
+        this.isReady = true;
+        return;
+      }
 
       // 🔑 MULTI-BOT: Capturar número conectado
       try {
@@ -520,8 +527,8 @@ class WhatsAppBot {
       console.log(`=====================================\n`);
 
       // ✅ KEEP-ALIVE: Evitar desconexión por inactividad
-      // Enviar un ping (getBatteryStatus) cada 5 minutos para mantener sesión viva
-      setInterval(async () => {
+      if (this._keepAliveInterval) clearInterval(this._keepAliveInterval);
+      this._keepAliveInterval = setInterval(async () => {
         if (this.isReady) {
           try {
             await this.client.getBatteryStatus();
@@ -532,6 +539,8 @@ class WhatsAppBot {
         }
       }, 5 * 60 * 1000);
 
+      // 🛡️ Solo iniciar procesamiento UNA VEZ
+      this._leadProcessingStarted = true;
       this.startLeadProcessing();
     });
 
@@ -918,6 +927,45 @@ class WhatsAppBot {
         if (result && !result.success) {
           console.log(`⚡ Lead ${lead.name} no procesado exitosamente (${result.reason}) - pasando inmediatamente al siguiente`);
 
+          // 🔥 CIRCUIT BREAKER: Si detectamos SESSION_DEAD, parar el loop
+          if (result.reason === 'session_dead') {
+            this.consecutiveSessionDeadCount = (this.consecutiveSessionDeadCount || 0) + 1;
+            console.error(`🔥 SESSION_DEAD consecutivo #${this.consecutiveSessionDeadCount}`);
+
+            if (this.consecutiveSessionDeadCount >= 3) {
+              console.error(`🛑🛑🛑 CIRCUIT BREAKER: ${this.consecutiveSessionDeadCount} SESSION_DEAD consecutivos. PARANDO procesamiento.`);
+              console.error(`🔄 Intentando reiniciar sesión de WhatsApp...`);
+              this.log(`🛑 Circuit breaker activado: ${this.consecutiveSessionDeadCount} SESSION_DEAD. Reiniciando WhatsApp.`, 'error');
+
+              this.isProcessing = false;
+
+              try {
+                await this.client.destroy();
+                console.log('🔧 Cliente destruido. Reinicializando en 30 segundos...');
+                await new Promise(r => setTimeout(r, 30000));
+                await this.client.initialize();
+                console.log('✅ Cliente reinicializado. Esperando ready...');
+                this.consecutiveSessionDeadCount = 0;
+              } catch (restartErr) {
+                console.error(`❌ Error reiniciando WhatsApp: ${restartErr.message}`);
+                console.error('⏸️ El bot necesita reinicio manual (pm2 restart)');
+              }
+              return;
+            }
+
+            const sessionDeadDelay = 30000;
+            console.log(`🧊 SESSION_DEAD: Esperando ${sessionDeadDelay / 1000}s antes de reintentar...`);
+            setTimeout(() => {
+              if (!this.isProcessing) {
+                this.processNextLead();
+              }
+            }, sessionDeadDelay);
+            return;
+          }
+
+          // Reset counter si el error no es SESSION_DEAD
+          this.consecutiveSessionDeadCount = 0;
+
           // Si el número está atascado, limpiarlo del cache
           if (result.reason === 'already_contacted' || result.reason === 'existing_conversation') {
             console.log(`🧹 Limpiando número ${lead.phone} del cache por estar atascado`);
@@ -925,7 +973,6 @@ class WhatsAppBot {
           }
 
           // Programar el siguiente procesamiento con un delay seguro "Cool-off"
-          // (Aleatorio 10-15s para simular comportamiento humano ante error)
           const coolOffDelay = Math.floor(Math.random() * (15000 - 10000 + 1)) + 10000;
           console.log(`🧊 Aplicando Cool-off de ${(coolOffDelay / 1000).toFixed(1)}s antes del siguiente lead...`);
 
@@ -936,6 +983,9 @@ class WhatsAppBot {
           }, coolOffDelay);
           return;
         }
+
+        // Reset counter on success
+        this.consecutiveSessionDeadCount = 0;
 
       } else {
         this.isProcessing = false; // Liberar el flag
@@ -1091,6 +1141,7 @@ class WhatsAppBot {
       console.log(`      ℹ️ Resultado QuickVerify:`, JSON.stringify(quickCheck));
 
       if (!quickCheck.valid) {
+        // 🔥 DETECCIÓN DE SESIÓN MUERTA: No marcar leads como inválidos si el browser crasheó
         if (quickCheck.method === 'session_dead') {
           console.error(`      🔥 SESIÓN MUERTA detectada en QuickVerify. NO marcando lead como inválido.`);
           console.error(`      🔥 Error: ${quickCheck.error}`);
@@ -1124,11 +1175,11 @@ class WhatsAppBot {
 
         // Paso 2: Si no hay historial, marcar como check_failed para reintentar después.
         if (!hasExistingMessages) {
-          console.log(`      ❌ Sin historial de mensajes. Marcando como check_failed para reintento.`);
-          this.log(`⚠️ ${phoneNumber} quickVerify negativo sin historial — check_failed`, 'warn', null, lead.id);
+          console.log(`      ❌ Sin historial de mensajes. Marcando como manual_review para verificación.`);
+          this.log(`⚠️ ${phoneNumber} quickVerify negativo sin historial — manual_review`, 'warn', null, lead.id);
           this.statsTracker.trackLead(lead, 'invalid', { method: 'quick_verify_no_history' });
-          await this.updateLeadStatus(lead.id, 'check_failed', lead.name);
-          return { success: false, reason: 'no_whatsapp_no_history' };
+          await this.updateLeadStatus(lead.id, 'manual_review', lead.name); // Changed from check_failed
+          return { success: false, reason: 'quick_verify_failed_manual_review' };
         }
       }
 
@@ -1157,13 +1208,11 @@ class WhatsAppBot {
         });
 
         if (!safetyCheck.data.safeToSend) {
-          console.log(`      ⛔ SEGURIDAD: Mensajes previos detectados en servidor. ABORTANDO.`);
+          // MODIFICACIÓN: No abortar, solo loggear advertencia (Usuario pidió re-contactar)
+          console.log(`      ⚠️ SEGURIDAD: Mensajes previos detectados, pero CONTINUANDO por configuración.`);
           console.log(`      Razón: ${safetyCheck.data.reason}`);
 
-          // Marcar como contactado para que no vuelva a salir
-          await this.updateLeadStatus(lead.id, 'contacted', lead.name);
-
-          return { success: false, reason: 'server_safety_check_failed' };
+          // No retornamos false, dejamos que continúe
         }
         console.log(`      ✅ Seguridad OK: Lead limpio en base de datos.`);
       } catch (err) {
@@ -1172,6 +1221,7 @@ class WhatsAppBot {
 
       // ✅ ENVIAR SECUENCIA CON HUMAN BEHAVIOR
       console.log(`   5️⃣ Iniciando envío secuencial con simulación humana...`);
+      // 🛡️ FIX: Trackear el lead actual en memoria para detectar respuestas sin depender de HTTP
       this.currentlyProcessingLead = {
         phone: phoneNumber,
         whatsappFormat: whatsappFormat,
@@ -1180,15 +1230,17 @@ class WhatsAppBot {
         respondedAt: null
       };
       for (let i = 0; i < messages.length; i++) {
-        const message = messages[i];
+        let message = messages[i];
         console.log(`      --- Procesando Mensaje ${i + 1}/${messages.length} ---`);
 
+        // 0. VERIFICAR SI SE DEBE ABORTAR LA SECUENCIA (rechazo detectado)
         if (this.abortCurrentSequence) {
           console.log(`      ⛔ SECUENCIA ABORTADA - Rechazo detectado del lead`);
-          this.abortCurrentSequence = false;
+          this.abortCurrentSequence = false; // Reset flag
           break;
         }
 
+        // 0.1 VERIFICAR SI EL LEAD RESPONDIÓ (detectado in-memory)
         if (this.currentlyProcessingLead && this.currentlyProcessingLead.stopSending) {
           console.log(`      🛑 SECUENCIA CORTADA — Cliente respondió durante el envío`);
           console.log(`      📨 Respondió a las: ${this.currentlyProcessingLead.respondedAt}`);
@@ -1212,8 +1264,7 @@ class WhatsAppBot {
             await this.sleep(readingTime);
           }
 
-          // 4.1. Análisis de Auto-Respuesta (Nuevo Requerimiento)
-          // Si es el primer mensaje y tiene respuesta inmediata, verificar si es bot
+          // 4.1. Análisis de Auto-Respuesta (SISTEMA DE PALABRAS CLAVE - SIN GEMINI)
           let chatForCheck = null;
           try {
             if (this.client && this.isReady) {
@@ -1222,6 +1273,8 @@ class WhatsAppBot {
           } catch (e) {
             console.log(`      ⚠️ No se pudo obtener chat para verificación: ${e.message}`);
           }
+
+          let isAutoReply = false;
 
           if (i === 0 && chatForCheck && (chatForCheck.unreadCount > 0 || chatForCheck.lastMessage)) {
             const lastMsg = chatForCheck.lastMessage;
@@ -1235,22 +1288,63 @@ class WhatsAppBot {
               const isRecent = (now - msgTimestamp) < (5 * 60 * 1000);
 
               if (isRecent) {
-                // Pedir a Gemini que analice si es bot y genere respuesta de venta
-                try {
-                  const isAutoReply = await this.aiGenerator.detectAutoReply(lastMsg.body);
-                  if (isAutoReply) {
-                    console.log(`      🎯 Auto-respuesta CONFIRMADA. Adaptando estrategia de venta...`);
-                    // Generar mensaje específico vendiendo la mejora del bot
-                    // Le pasamos el lead y el mensaje del bot
-                    const botsalesMessage = await this.aiGenerator.generateBotSalesPitch(lead, lastMsg.body);
-                    if (botsalesMessage) {
-                      this.messageSequences[1] = botsalesMessage; // Reemplazar el segundo mensaje con el pitch
-                      console.log(`      ✅ Mensaje 2 reemplazado con pitch de venta de bot.`);
-                    }
-                  }
-                } catch (err) {
-                  console.log(`      ⚠️ Error analizando auto-respuesta: ${err.message}`);
+                // 🔍 DICCIONARIO DE DETECCIÓN DE BOTS (Expandido)
+                const botKeywords = [
+                  'horario de atenci', 'gracias por comunicarte', 'para urgencias',
+                  'marque una opci', 'marque la opci', 'en breves momentos',
+                  'este es un mensaje auto', 'respondere', 'responderé', 'responderemos',
+                  'menú', 'menu', 'opción', 'opcion', 'guardia', 'casilla',
+                  'deje su mensaje', 'momentos un asesor', 'presione', 'digite',
+                  'hola', 'buen dia', 'buenas tardes', 'info' // Palabras comunes para triggers simples si es instantáneo
+                ];
+
+                // Si es un mensaje MUY corto y rápido, también sospechar (ej: "Hola", "Menú")
+                const isShortAndFast = incomingText.length < 10;
+                isAutoReply = botKeywords.some(keyword => incomingText.includes(keyword)) || isShortAndFast;
+              }
+            }
+          }
+
+          // Combinar con detección en tiempo real (si whatsappChecker lo detectó luego de MSG 1)
+          if (this.currentlyProcessingLead && this.currentlyProcessingLead.autoReplyDetected) {
+            isAutoReply = true;
+          }
+
+          if (isAutoReply) {
+            console.log(`      🎯 Auto-respuesta CONFIRMADA. Evaluando inyección...`);
+
+            // Inyectar solo si no lo hemos inyectado antes
+            if (this.currentlyProcessingLead && !this.currentlyProcessingLead.botPitchInjected) {
+              this.currentlyProcessingLead.botPitchInjected = true;
+
+              // 🗣️ PITCH DE VENTA DE BOT (Variaciones)
+              const salesPitches = [
+                `¡Hola! Veo que utilizan una respuesta automática. 👋\n\nJustamente nosotros nos especializamos en *desarrollo de bots inteligentes y sistemas de gestión de turnos*.\n\nSi ya usan algún software de gestión, podemos *conectar todo* para que tu sistema de turnos alimente al bot automáticamente. 🚀\n\n¿Te interesaría ver cómo podríamos mejorar esta automatización?`,
+                `¡Qué tal! Noto que tienen un bot o respuesta automática configurada. 👋\n\nEn Nexte nos dedicamos a armar *bots inteligentes y sistemas de reservas* mucho más avanzados.\n\nPodemos hacer que tu bot atienda consultas complejas y agende turnos directo en tu calendario. 🚀\n\n¿Les gustaría ver un ejemplo de cómo funciona?`,
+                `¡Hola! Vi su mensaje automático. 👋\n\nNosotros nos especializamos en llevar esas automatizaciones al siguiente nivel con *sistemas de gestión* inteligentes.\n\nPodemos *conectar su WhatsApp* para que califique clientes y tome reservas genuinas por su cuenta. 🚀\n\n¿Les interesaría charlar sobre cómo optimizar su canal automático?`
+              ];
+
+              const botSalesPitch = salesPitches[Math.floor(Math.random() * salesPitches.length)];
+
+              if (i === 0) {
+                // Si estamos en el primer mensaje, inyectar como el segundo mensaje (índice 1) 
+                if (messages.length > 1) {
+                  messages.splice(1, 0, botSalesPitch);
+                  console.log(`      ✅ Pitch de bot INSERTADO como segundo mensaje.`);
+                } else {
+                  messages.push(botSalesPitch);
+                  console.log(`      ✅ Pitch de bot AGREGADO al final.`);
                 }
+              } else {
+                // Si estamos lanzando el pitch a mitad de secuencia, empujamos el current message +1 y disparamos pitch AHORA
+                messages.splice(i, 0, botSalesPitch);
+                message = messages[i]; // El current message pasa a ser el pitch, y la secuencia no se pierde
+                console.log(`      ✅ Pitch de bot INYECTADO inmediatamente en posición ${i + 1}. Total de mensajes ahora: ${messages.length}`);
+              }
+
+              // Limpiamos el flag del checker para que no vuelva a entrar en el mismo lead
+              if (this.currentlyProcessingLead) {
+                this.currentlyProcessingLead.autoReplyDetected = false;
               }
             }
           }
@@ -1261,58 +1355,45 @@ class WhatsAppBot {
 
           // Mostrar indicador "escribiendo..." en WhatsApp
           try {
-            // Intentar simular typing, pero si falla (ej: función no existe), continuar
-            if (typeof this.client.sendStateTyping === 'function') {
+            if (this.client.sendStateTyping) {
               await this.client.sendStateTyping(whatsappFormat);
             } else {
-              // Fallback para versiones nvas/viejas de wwebjs o usar getChatById
               const chat = await this.client.getChatById(whatsappFormat);
-              await chat.sendStateTyping();
+              if (chat && chat.sendStateTyping) await chat.sendStateTyping();
             }
             await this.sleep(typingTime);
-
-            if (typeof this.client.sendStateTyping === 'function') {
+            if (this.client.sendStateTyping) {
               await this.client.sendStateTyping(whatsappFormat, false);
             } else {
               const chat = await this.client.getChatById(whatsappFormat);
-              if (typeof chat.clearStateTyping === 'function') {
-                await chat.clearStateTyping();
-              }
+              if (chat && chat.clearStateTyping) await chat.clearStateTyping();
             }
           } catch (typingError) {
-            console.log(`      ⚠️ Simulando espera (typing error: ${typingError.message})`);
-            // Capar el tiempo de espera si hay error para no parecer colgado
-            const safeWait = Math.min(typingTime, 5000);
-            await this.sleep(safeWait);
+            console.log(`      ⚠️ Warning: Error simulando typing (${typingError.message}). Continuando...`);
+            await this.sleep(Math.min(typingTime, 2000));
           }
 
-          // Enviar mensaje usando el objeto chat directamente (más estable)
-          // Enviar mensaje usando el objeto chat directamente (más estable)
+          // Enviar mensaje
           console.log(`      📤 Enviando a API de WhatsApp...`);
-          // Asegurar que tenemos el chat (el 'chat' anterior estaba en otro scope)
           let sentMessage;
           try {
-            // 🛡️ SAFETY CHECK: Verificar si el cliente sigue conectado
             if (!this.client || !this.client.info) {
               console.warn('⚠️ Cliente desconectado detectado antes de enviar. Abortando.');
               return;
             }
-
             const chatToSend = await this.client.getChatById(whatsappFormat);
             if (!chatToSend) throw new Error(`Chat object is null for ${whatsappFormat}`);
-
             sentMessage = await chatToSend.sendMessage(message);
           } catch (criticalError) {
             if (criticalError.message.includes('getChat') || criticalError.message.includes('Session Closed') || criticalError.message.includes('protocol') || criticalError.message.includes('detached') || criticalError.message.includes('Target closed')) {
               console.error(`🔥 ERROR CRÍTICO DE SESIÓN enviando mensaje: ${criticalError.message}. Deteniendo secuencia.`);
-              return; // Salir de la función completamente para evitar crash
+              return;
             }
-            throw criticalError; // Re-lanzar para el catch externo si es otro error
+            throw criticalError;
           }
 
-          // ⏱️ Auto-reply Timer: Registrar hora exacta de envío
+          // ⏱️ Auto-reply Timer
           this.lastMessageTimestamps.set(whatsappFormat, Date.now());
-
           console.log(`      ✅ Mensaje ENVIADO (ID: ${sentMessage.id._serialized})`);
 
           // Guardar en BD con metadata de IA
@@ -1375,6 +1456,7 @@ class WhatsAppBot {
       await this.updateLeadStatus(lead.id, 'contacted', lead.name);
       console.log(`   ✅ SECUENCIA COMPLETADA EXITOSAMENTE para ${lead.name}`);
 
+      // 🛡️ FIX: Limpiar tracking in-memory del lead actual
       this.currentlyProcessingLead = null;
 
       // Mostrar stats del rate limiter
@@ -1389,9 +1471,37 @@ class WhatsAppBot {
       console.error(`   ❌ ERROR CRÍTICO EN SECUENCIA:`, error.stack || error);
       console.error('❌ Error crítico en secuencia de mensajes:', error.message);
 
-      // Intentar actualizar estado a fallido si tenemos ID
+      // 🛡️ SESSION_DEAD: NO contar como reintento del lead
+      const isSessionDead = error.message && error.message.includes('SESSION_DEAD');
+
+      if (isSessionDead) {
+        console.log(`   🔥 SESSION_DEAD: No se cuenta como fallo del lead ${lead.name}`);
+        if (lead && (lead._id || lead.id)) {
+          await this.updateLeadStatus(lead._id || lead.id, 'pending', lead.name);
+        }
+        return { success: false, reason: 'session_dead', error: error.message };
+      }
+
+      // 🔄 SMART RETRY: Reintentar errores transitorios con límite de 3 intentos
       if (lead && (lead._id || lead.id)) {
-        await this.updateLeadStatus(lead._id || lead.id, 'failed', lead.name);
+        const retryCount = (lead.retryCount || 0) + 1;
+        if (retryCount >= 3) {
+          console.log(`   ⛔ Lead ${lead.name} falló ${retryCount} veces — descartado definitivamente`);
+          await this.updateLeadStatus(lead._id || lead.id, 'failed', lead.name);
+          try {
+            await axios.put(`${this.backendUrl}/lead/${lead._id || lead.id}`, {
+              notes: `Failed after ${retryCount} retries: ${error.message}`
+            });
+          } catch (e) { /* silenciar */ }
+        } else {
+          console.log(`   🔄 Reintento ${retryCount}/3 para ${lead.name} — vuelve a la cola`);
+          await this.updateLeadStatus(lead._id || lead.id, 'pending', lead.name);
+          try {
+            await axios.put(`${this.backendUrl}/lead/${lead._id || lead.id}`, {
+              retryCount: retryCount
+            });
+          } catch (e) { /* silenciar */ }
+        }
       }
 
       return { success: false, reason: 'internal_error', error: error.message };
@@ -1670,6 +1780,55 @@ class WhatsAppBot {
     }
   }
 
+  /**
+   * Detección rápida de auto-replies de WhatsApp Business
+   * No depende de Gemini — usa patrones de texto comunes
+   */
+  isQuickAutoReply(messageBody) {
+    if (!messageBody) return false;
+    const lower = messageBody.toLowerCase();
+
+    // 1. Palabras clave de bots / auto-respuestas
+    const autoReplyKeywords = [
+      'gracias por comunicarte', 'gracias por contactarnos', 'gracias por escribirnos',
+      '¿cómo podemos ayudarte', 'como podemos ayudarte',
+      'bienvenido', 'bienvenida',
+      'menú', 'menu', 'opción', 'opcion', 'marcar',
+      'horario de atención', 'horario de atencion',
+      'respuesta automática', 'respuesta automatica',
+      'autorespuesta', 'auto-respuesta',
+      'asistente virtual', 'chatbot',
+      'fuera del horario', 'fuera de horario',
+      'en breve te respondemos', 'en breve nos comunicamos',
+      'mensaje fue recibido', 'hemos recibido tu mensaje',
+      'te responderemos', 'nos pondremos en contacto',
+      'seleccione una opción', 'selecciona una opcion',
+      'elige una opción', 'elija una opcion',
+      'recuerde que debemos', 'agendado'
+    ];
+    if (autoReplyKeywords.some(kw => lower.includes(kw))) return true;
+
+    // 2. Estructura de menú: múltiples signos de interrogación (3+)
+    const questionMarks = (messageBody.match(/\?/g) || []).length;
+    if (questionMarks >= 3) return true;
+
+    // 3. Emojis numerados (1️⃣, 2️⃣, etc.) — típico de menús de bot
+    const numberedEmojis = (messageBody.match(/[0-9]️⃣/g) || []).length;
+    if (numberedEmojis >= 2) return true;
+
+    // 4. Mensaje excesivamente largo (>300 chars) que llega instantáneamente
+    if (messageBody.length > 300) {
+      const lastSentTime = this.lastMessageTimestamps?.get(
+        this.currentlyProcessingLead?.whatsappFormat
+      );
+      if (lastSentTime && (Date.now() - lastSentTime) < 5000) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   async handleIncomingMessage(message) {
     try {
       // 1. IGNORAR MENSAJES PROPIOS (CRÍTICO)
@@ -1710,13 +1869,30 @@ class WhatsAppBot {
         const cleanIncoming = resolvedNumber.replace('@c.us', '').replace(/\D/g, '');
         const cleanCurrent = this.currentlyProcessingLead.phone.replace(/\D/g, '');
         if (cleanIncoming === cleanCurrent || cleanIncoming.endsWith(cleanCurrent) || cleanCurrent.endsWith(cleanIncoming)) {
-          console.log(`🛑 RESPUESTA DETECTADA del lead actual (${this.currentlyProcessingLead.lead.name})!`);
-          console.log(`   📞 Número entrante: ${contactNumber} → resuelto: ${resolvedNumber}`);
-          console.log(`   📞 Lead actual: ${this.currentlyProcessingLead.phone}`);
-          this.currentlyProcessingLead.stopSending = true;
-          this.currentlyProcessingLead.respondedAt = new Date().toISOString();
-          this.abortCurrentSequence = true;
+          // 🤖 Verificar si es auto-reply ANTES de abortar la secuencia
+          const isAutoReply = this.isQuickAutoReply(messageBody);
+          if (isAutoReply) {
+            console.log(`🤖 AUTO-REPLY detectado del lead actual (${this.currentlyProcessingLead.lead.name}) — IGNORANDO, secuencia continúa`);
+            console.log(`   📨 Contenido: "${messageBody.substring(0, 80)}..."`);
+            // Guardar info para que la secuencia lo reconozca
+            this.currentlyProcessingLead.autoReplyDetected = true;
+            this.currentlyProcessingLead.autoReplyContent = messageBody;
+            // NO abortar — es respuesta automática de WhatsApp Business, no humana
+          } else {
+            console.log(`🛑 RESPUESTA REAL DETECTADA del lead actual (${this.currentlyProcessingLead.lead.name})!`);
+            console.log(`   📞 Número entrante: ${contactNumber} → resuelto: ${resolvedNumber}`);
+            console.log(`   📞 Lead actual: ${this.currentlyProcessingLead.phone}`);
+            this.currentlyProcessingLead.stopSending = true;
+            this.currentlyProcessingLead.respondedAt = new Date().toISOString();
+            this.abortCurrentSequence = true;
+          }
         }
+      }
+
+      // 🤖 Si ya detectamos que es auto-reply, no pasar por isRejection
+      if (this.isQuickAutoReply(messageBody)) {
+        console.log(`🤖 Auto-reply ignorado en análisis de rechazo: "${messageBody.substring(0, 60)}..."`);
+        return;
       }
 
       // ✅ ANALIZAR RESPUESTA CON IA
