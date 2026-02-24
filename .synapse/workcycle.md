@@ -195,3 +195,8 @@ docker compose logs -f
 - **Problem:** The user requested the removal of all long, spam-looking texts and legacy unused arrays from the bot's messaging system, moving to a short, serious, B2B tone with dynamic variables.
 - **Solution:** Fully rewrote `bot/services/advancedTemplateGenerator.js`. Removed legacy `saludos`, `introsNegocio`, `categoryKeywords`, `categoryPhrases`, and old fallback arrays. Created 5 clean arrays (`mensajes1ConWeb`, `mensajes1NoWeb`, `mensajes2Presentacion`, `mensajes3Propuesta`, `mensajes4Precios`, `mensajes5Cta`) with 10 high-quality variations each. Added support for `{rubro}`, `{rating}`, and `{reviews}` injection strings by extracting data directly from the lead object. Updated `aiTextGenerator.js` fallback to match the serious tone. Synced bots.
 - **Archivos:** `bot/services/advancedTemplateGenerator.js`, `bot/services/aiTextGenerator.js`
+
+### 25. Extension Scraper Update (Rating, Reviews, Category)
+- **Problem:** The Chrome Extension scraper did not natively extract rating, review count, or category from Maps, making the newly proposed dynamic variables incomplete.
+- **Solution:** Injected robust CSS and RegExp extraction targeting 'aria-label' and '.fontBodyMedium' directly into `extension/content.js`. Pushed to GitHub.
+- **Archivos:** `extension/content.js`
