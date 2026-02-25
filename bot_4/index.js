@@ -885,6 +885,7 @@ class WhatsAppBot {
                 this.processNextLead();
               }
             }, 15000);
+            this.isProcessing = false; // FIX: liberar flag antes del return del stuck lead
             return;
           }
         } else {
