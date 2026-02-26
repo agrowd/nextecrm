@@ -115,25 +115,28 @@ Responde JSON:
 
     /**
      * Detección simple de rechazo por keywords
+     * 🔧 FIX BUG-3: Ahora la negación se detecta ANTES que el interés
+     * "no estamos interesados" → RECHAZO (antes se detectaba como INTERÉS)
      */
     simpleRejectionCheck(message) {
         const msg = message.toLowerCase();
 
-        // PRIMERO: Detectar INTERÉS (tiene prioridad sobre rechazo)
-        // Si alguien dice "no tranki si me interesa" es INTERÉS, no rechazo
-        if (msg.match(/me interesa|interesado|quiero|manda|pasame|info|cuanto|precio|charlemos|hablemos|contame|llamame|escribime/)) {
-            console.log(`✅ INTERÉS detectado en: "${msg.substring(0, 50)}..."`);
+        // ─── PASO 0: Detectar NEGACIÓN + palabras positivas (PRIORIDAD MÁXIMA) ───
+        // "no estamos interesados", "no me interesa", "no quiero", "no necesito"
+        // Estos DEBEN detectarse como rechazo ANTES de chequear interés positivo
+        const negationPatterns = /\bno\b.*\b(interesa|interesado|interesados|quiero|queremos|necesito|necesitamos)\b/;
+        if (msg.match(negationPatterns)) {
+            console.log(`❌ RECHAZO con negación detectado en: "${msg.substring(0, 60)}..."`);
             return {
-                isRejection: false,
-                isInterest: true,
-                confidence: 0.9,
-                shouldRespond: false,
-                reason: 'Interés detectado'
+                isRejection: true,
+                confidence: 0.95,
+                shouldRespond: true,
+                reason: 'Rechazo con negación explícita (no + palabra positiva)'
             };
         }
 
-        // Rechazo CLARO (solo si NO hay interés)
-        if (msg.match(/no.*interesa|borra.*número|no me escribas|deja.*escribir|spam|molest|sacame|eliminame|bloqueado/)) {
+        // ─── PASO 1: Rechazo CLARO (sin necesidad de negación) ───
+        if (msg.match(/borra.*n[úu]mero|no me escribas|deja.*escribir|spam|molest|sacame|eliminame|bloqueado|borranos|no molesten/)) {
             return {
                 isRejection: true,
                 confidence: 0.95,
@@ -142,13 +145,37 @@ Responde JSON:
             };
         }
 
-        // "No gracias" o variantes (sin interés)
-        if (msg.match(/no gracias|no.*necesito|ya tengo web|no me sirve|tengo diseñador/)) {
+        // ─── PASO 2: "No gracias" o variantes ───
+        if (msg.match(/no gracias|no.*necesito|ya tengo web|no me sirve|tengo diseñador|no estamos buscando|no por ahora/)) {
             return {
                 isRejection: true,
                 confidence: 0.85,
                 shouldRespond: true,
                 reason: 'Rechazo educado'
+            };
+        }
+
+        // ─── PASO 3: Detectar INTERÉS genuino (solo si NO hay negación previa) ───
+        // "me interesa", "quiero info", "pasame precio" → INTERÉS real
+        if (msg.match(/\bme interesa\b|\bsí.*interesa|\bsi.*interesa|quiero.*info|manda|pasame|charlemos|hablemos|contame|llamame|escribime/)) {
+            console.log(`✅ INTERÉS detectado en: "${msg.substring(0, 50)}..."`);
+            return {
+                isRejection: false,
+                isInterest: true,
+                confidence: 0.9,
+                shouldRespond: false,
+                reason: 'Interés genuino detectado'
+            };
+        }
+
+        // ─── PASO 4: Palabras sueltas de interés (más permisivo) ───
+        if (msg.match(/\bcuanto\b|\bprecio\b|\binfo\b|\bcotización\b|\bpresupuesto\b/)) {
+            return {
+                isRejection: false,
+                isInterest: true,
+                confidence: 0.8,
+                shouldRespond: false,
+                reason: 'Consulta de precio/info detectada'
             };
         }
 

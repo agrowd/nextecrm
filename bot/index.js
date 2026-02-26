@@ -1222,13 +1222,16 @@ class WhatsAppBot {
 
       // ✅ ENVIAR SECUENCIA CON HUMAN BEHAVIOR
       console.log(`   5️⃣ Iniciando envío secuencial con simulación humana...`);
+      // 🔧 FIX BUG-4: Reset flag de abort al INICIO de cada secuencia (evita leak entre leads)
+      this.abortCurrentSequence = false;
       // 🛡️ FIX: Trackear el lead actual en memoria para detectar respuestas sin depender de HTTP
       this.currentlyProcessingLead = {
         phone: phoneNumber,
         whatsappFormat: whatsappFormat,
         lead: lead,
         stopSending: false,
-        respondedAt: null
+        respondedAt: null,
+        autoReplyCount: 0  // 🔧 FIX BUG-2: Contar auto-replies para tolerar múltiples
       };
       let msg1SentAt = null; // Timestamp de envio del msg1 para detectar auto-replies
       for (let i = 0; i < messages.length; i++) {
@@ -1381,7 +1384,13 @@ class WhatsAppBot {
           }
 
           // Grabar cuando enviamos el primer mensaje
-          if (i === 0) msg1SentAt = Date.now();
+          if (i === 0) {
+            msg1SentAt = Date.now();
+            // 🔧 FIX BUG-2: Guardar timestamp en tracking para detección de auto-replies por tiempo
+            if (this.currentlyProcessingLead) {
+              this.currentlyProcessingLead._msg1SentAt = msg1SentAt;
+            }
+          }
           this.lastMessageTimestamps.set(whatsappFormat, Date.now());
           console.log(`      ✅ Mensaje ENVIADO (ID: ${sentMessage.id._serialized})`);
 
@@ -1447,11 +1456,11 @@ class WhatsAppBot {
 
       // 🛡️ FIX: Limpiar tracking in-memory del lead actual
       this.currentlyProcessingLead = null;
+      this.abortCurrentSequence = false; // 🔧 FIX BUG-4: Asegurar reset también al finalizar
 
-      // Mostrar stats del rate limiter
+      // 🔧 FIX BUG-6: Mostrar stats del rate limiter con propiedades correctas
       const stats = await this.rateLimiter.getStats();
-      const todayStats = stats?.today || { leads: 0, messages: 0 };
-      console.log(`   📊 Progreso Diario: ${todayStats.leads} leads | ${todayStats.messages} mensajes`);
+      console.log(`   📊 Progreso Diario: ${stats.leadsProcessed || 0} leads | ${stats.messagesSent || 0} mensajes`);
 
       return { success: true, messagesSent: messages.length };
 
@@ -1860,17 +1869,28 @@ class WhatsAppBot {
         if (cleanIncoming === cleanCurrent || cleanIncoming.endsWith(cleanCurrent) || cleanCurrent.endsWith(cleanIncoming)) {
           // 🤖 Verificar si es auto-reply ANTES de abortar la secuencia
           const isAutoReply = this.isQuickAutoReply(messageBody);
-          if (isAutoReply) {
-            console.log(`🤖 AUTO-REPLY detectado del lead actual (${this.currentlyProcessingLead.lead.name}) — IGNORANDO, secuencia continúa`);
+
+          // 🔧 FIX BUG-2: También detectar auto-reply por TIEMPO (respuesta < 15s después de nuestro primer mensaje)
+          const timeSinceMsg1 = this.currentlyProcessingLead._msg1SentAt
+            ? (Date.now() - this.currentlyProcessingLead._msg1SentAt) / 1000
+            : 999;
+          const isTimeBased = timeSinceMsg1 < 15;
+
+          if (isAutoReply || isTimeBased) {
+            this.currentlyProcessingLead.autoReplyCount = (this.currentlyProcessingLead.autoReplyCount || 0) + 1;
+            console.log(`🤖 AUTO-REPLY #${this.currentlyProcessingLead.autoReplyCount} detectado del lead actual (${this.currentlyProcessingLead.lead.name}) — IGNORANDO, secuencia continúa`);
             console.log(`   📨 Contenido: "${messageBody.substring(0, 80)}..."`);
+            console.log(`   📨 Detección: pattern=${isAutoReply}, tiempo=${timeSinceMsg1.toFixed(1)}s (umbral: 15s)`);
             // Guardar info para que la secuencia lo reconozca
             this.currentlyProcessingLead.autoReplyDetected = true;
             this.currentlyProcessingLead.autoReplyContent = messageBody;
             // NO abortar — es respuesta automática de WhatsApp Business, no humana
+            return; // 🔧 FIX: Retornar aquí para no seguir procesando como respuesta normal
           } else {
             console.log(`🛑 RESPUESTA REAL DETECTADA del lead actual (${this.currentlyProcessingLead.lead.name})!`);
             console.log(`   📞 Número entrante: ${contactNumber} → resuelto: ${resolvedNumber}`);
             console.log(`   📞 Lead actual: ${this.currentlyProcessingLead.phone}`);
+            console.log(`   ⏱️ Tiempo desde msg1: ${timeSinceMsg1.toFixed(1)}s (auto-replies previos: ${this.currentlyProcessingLead.autoReplyCount || 0})`);
             this.currentlyProcessingLead.stopSending = true;
             this.currentlyProcessingLead.respondedAt = new Date().toISOString();
             this.abortCurrentSequence = true;
@@ -2143,76 +2163,32 @@ class WhatsAppBot {
     }
   }
 
+  // 🔧 FIX BUG-3: Reordenado para detectar RECHAZO antes que INTERÉS
   analyzeResponse(message) {
     const body = message.body.toLowerCase();
 
-    // Palabras clave para diferentes tipos de respuestas
-    const interestedKeywords = [
-      'interesado', 'interesa', 'me interesa', 'cuéntame más', 'más información',
-      'precio', 'costos', 'cuánto cuesta', 'presupuesto', 'cotización',
-      'sí', 'si', 'ok', 'okay', 'perfecto', 'genial', 'excelente',
-      'cuando', 'cuándo', 'dónde', 'donde', 'cómo', 'como',
-      'contacto', 'llamar', 'llamada', 'reunión', 'cita'
-    ];
+    // ─── PASO 0: Detectar NEGACIÓN + palabras positivas (PRIORIDAD MÁXIMA) ───
+    if (body.match(/\bno\b.*\b(interesa|interesado|interesados|quiero|queremos|necesito|necesitamos)\b/)) {
+      return {
+        type: 'not_interested',
+        confidence: 0.95,
+        keywords: ['negación + positivo'],
+        message: body
+      };
+    }
 
-    // Palabras clave para pedir servicios (con regex para variaciones)
-    const servicesKeywords = [
-      'servicios', 'servicio', 'qué hacen', 'que hacen', 'qué ofrecen', 'que ofrecen',
-      'qué tienen', 'que tienen', 'qué más', 'que más', 'más servicios',
-      'catálogo', 'catalogo', 'lista', 'todos los servicios', 'todos los servicios',
-      'qué más hacen', 'que mas hacen', 'qué más ofrecen', 'que mas ofrecen',
-      'cuáles son', 'cuales son', 'qué servicios', 'que servicios',
-      'más info', 'mas info', 'más información', 'mas informacion',
-      'detalles', 'más detalles', 'mas detalles', 'todo lo que hacen',
-      'qué incluye', 'que incluye', 'qué incluyen', 'que incluyen',
-      'pack', 'paquete', 'oferta', 'ofertas', 'promoción', 'promocion',
-      'promociones', 'promociones', 'todo', 'completo', 'integral'
-    ];
-
+    // ─── PASO 1: Verificar si contiene palabras clave de no interés ───
     const notInterestedKeywords = [
-      'no', 'no me interesa', 'no estoy interesado', 'no gracias',
+      'no me interesa', 'no estoy interesado', 'no gracias',
       'no quiero', 'no necesito', 'no estoy buscando',
-      'no por ahora', 'más adelante', 'después', 'despues',
+      'no por ahora', 'no por el momento',
       'no tengo tiempo', 'no tengo presupuesto', 'no tengo dinero',
       'ya cuento', 'ya tengo', 'ya tengo proveedor', 'ya tengo alguien',
-      'no por el momento', 'no por ahora', 'más tarde', 'mas tarde',
       'no estoy necesitando', 'no lo necesito', 'no lo requiero',
-      'gracias por el momento', 'gracias pero no', 'gracias pero ya tengo',
-      'no estoy en el mercado', 'no estoy buscando ahora',
-      'no tengo interés', 'no me interesa por ahora',
-      'ya tengo todo', 'ya tengo lo que necesito', 'ya estoy cubierto'
+      'gracias pero no', 'gracias pero ya tengo',
+      'no tengo interés', 'ya estoy cubierto', 'no estamos buscando'
     ];
 
-    const neutralKeywords = [
-      'gracias', 'grasias', 'gracia', 'ok', 'okay', 'perfecto',
-      'entendido', 'claro', 'vale', 'bueno', 'bien'
-    ];
-
-    // Verificar si pide servicios (prioridad alta)
-    for (const keyword of servicesKeywords) {
-      if (body.includes(keyword)) {
-        return {
-          type: 'services_request',
-          confidence: 0.9,
-          keywords: [keyword],
-          message: body
-        };
-      }
-    }
-
-    // Verificar si contiene palabras clave de interés
-    for (const keyword of interestedKeywords) {
-      if (body.includes(keyword)) {
-        return {
-          type: 'interested',
-          confidence: 0.8,
-          keywords: [keyword],
-          message: body
-        };
-      }
-    }
-
-    // Verificar si contiene palabras clave de no interés
     for (const keyword of notInterestedKeywords) {
       if (body.includes(keyword)) {
         return {
@@ -2224,7 +2200,55 @@ class WhatsAppBot {
       }
     }
 
-    // Verificar si contiene palabras neutrales
+    // ─── PASO 2: Verificar si pide servicios (prioridad alta) ───
+    const servicesKeywords = [
+      'servicios', 'servicio', 'qué hacen', 'que hacen', 'qué ofrecen', 'que ofrecen',
+      'qué tienen', 'que tienen', 'qué más', 'que más', 'más servicios',
+      'catálogo', 'catalogo', 'lista', 'todos los servicios',
+      'cuáles son', 'cuales son', 'qué servicios', 'que servicios',
+      'más info', 'mas info', 'más información', 'mas informacion',
+      'detalles', 'más detalles', 'mas detalles',
+      'qué incluye', 'que incluye', 'qué incluyen', 'que incluyen',
+      'pack', 'paquete', 'oferta', 'ofertas', 'promoción', 'promocion'
+    ];
+
+    for (const keyword of servicesKeywords) {
+      if (body.includes(keyword)) {
+        return {
+          type: 'services_request',
+          confidence: 0.9,
+          keywords: [keyword],
+          message: body
+        };
+      }
+    }
+
+    // ─── PASO 3: Verificar si contiene palabras clave de interés ───
+    const interestedKeywords = [
+      'me interesa', 'cuéntame más',
+      'precio', 'costos', 'cuánto cuesta', 'presupuesto', 'cotización',
+      'sí', 'perfecto', 'genial', 'excelente',
+      'cuando', 'cuándo', 'dónde', 'donde', 'cómo', 'como',
+      'contacto', 'llamar', 'llamada', 'reunión', 'cita'
+    ];
+
+    for (const keyword of interestedKeywords) {
+      if (body.includes(keyword)) {
+        return {
+          type: 'interested',
+          confidence: 0.8,
+          keywords: [keyword],
+          message: body
+        };
+      }
+    }
+
+    // ─── PASO 4: Verificar si contiene palabras neutrales ───
+    const neutralKeywords = [
+      'gracias', 'grasias', 'gracia', 'ok', 'okay', 'perfecto',
+      'entendido', 'claro', 'vale', 'bueno', 'bien'
+    ];
+
     for (const keyword of neutralKeywords) {
       if (body.includes(keyword)) {
         return {
