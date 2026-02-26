@@ -1278,21 +1278,24 @@ class WhatsAppBot {
 
           let isAutoReply = false;
 
-          if (i > 0 && msg1SentAt && chatForCheck) {
-            const lastMsg = chatForCheck.lastMessage;
-            if (lastMsg && !lastMsg.fromMe) {
-              const replyTimestamp = lastMsg.timestamp * 1000;
-              const secondsToReply = (replyTimestamp - msg1SentAt) / 1000;
-              if (replyTimestamp > msg1SentAt && secondsToReply < 10) {
-                console.log('      Auto-respuesta por TIEMPO: ' + secondsToReply.toFixed(1) + 's < 10s = automatica');
-                isAutoReply = true;
+          // Solo detectar auto-reply si el pitch NO fue inyectado aún
+          if (!this.currentlyProcessingLead?.botPitchInjected) {
+            if (i > 0 && msg1SentAt && chatForCheck) {
+              const lastMsg = chatForCheck.lastMessage;
+              if (lastMsg && !lastMsg.fromMe) {
+                const replyTimestamp = lastMsg.timestamp * 1000;
+                const secondsToReply = (replyTimestamp - msg1SentAt) / 1000;
+                if (replyTimestamp > msg1SentAt && secondsToReply < 10) {
+                  console.log('      Auto-respuesta por TIEMPO: ' + secondsToReply.toFixed(1) + 's < 10s = automatica');
+                  isAutoReply = true;
+                }
               }
             }
-          }
 
-          // Combinar con deteccion del checker en tiempo real
-          if (this.currentlyProcessingLead && this.currentlyProcessingLead.autoReplyDetected) {
-            isAutoReply = true;
+            // Combinar con deteccion del checker en tiempo real
+            if (this.currentlyProcessingLead && this.currentlyProcessingLead.autoReplyDetected) {
+              isAutoReply = true;
+            }
           }
 
           if (isAutoReply) {
