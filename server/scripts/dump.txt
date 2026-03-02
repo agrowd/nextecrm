@@ -1,0 +1,934 @@
+
+
+=== CATEGORY: saludos ===
+---
+¡Hola {nombre}! Soy Juan Cruz de Nexte Marketing.
+---
+¡Buen día {nombre}! Te saluda Juan Cruz de Nexte Marketing.
+---
+¡Buenas tardes {nombre}! Soy Juan Cruz, de Nexte Marketing.
+---
+Hola {nombre}, ¿cómo estás? Soy Juan Cruz de Nexte Marketing.
+---
+¡Hola! Te habla Juan Cruz, de Nexte Marketing.
+---
+¡Qué tal {nombre}! Soy Juan Cruz de Nexte Marketing.
+---
+¡Hola {nombre}! Juan Cruz de Nexte Marketing por acá.
+---
+Buenas {nombre}! Te escribe Juan Cruz de Nexte Marketing.
+---
+¡Hola {nombre}! Te contacta Juan Cruz desde Nexte Marketing.
+---
+¡Hola! Soy Juan Cruz de Nexte Marketing, vi tu negocio.
+---
+¡Buen día! Soy Juan Cruz, director de Nexte Marketing.
+---
+Hey {nombre}! Soy Juan Cruz de Nexte Marketing.
+---
+Hola {nombre}! Te saluda Juan Cruz de Nexte Marketing.
+---
+¡Hola! Soy Juan Cruz de Nexte Marketing.
+---
+¡Hola {nombre}! Soy Juan Cruz de Nexte Marketing, te molesto un segundo.
+---
+Buen día {nombre}, soy Juan Cruz de Nexte Marketing.
+---
+¡Hola! Soy Juan Cruz de Nexte Marketing, ¿me das un minuto?
+---
+¡Hola {nombre}! Soy Juan Cruz de Nexte Marketing.
+---
+Hola, ¿hablo con {nombre}? Soy Juan Cruz de Nexte Marketing.
+---
+¡Buenas! Te escribe Juan Cruz de Nexte Marketing.
+---
+¡Hola {nombre}! Juan Cruz de Nexte Marketing saludando.
+---
+Buen día! Soy Juan Cruz de Nexte Marketing.
+---
+¡Hola! ¿Sos {nombre}? Soy Juan Cruz de Nexte Marketing.
+---
+¡Hola {nombre}! Soy Juan Cruz de Nexte Marketing.
+---
+Buenas tardes {nombre}! Te habla Juan Cruz de Nexte Marketing.
+---
+¡Hola! Soy Juan Cruz de Nexte Marketing.
+---
+¡Holaa {nombre}! Soy Juan Cruz de Nexte Marketing.
+---
+¡Hola {nombre}! Un gusto, soy Juan Cruz de Nexte Marketing.
+---
+¡Hola! Soy Juan Cruz de Nexte Marketing.
+---
+Buen día {nombre}! Soy Juan Cruz de Nexte Marketing.
+
+
+=== CATEGORY: introsNegocio ===
+---
+Vi {negocio} en Google Maps y me llamó la atención.
+---
+Encontré {negocio} buscando negocios en {ubicacion}.
+---
+Estaba viendo {negocio} en Maps y quise contactarte.
+---
+Me topé con {negocio} en internet y me pareció interesante.
+---
+Vi que {negocio} tiene buenas reseñas en Google.
+---
+Noté que {negocio} aparece en Maps pero sin web.
+---
+Encontré {negocio} y vi que tienen muy buena puntuación.
+---
+Vi tu perfil de {negocio} en Google Maps.
+---
+Me crucé con {negocio} buscando en {ubicacion}.
+---
+Vi {negocio} destacado en Google Maps.
+---
+Estuve revisando negocios en {ubicacion} y vi {negocio}.
+---
+Tu negocio {negocio} me llamó la atención.
+---
+Vi que {negocio} tiene buenas reviews pero pocas.
+---
+Encontré {negocio} y noté que no tienen presencia web.
+---
+Me interesó {negocio} por las buenas reseñas.
+---
+Vi tu ficha de {negocio} en Google.
+---
+Me crucé con {negocio} investigando el rubro.
+---
+Vi que {negocio} está bien posicionado en Maps.
+---
+Tu negocio salió en mi búsqueda de {ubicacion}.
+---
+Vi {negocio} y pensé que podrían necesitar algo.
+---
+Encontré {negocio} y me pareció que tenían potencial.
+---
+Noté que {negocio} tiene varias reseñas positivas.
+---
+Vi tu local {negocio} en internet.
+---
+Me apareció {negocio} buscando en la zona.
+---
+Vi el perfil de {negocio} y quise contactarte.
+---
+Encontré {negocio} online y me interesó.
+---
+Vi que tenés {negocio} y me pareció que podíamos hablar.
+---
+Tu negocio apareció en mi investigación de mercado.
+---
+Vi {negocio} en Maps con muy buena puntuación.
+---
+Estuve viendo el rubro y me topé con {negocio}.
+
+
+=== CATEGORY: hooksNoWeb ===
+---
+Vi que no tienen web. Sin sitio propio, dependés 100% de lo que decida Google.
+---
+Noté que no hay página web. Hoy día, eso es perder el 70% de clientes potenciales.
+---
+Sin web propia, tu negocio está atado a las reglas de Google Maps u otras apps.
+---
+¿Sabías que una web te da independencia total de las plataformas de terceros?
+---
+Vi que usan solo Maps. Una web propia te asegura que los clientes sean tuyos.
+---
+Sin sitio web, es difícil captar emails o hacer marketing real.
+---
+Depender solo de Google Maps es riesgoso si te bajan el perfil.
+---
+Una web propia es el único activo digital que realmente controlás.
+---
+Hoy los clientes buscan web para validar antes de ir. Si no está, desconfían.
+---
+Tener solo ficha en Maps limita mucho tu alcance local.
+---
+Sin web, no podés hacer publicidad efectiva en Google o Instagram.
+---
+Una web te permite automatizar consultas que hoy contestás a mano.
+---
+Vi el perfil pero no encontré web. Es clave para dar imagen profesional.
+---
+La web propia es tu casa digital; Maps es prestado.
+---
+Si Google cambia el algoritmo, sin web desaparecés. Es mejor prevenir.
+---
+¿Pensaron en tener web? Te libera de depender solo de referidos.
+---
+Sin página web, estás dejando que la competencia se lleve los clics.
+---
+Una web simple te pone por encima del 80% de locales que no tienen.
+---
+Maps ayuda, pero la web es la que cierra la venta.
+---
+Sin web, no podés medir bien quién te visita ni volver a contactarlos.
+---
+Tener web transmite seriedad. Solo Maps a veces queda corto.
+---
+Hoy el 'boca a boca' es digital, y la web es tu tarjeta de presentación.
+---
+Sin web, perdés la chance de aparecer en búsquedas más específicas.
+---
+Una web es un vendedor que trabaja 24/7 sin que estés ahí.
+---
+Depender solo de redes o Maps es construir sobre terreno ajeno.
+---
+¿Tienen web caída? Porque no figura. Es fundamental arreglarlo.
+---
+Sin web, te perdés de usar herramientas como el Pixel de Facebook.
+---
+Tener tu dominio te da correos profesionales, que venden más que Gmail.
+---
+La web es el centro de cualquier estrategia que funcione de verdad.
+---
+Hacer una web hoy es barato y te independiza de las plataformas.
+
+
+=== CATEGORY: hooksConWeb ===
+---
+Vi que tienen web, pero podríamos instalar Analytics para medir mejor.
+---
+Tienen web, ¡genial! ¿Están midiendo cuántas visitas se convierten en ventas?
+---
+Vi su sitio. Con unos ajustes de SEO podrían aparecer mucho más arriba.
+---
+La web está, pero podríamos mejorar la velocidad para que no pierdan visitas.
+---
+Tienen presencia web, pero ¿están usando Pixel para re-captar interesados?
+---
+Vi la página. Se podría modernizar para captar más consultas.
+---
+¿Saben si su web está convirtiendo visitas en clientes reales?
+---
+La web se ve bien, pero hay cosas técnicas de SEO que ayudarían mucho.
+---
+Tener web es el primer paso. El segundo es que venda por ustedes.
+---
+Podríamos auditar su web gratis para ver por qué no rankea mejor.
+---
+Vi que tienen web. ¿Están haciendo publicidad o solo orgánico?
+---
+Su web podría vender mucho más con una buena landing de ventas.
+---
+La competencia está invirtiendo en SEO. Su web tiene potencial para ganarles.
+---
+¿Están conformes con la cantidad de turnos/ventas que trae la web?
+---
+Vi su sitio y hay oportunidades claras para mejorar la conversión.
+---
+Podemos conectar su web con WhatsApp para cerrar ventas más rápido.
+---
+Una auditoría rápida nos diría qué frenar para vender más.
+---
+Tienen la base (web). Ahora falta acelerarla con buen marketing.
+---
+¿Su web está sumando leads todos los días o está quieta?
+---
+Vi detalles en la versión móvil de su web que se pueden pulir.
+---
+Con esa web, una campaña de Google Ads andaría muy bien.
+---
+La web existe, pero ¿les está trayendo retorno de inversión?
+---
+Podemos potenciar su sitio actual con herramientas de medición serias.
+---
+Vi que tienen dominio propio. ¿Lo están aprovechando al máximo?
+---
+Su web tiene buena info, pero le falta 'llamada a la acción'.
+---
+¿Usan Analytics 4? Es clave para entender qué hace la gente en su web.
+---
+Esa web con un poco de optimización vuela.
+---
+Podemos hacer que su web aparezca cuando buscan sus servicios.
+---
+Vi su página. ¿Les gustaría recibir un reporte de mejoras posibles?
+---
+Tienen buen sitio. Sería ideal sumarle un bot de agendamiento.
+
+
+=== CATEGORY: presentaciones ===
+---
+Desde 2015, en Nexte nos enfocamos en el crecimiento real: +300% en conversiones promedio para nuestros clientes.
+---
+En Nexte no somos una fábrica de clientes. Trabajamos 1 a 1 para entender tu negocio y mejorarlo.
+---
+Nos especializamos en CRO (Optimización de Conversiones). No solo traemos visitas, hacemos que compren.
+---
+Nexte tiene 10 años de trayectoria (2015-2025) ayudando a negocios a digitalizarse de verdad.
+---
+Somos tu socio estratégico. Analizamos tu competencia y audiencia para darte un plan único, no recetas genéricas.
+---
+En Nexte combinamos tecnología y estrategia para crear sistemas de venta que funcionan 24/7.
+---
+No hacemos solo webs bonitas. Creamos herramientas de venta enfocadas en resultados rápidos y medibles.
+---
+Nuestro enfoque 1 a 1 garantiza que tu negocio tenga la atención personalizada que necesita para crecer.
+---
+Auditamos, implementamos y optimizamos. En Nexte nos obsesiona que recuperes tu inversión con ventas.
+---
+Somos expertos en transformar negocios locales en referentes digitales con estrategias de alto impacto.
+---
+Nexte Marketing es sinónimo de crecimiento medible. Te mostramos los números claros, sin vueltas.
+---
+Con un stack técnico completo, resolvemos desde el diseño web hasta la automatización de tus ventas.
+---
+Ayudamos a emprendedores y PYMEs a competir con los grandes usando las mismas herramientas.
+---
+En Nexte nos enfocamos en resultados visibles desde la primera semana de implementación.
+---
+Somos especialistas en captar la demanda real que hoy ya busca tus servicios en Google.
+---
+Más que una agencia, somos tu departamento de marketing externo. Nos ocupamos de todo.
+---
+En Nexte usamos datos, no intuición. Cada decisión se basa en mejorar tus conversiones.
+---
+Llevamos una década perfeccionando el método para que negocios como el tuyo vendan más online.
+---
+Hacemos que tu marca transmita confianza y profesionalismo desde el primer clic.
+---
+En Nexte no atamos clientes con contratos, los fidelizamos con resultados constantes.
+---
+Somos expertos en Google Ads y Meta Ads, certificados para maximizar cada peso de tu inversión.
+---
+Nexte transforma tu presencia digital en un canal de ventas predecible y escalable.
+---
+Analizamos tu negocio a fondo para detectar dónde estás perdiendo ventas y corregirlo.
+---
+En Nexte creemos en el trato humano. Vas a hablar con expertos, no con máquinas.
+---
+Somos la agencia que eligen quienes quieren dejar de depender del 'boca a boca'.
+---
+Nexte te ofrece soluciones de calidad internacional adaptadas al mercado local.
+---
+Optimizamos cada punto de contacto digital para que tus clientes tengan una experiencia 10 puntos.
+---
+En Nexte marketing es inversión, no gasto. Todo está orientado a tu retorno (ROI).
+---
+Llevamos tu negocio al siguiente nivel con auditorías profundas y ejecución impecable.
+---
+Nexte es transparencia y resultados. Trabajamos codo a codo para cumplir tus objetivos.
+
+
+=== CATEGORY: propuestas ===
+---
+🎉 *PROMO MARZO 2025*
+
+🏢 *¿QUÉ PODEMOS HACER POR TU NEGOCIO?*
+
+Te lo explico simple, sin palabras raras:
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 *OPCIÓN A: TU PROPIA PÁGINA WEB*
+Precio: *$75.000* (pagás una vez)
+
+¿Qué es?
+Tu propio sitio tipo "www.tunegocio.com.ar" donde los clientes ven tus servicios, precios, fotos de tu trabajo, y pueden contactarte.
+
+*¿Qué está incluido?*
+• El diseño completo de la página
+• El nombre de tu página (dominio)
+• El servidor donde funciona (hosting)
+• Candadito verde de seguridad
+• Durante 1 año podés pedirnos todos los cambios que necesites
+• Si algo falla, lo arreglamos
+
+*Después del año:* $25.000 cada 3 meses.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 *OPCIÓN B: QUE TE ENCUENTREN EN GOOGLE*
+Precio: *$75.000* (pagás una vez)
+
+¿Qué es?
+Hacemos que cuando busquen en Google tu rubro + tu ciudad, aparezcas PRIMERO.
+
+*¿Qué está incluido?*
+• Google Analytics: ver cuánta gente te visita
+• Search Console: ver qué palabras usan para buscarte
+• Google Maps: tu negocio en el mapa con fotos y reseñas
+• SEO Técnico: optimizamos para que Google te posicione arriba
+• Indexación desde el día 1
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+📱 *OPCIÓN C: MANEJO DE REDES SOCIALES*
+Precio: *$75.000 por mes*
+
+¿Qué es?
+Nos encargamos de tus redes para que vos te enfoques en tu negocio.
+
+*¿Qué está incluido?*
+• Creación de contenido (posts, stories, reels)
+• Diseños gráficos profesionales
+• Publicación programada
+• Respuestas a comentarios y mensajes
+• Estrategia mensual
+• Reportes de rendimiento
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🤖 *OPCIÓN D: BOT INTELIGENTE 24/7*
+Precio: *$200.000* + *$5.000-$10.000/mes*
+
+¿Qué es?
+Un asistente virtual que atiende WhatsApp todo el día. No es un bot tonto - está entrenado con TU información.
+
+*Puede:*
+• Responder consultas de precios, servicios, horarios
+• Agendar turnos automáticamente
+• Verificar comprobantes de pago
+• Guiar al cliente hasta que compre
+• Panel de control para vos
+
+*Incluye:* 6 meses de ajustes gratis.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎁 *PACK COMPLETO: $320.000* + mensuales
+Todo junto con $30.000 de ahorro.
+
+🎯 Nuestro foco: que cada persona que te contacte termine siendo cliente.
+---
+🚀 *OFERTAS MARZO 2025*
+
+🏢 *¿CÓMO PODEMOS AYUDARTE?*
+
+Te cuento de forma clara:
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 *OPCIÓN A: PÁGINA WEB PROFESIONAL*
+Inversión: *$75.000* (un solo pago)
+
+Tu sitio propio tipo "www.tunegocio.com.ar" para mostrar servicios, precios, trabajos y que te contacten.
+
+*Incluye:*
+• Diseño completo de la web
+• Tu dominio (nombre de la página)
+• Hosting (donde "vive" tu web)
+• Certificado de seguridad (candadito verde)
+• Cambios ilimitados durante 1 año
+• Soporte técnico ante problemas
+
+*Renovación:* $25.000 trimestrales después del primer año.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 *OPCIÓN B: POSICIONAMIENTO EN GOOGLE*
+Inversión: *$75.000* (un solo pago)
+
+Que cuando busquen tu rubro + tu ciudad, aparezcas primero.
+
+*Incluye:*
+• Google Analytics: medí cuánta gente te visita
+• Search Console: descubrí qué palabras usan para buscarte
+• Google Maps: tu negocio visible con fotos, horarios y reseñas
+• SEO Técnico: optimizamos para que Google te posicione arriba
+• Indexación inmediata: estás visible desde el día 1
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+📱 *OPCIÓN C: GESTIÓN DE REDES SOCIALES*
+Inversión: *$75.000 mensuales*
+
+Manejamos tus redes para que vos te enfoques en tu negocio.
+
+*Incluye:*
+• Creación de contenido (posts, stories, reels)
+• Diseños gráficos profesionales
+• Publicación programada
+• Respuestas a comentarios y mensajes
+• Estrategia mensual de contenido
+• Informes de rendimiento
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🤖 *OPCIÓN D: BOT INTELIGENTE 24/7*
+Inversión: *$200.000* + *$5.000-$10.000/mes*
+
+Asistente virtual que atiende WhatsApp todo el día. No es un bot tonto - está entrenado con TU información.
+
+*Puede:*
+• Responder consultas de precios, servicios, horarios
+• Agendar turnos automáticamente
+• Verificar comprobantes de pago
+• Guiar al cliente hasta que compre
+• Panel de control para vos
+
+*Incluye:* 6 meses de ajustes gratis.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎁 *PACK COMPLETO*
+Inversión: *$320.000* + mensuales
+Todo junto con $30.000 de ahorro.
+
+🎯 Nuestro foco: que cada persona que te contacte termine siendo cliente.
+---
+💥 *OPORTUNIDAD MARZO 2025*
+
+🏢 *NUESTROS SERVICIOS EXPLICADOS SIMPLE:*
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 *A) TU WEB PROPIA*
+*$75.000* (pago único)
+
+Tu página "www.tunegocio.com.ar" donde mostrás todo lo que hacés.
+
+*Tenés:*
+• Diseño profesional
+• Dominio incluido
+• Hosting incluido
+• Seguridad SSL
+• Cambios gratis por 1 año
+• Soporte técnico
+
+*Después:* $25.000/trimestre.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 *B) APARECER EN GOOGLE*
+*$75.000* (pago único)
+
+Que te encuentren cuando busquen tu rubro en tu zona.
+
+*Tenés:*
+• Google Analytics (ver visitas)
+• Search Console (ver búsquedas)
+• Google Maps optimizado
+• SEO Técnico completo
+• Indexación desde el día 1
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+📱 *C) REDES SOCIALES*
+*$75.000/mes*
+
+Nos encargamos de tus redes.
+
+*Tenés:*
+• Contenido (posts, stories, reels)
+• Diseños gráficos
+• Publicación programada
+• Respuestas a mensajes
+• Estrategia mensual
+• Reportes
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🤖 *D) BOT CON INTELIGENCIA ARTIFICIAL*
+*$200.000* + *$5.000-$10.000/mes*
+
+Asistente que atiende WhatsApp 24hs como si fueras vos.
+
+*Puede:*
+• Responder consultas automáticamente
+• Agendar turnos
+• Validar comprobantes de pago
+• Guiar hasta la compra
+• Panel de control incluido
+
+*Incluye:* 6 meses de ajustes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎁 *TODO JUNTO: $320.000* + mensuales
+Ahorrás $30.000.
+
+🎯 Hacemos que más gente que te contacte se convierta en cliente.
+---
+⚡ *MARZO 2025 - SERVICIOS NEXTE*
+
+Te cuento qué podemos hacer por tu negocio:
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 *WEB PROFESIONAL* → *$75.000*
+
+Tu sitio www.tunegocio.com.ar con todo incluido por 1 año:
+• Diseño + dominio + hosting + SSL
+• Cambios ilimitados
+• Soporte técnico
+
+Renovación: $25.000 cada 3 meses.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 *GOOGLE + SEO* → *$75.000*
+
+Que aparezcas cuando busquen tu rubro:
+• Analytics + Search Console
+• Google Maps optimizado
+• SEO Técnico
+• Indexación inmediata
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+📱 *REDES SOCIALES* → *$75.000/mes*
+
+Manejamos tus redes:
+• Contenido + diseños
+• Publicación + respuestas
+• Estrategia mensual
+• Reportes
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🤖 *BOT INTELIGENTE* → *$200.000* + servidor
+
+Asistente 24hs en WhatsApp:
+• Responde como vos
+• Agenda turnos
+• Valida pagos
+• Panel de control
+
+Incluye 6 meses de ajustes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎁 *COMBO TOTAL: $320.000* + mensuales
+Ahorro de $30.000.
+
+🎯 Todo pensado para convertir contactos en clientes.
+---
+🔥 *PROMO NEXTE - MARZO 2025*
+
+Servicios para digitalizar tu negocio:
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 *1. PÁGINA WEB*
+Precio: *$75.000* (una vez)
+
+Tu sitio propio con dominio, hosting, diseño, cambios por 1 año y soporte incluido.
+
+Después del año: $25.000/trimestre.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 *2. POSICIONAMIENTO GOOGLE*
+Precio: *$75.000* (una vez)
+
+Analytics, Search Console, Maps, SEO técnico e indexación inmediata.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+📱 *3. REDES SOCIALES*
+Precio: *$75.000/mes*
+
+Contenido, diseños, publicación, respuestas, estrategia y reportes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🤖 *4. BOT INTELIGENTE*
+Precio: *$200.000* + servidor mensual
+
+Atiende WhatsApp 24hs, agenda turnos, valida pagos. Incluye 6 meses de ajustes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎁 *PACK COMPLETO: $320.000*
+Todo junto con $30k de descuento.
+
+🎯 Nuestro objetivo: que cada contacto se convierta en venta.
+---
+✨ *SERVICIOS MARZO 2025*
+
+Te cuento nuestras opciones:
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 *WEB COMPLETA* → *$75.000*
+Diseño + dominio + hosting + cambios x1 año + soporte.
+Renovación: $25.000/trimestre.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 *GOOGLE + SEO* → *$75.000*
+Analytics + Search Console + Maps + SEO + indexación.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+📱 *REDES SOCIALES* → *$75.000/mes*
+Contenido + diseños + publicación + respuestas + reportes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🤖 *BOT INTELIGENTE* → *$200.000 + servidor*
+Asistente 24hs que atiende, agenda y valida pagos. 6 meses de ajustes incluidos.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎁 *COMBO: $320.000* + mensuales (ahorrás $30k)
+
+🎯 Convertimos contactos en clientes.
+---
+🎯 *QUÉ OFRECEMOS - MARZO 2025*
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 *PÁGINA WEB:* $75.000
+Todo incluido por 1 año (diseño, dominio, hosting, cambios, soporte).
+Después: $25.000/trimestre.
+
+📍 *GOOGLE + SEO:* $75.000
+Analytics, Search Console, Maps, SEO técnico, indexación.
+
+📱 *REDES:* $75.000/mes
+Contenido, diseños, publicación, respuestas, reportes.
+
+🤖 *BOT IA:* $200.000 + $5k-$10k/mes
+Asistente 24hs, agenda turnos, valida pagos. 6 meses de ajustes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎁 *TODO JUNTO:* $320.000 + mensuales
+Ahorrás $30.000.
+
+🎯 Objetivo: que más gente que te contacte se convierta en cliente.
+---
+💪 *PROMO MARZO - NEXTE MARKETING*
+
+Esto es lo que hacemos:
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 *TU WEB:* $75.000
+• Diseño + dominio + hosting + SSL
+• Cambios ilimitados 1 año
+• Soporte incluido
+• Renovación: $25k/trimestre
+
+📍 *GOOGLE:* $75.000
+• Analytics + Search Console
+• Maps + SEO técnico
+• Indexación inmediata
+
+📱 *REDES:* $75.000/mes
+• Contenido + diseños
+• Publicación + respuestas
+• Estrategia + reportes
+
+🤖 *BOT IA:* $200.000 + servidor
+• Atiende 24hs
+• Agenda turnos
+• Valida pagos
+• 6 meses de ajustes
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎁 *PACK COMPLETO:* $320.000 (-$30k)
+
+🎯 Todo orientado a conseguirte más clientes.
+---
+🌟 *MARZO 2025 - OFERTAS NEXTE*
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*A) WEB PROFESIONAL* → $75.000
+Diseño, dominio, hosting, seguridad, cambios x1 año, soporte.
+Renovación: $25.000/trimestre.
+
+*B) GOOGLE + SEO* → $75.000
+Analytics, Search Console, Maps, SEO, indexación día 1.
+
+*C) REDES SOCIALES* → $75.000/mes
+Contenido, diseños, publicación, respuestas, reportes.
+
+*D) BOT INTELIGENTE* → $200.000 + servidor
+WhatsApp 24hs, turnos, validación de pagos, panel. 6 meses de ajustes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎁 *COMBO: $320.000* + mensuales
+Ahorro de $30.000.
+
+🎯 Todo para convertir contactos en ventas.
+---
+🏆 *SERVICIOS NEXTE - PROMO MARZO*
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 *WEB:* $75.000 (1 pago)
+Incluye: diseño, dominio, hosting, SSL, cambios 1 año, soporte.
+Renovación: $25k cada 3 meses.
+
+📍 *GOOGLE:* $75.000 (1 pago)
+Incluye: Analytics, Search Console, Maps, SEO, indexación.
+
+📱 *REDES:* $75.000/mes
+Incluye: contenido, diseños, publicación, respuestas, reportes.
+
+🤖 *BOT:* $200.000 + servidor mensual
+Incluye: atención 24hs, turnos, validación pagos, panel. 6 meses de ajustes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎁 *PACK:* $320.000 + mensuales (-$30k)
+
+🎯 Foco en resultados: más clientes para vos.
+
+
+=== CATEGORY: respuestasBotAutomatico ===
+---
+Veo que tenés una respuesta automática activada. Nosotros podemos transformar eso en un bot inteligente que agende pacientes y explique tus servicios. ¿Te interesa?
+---
+Noté tu mensaje automático. En Nexte configuramos bots con IA que cierran ventas y agendan solos, mucho más que una respuesta fija. ¿Te cuento más?
+---
+Esa respuesta automática es útil, pero un bot real podría estar agendando clientes en tu calendario ahora mismo. ¿Te gustaría ver cómo funciona?
+---
+Vi que usás mensajes automáticos. Podríamos mejorarlo con un bot que responda preguntas específicas y filtre leads las 24hs.
+---
+¿Sabías que podemos convertir esa respuesta automática en un asistente virtual que venda por vos? Te ahorraría mucho tiempo de chat.
+
+
+=== CATEGORY: serviciosCompletos ===
+---
+📋 Lo que hacemos en Nexte:
+• Diseño Web Profesional
+• SEO y Posicionamiento en Google
+• Google Ads y Meta Ads
+• Community Manager
+• Branding y Diseño Gráfico
+• Software a medida
+---
+🔧 Nuestros servicios:
+• Páginas web a medida
+• Tiendas online (e-commerce)
+• Posicionamiento SEO
+• Publicidad digital (Google/Meta)
+• Gestión de redes sociales
+• Apps y sistemas
+---
+💼 En Nexte ofrecemos:
+• Web profesional responsive
+• SEO técnico y contenidos
+• Campañas Google Ads
+• Campañas Facebook/Instagram
+• Diseño de marca
+• Desarrollo de software
+---
+🎯 Servicios Nexte Marketing:
+• Diseño web (landing, institucional, e-commerce)
+• SEO (on-page, off-page, local)
+• Publicidad paga (Google, Meta, LinkedIn)
+• Community management
+• Identidad visual
+---
+⚡ Trabajamos en:
+• Webs que venden
+• Posicionamiento Google
+• Campañas de publicidad
+• Manejo de redes
+• Diseño gráfico
+• Software personalizado
+---
+🚀 Servicios digitales completos:
+• Web profesional + hosting
+• Optimización SEO
+• Google Ads certificados
+• Meta Business Partner
+• Gestión de Instagram/Facebook
+• Desarrollo a medida
+---
+📱 Todo lo digital en un solo lugar:
+• Sitios web responsive
+• Tiendas online integradas
+• SEO y analítica
+• Publicidad en Google
+• Publicidad en redes
+• Automatizaciones
+---
+🌐 Nexte te ofrece:
+• Web + dominio + hosting
+• SEO para aparecer en Google
+• Ads en Google y Meta
+• Contenido para redes
+• Diseño de logo y marca
+• Sistemas web/apps
+---
+💡 Nuestro catálogo:
+• Landing pages desde $80k
+• Webs institucionales desde $150k
+• E-commerce desde $250k
+• SEO mensual desde $50k
+• Ads desde $30k + inversión
+• CM desde $75k/mes
+---
+🏆 Lo que podemos hacer por vos:
+• Una web que convierta visitas en clientes
+• Que aparezcas primero en Google
+• Campañas de ads rentables
+• Redes administradas profesionalmente
+• Marca y diseño premium
+
+
+=== CATEGORY: ctasReunion ===
+---
+Si te interesa, podemos organizar una reunión o llamada. Estoy a tu disposición.
+---
+Si te sirve la info, podemos charlar 5 minutos cuando tengas tiempo.
+---
+Quedo a tu disposición si querés que organicemos una llamada para ver detalles.
+---
+Si te parece bien, podemos agendar una reunión breve. Avisame cuando puedas.
+---
+Estoy disponible para una llamada si querés profundizar. Sin apuro.
+---
+Si le interesa, podemos coordinar una reunión breve, ahora o cuando quiera.
+---
+Quedo atento. Si querés charlar mejor, coordinamos llamada.
+---
+Si tenés un momento, podemos organizar una llamada rápida. Estoy a disposición.
+---
+Si te gustaría saber más, podemos agendar una videollamada cuando quieras.
+---
+Si te interesa la propuesta, charlamos 10 minutos cuando vos puedas.
+---
+Estoy a tu disposición para una reunión si querés ver cómo funcionaría.
+---
+Si te resuena algo de esto, avisame y coordinamos llamada.
+---
+Podemos organizar una charla informal cuando te quede cómodo.
+---
+Si querés avanzar, podemos hacer una llamada rápida. Estoy disponible.
+---
+Cuando tengas un rato, si te interesa, charlamos mejor por teléfono.
+---
+Si te parece útil, podemos agendar una reunión cuando vos digas.
+---
+Cualquier duda estoy a disposición. Podemos organizar llamada si preferís.
+---
+Si querés ver más, coordinamos una videollamada breve.
+---
+Si te interesa la idea, avisame y organizamos para hablar.
+---
+Estoy a tu entera disposición si querés coordinar una reunión.
+---
+Podemos charlarlo en una llamada si tenés disponibilidad.
+---
+Si te sirve, agendamos una reunión para ver tu caso puntual.
+---
+Quedo a la espera. Si querés, organizamos una llamada.
+---
+Si te interesa, estoy disponible para una charla corta cuando puedas.
+---
+Si querés que lo veamos en detalle, coordinamos reunión.
+---
+Estoy a disposición para una llamada o reunión cuando te quede bien.
+---
+Si le interesa, podemos organizar algo breve por Meet o Zoom.
+---
+Avisame si querés charlar. Estoy a tu disposición.
+---
+Si te gustaría explorar esto, podemos agendar una llamada.
+---
+Quedo a disposición. Si te interesa, coordinamos cuando quieras.
