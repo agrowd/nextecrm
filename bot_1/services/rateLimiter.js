@@ -200,6 +200,18 @@ class IntelligentRateLimiter {
         // Asegurar que stats están cargados
         await this.ensureInitialized();
 
+        // 🔄 Verificar cambio de día EN RUNTIME (fix: antes solo se chequeaba al arrancar)
+        const today = this.getArgentinaDate();
+        if (this.stats.date !== today) {
+            console.log(`📅 Nuevo día detectado en runtime (${this.stats.date} → ${today}) - Reseteando stats`);
+            const yesterdayLeads = this.stats.leadsProcessed;
+            const yesterdayLimit = this.stats.currentDayLimit;
+            this.resetDailyStats();
+            this.adjustDailyLimit();
+            await this.saveStats();
+            console.log(`📅 Ayer: ${yesterdayLeads}/${yesterdayLimit} leads | Hoy: 0/${this.stats.currentDayLimit}`);
+        }
+
         // Usar hora de Argentina (UTC-3) en lugar de UTC del servidor
         const hour = this.getArgentinaHour();
         const day = this.getArgentinaDay();

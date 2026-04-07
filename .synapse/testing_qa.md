@@ -34,6 +34,11 @@
 - **Decision:** D-06 LOCKED
 - **Status:** ✅ DOCUMENTED
 
+### ISSUE-06: Sync Drift in Bot Services (2026-04-07)
+- **Root Cause:** `scripts/sync-bots.js` was too restrictive.
+- **Fix:** Rewrote `sync-bots.js` to use `bot/` as source and sync the entire `services/` directory.
+- **Status:** ✅ RESOLVED
+
 ## 📋 Verification Checklist (Post-Deploy)
 After VPS rebuild, verify:
 1. [ ] bot_1 starts sending at 08:00 Argentina (not skipping)

@@ -51,14 +51,16 @@ const http = require('http');
 const { Server } = require('socket.io');
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 🛡️ ASEGURAR ENTORNO BOT_1 (Fix para VPS donde git ignora .env)
+// 🛡️ ASEGURAR ENTORNO BOTS (Asegura .env en todas las instancias)
 // ─────────────────────────────────────────────────────────────────────────────
 async function ensureBotEnv() {
-  const templateEnvPath = path.join(__dirname, '../env.example'); // Usar example como base
-  // Definir paths para el template y para la instancia activa bot_1
-  const botPaths = [
-    { path: path.join(__dirname, '../bot/.env'), id: 'bot_template' },
-    { path: path.join(__dirname, '../bot_1/.env'), id: 'bot_1' }
+  const templateEnvPath = path.join(__dirname, '../env.example');
+  const botInstances = [
+    { dir: 'bot', id: 'bot' },
+    { dir: 'bot_1', id: 'bot_1' },
+    { dir: 'bot_2', id: 'bot_2' },
+    { dir: 'bot_3', id: 'bot_3' },
+    { dir: 'bot_4', id: 'bot_4' }
   ];
 
   try {
@@ -66,34 +68,33 @@ async function ensureBotEnv() {
     if (fsSync.existsSync(templateEnvPath)) {
       baseContent = fsSync.readFileSync(templateEnvPath, 'utf8');
     } else {
-      baseContent = `BACKEND_URL=http://127.0.0.1:8484\nBOT_INSTANCE_ID=bot_1\n`;
+      baseContent = `BACKEND_URL=http://127.0.0.1:8484\nPORT=8484\n`;
     }
 
-    for (const bot of botPaths) {
-      // Si el archivo no existe o queremos forzar el ID correcto para bot_1
-      const exists = fsSync.existsSync(bot.path);
+    for (const bot of botInstances) {
+      const envPath = path.join(__dirname, `../${bot.dir}/.env`);
+      const exists = fsSync.existsSync(envPath);
+      
+      let content = exists ? fsSync.readFileSync(envPath, 'utf8') : baseContent;
 
-      // Para bot_1, siempre queremos asegurar que tenga BOT_INSTANCE_ID=bot_1
-      // Para el template, queremos placeholder o default
+      // Asegurar que el BACKEND_URL esté presente
+      if (!content.includes('BACKEND_URL=')) {
+        content += `\nBACKEND_URL=http://127.0.0.1:8484`;
+      }
 
-      if (!exists || bot.id === 'bot_1') {
-        let content = exists ? fsSync.readFileSync(bot.path, 'utf8') : baseContent;
-        const targetId = bot.id === 'bot_template' ? 'bot_1' : 'bot_1';
-
-        // Si no tiene instance ID o es incorrecto para bot_1, lo corregimos
-        if (!content.includes('BOT_INSTANCE_ID=')) {
-          content += `\nBOT_INSTANCE_ID=${targetId}`;
-          console.log(`🔧 Agregado BOT_INSTANCE_ID=${targetId} a ${bot.id}`);
-          fsSync.writeFileSync(bot.path, content);
-        } else if (bot.id === 'bot_1' && !content.includes('BOT_INSTANCE_ID=bot_1')) {
-          // Forzar bot_1 en bot_1/.env si tiene otro valor
-          content = content.replace(/BOT_INSTANCE_ID=.*/g, 'BOT_INSTANCE_ID=bot_1');
-          console.log(`🔧 Corregido BOT_INSTANCE_ID=bot_1 en ${bot.id}`);
-          fsSync.writeFileSync(bot.path, content);
+      // Asegurar o Corregir BOT_INSTANCE_ID
+      if (!content.includes('BOT_INSTANCE_ID=')) {
+        content += `\nBOT_INSTANCE_ID=${bot.id}`;
+        console.log(`🔧 Agregado BOT_INSTANCE_ID=${bot.id} a ${bot.dir}`);
+        fsSync.writeFileSync(envPath, content);
+      } else {
+        const currentIdMatch = content.match(/BOT_INSTANCE_ID=(.*)/);
+        if (currentIdMatch && currentIdMatch[1].trim() !== bot.id) {
+          content = content.replace(/BOT_INSTANCE_ID=.*/g, `BOT_INSTANCE_ID=${bot.id}`);
+          console.log(`🔧 Corregido BOT_INSTANCE_ID de ${currentIdMatch[1].trim()} a ${bot.id} en ${bot.dir}`);
+          fsSync.writeFileSync(envPath, content);
         } else if (!exists) {
-          // Crear archivo nuevo si no existe
-          content = content.replace(/BOT_INSTANCE_ID=.*/g, `BOT_INSTANCE_ID=${targetId}`);
-          fsSync.writeFileSync(bot.path, content);
+          fsSync.writeFileSync(envPath, content);
           console.log(`✅ Creado .env para ${bot.id}`);
         }
       }
