@@ -1,10 +1,17 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-02-23 (12:00-12:30 Argentina)
+## Current Session: 2026-05-22 (11:20 Argentina)
+- **Objective:** Implement randomized bot daily schedule (9-10 AM to 7-8 PM) and strictly cap daily limits at 50 leads/day.
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** Synced rateLimiter.js modifications across all bot slots.
+- **Deploy:** Ready to push to GitHub and update VPS.
+
+## Previous Session: 2026-02-23 (12:00-12:30 Argentina)
 - **Objective:** Fix Bot 2 inactivity, status@broadcast DB crash, and Bot 1 hands.
 - **Status:** ✅ ALL FIXES DEPLOYED.
-- **Git Info:** Changes not yet committed.
+- **Git Info:** Changes committed.
 - **Deploy:** Ready for deployment via Docker build.
+
 
 ## Previous Session: 2026-02-18 (02:00-05:10 Argentina)
 
@@ -21,6 +28,11 @@
 ↑ Esto apareció en los logs inmediatamente al prender Bot 1. El fix funciona.
 
 ## Fixes Applied This Session
+
+### 26. Randomized Hours Schedule & Strict 50 Limit Capping
+- **Problema:** El usuario solicitó mantener la funcionalidad actual pero con un inicio aleatorio entre las 9 y 10 AM y finalización entre las 7 y 8 PM (Argentina). También requirió respetar estrictamente el límite de 50 leads al día (sin escalar hasta 200).
+- **Solución:** Modificado `bot/services/rateLimiter.js` para generar `dailyStartHour` (9.0 a 10.0 decimal) y `dailyEndHour` (19.0 a 20.0 decimal). Se limitó `targetLeads` y `startLeads` a `50` y el `increment` a `0`. En `loadStats()` se agregó un guard para forzar el clampado a 50 de cualquier archivo stats preexistente. Corregido y validado con `node -c`. Sincronizado a todas las instancias `bot_1` a `bot_4` usando `sync-bots.js`.
+- **Archivos:** `bot/services/rateLimiter.js` y sincronización a todos los bots.
 
 ### 19. Fix Bot 2 Inactivity (ERR-13, RateLimiter instanceId bug)
 - **Problema:** Bot 2 se quedaba inactivo ("ready" pero durmiendo +600 mins por `outside_business_hours`).

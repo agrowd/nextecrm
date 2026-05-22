@@ -27,8 +27,8 @@ class IntelligentRateLimiter {
             },
             scaling: {
                 startLeads: 50,      // Empezar con 50 leads/día
-                increment: 25,       // Aumentar 25 leads cada día
-                targetLeads: 200     // Objetivo final
+                increment: 0,        // No incrementar
+                targetLeads: 50      // Objetivo final fijo
             }
         };
 
@@ -99,6 +99,24 @@ class IntelligentRateLimiter {
     }
 
     /**
+     * Obtener hora actual en formato decimal en zona horaria Argentina (UTC-3)
+     */
+    getArgentinaDecimalHour() {
+        const now = new Date();
+        const argentinaTime = new Date(now.getTime() - (3 * 60 * 60 * 1000));
+        return argentinaTime.getUTCHours() + (argentinaTime.getUTCMinutes() / 60) + (argentinaTime.getUTCSeconds() / 3600);
+    }
+
+    /**
+     * Formatear hora decimal a string HH:MM
+     */
+    formatDecimalHour(decimalHour) {
+        const hours = Math.floor(decimalHour);
+        const minutes = Math.floor((decimalHour - hours) * 60);
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    }
+
+    /**
      * Asegurar que stats están cargados antes de usarlos
      */
     async ensureInitialized() {
@@ -120,6 +138,19 @@ class IntelligentRateLimiter {
             console.log(`📊 [RateLimiter] Cargando stats: fecha archivo=${stats.date}, fecha hoy ARG=${today}`);
             console.log(`📊 [RateLimiter] Stats archivo: ${stats.leadsProcessed}/${stats.currentDayLimit} leads`);
 
+            // Asegurar que existan dailyStartHour y dailyEndHour para hoy
+            if (stats.dailyStartHour === undefined || stats.dailyEndHour === undefined) {
+                stats.dailyStartHour = 9.0 + Math.random(); // 9:00 a 10:00 AM
+                stats.dailyEndHour = 19.0 + Math.random();  // 7:00 a 8:00 PM (19:00 a 20:00)
+                console.log(`⏰ [RateLimiter] Generados horarios aleatorios faltantes para hoy: ${this.formatDecimalHour(stats.dailyStartHour)} a ${this.formatDecimalHour(stats.dailyEndHour)}`);
+            }
+
+            // Forzar límite a targetLeads si excede (por cambio de configuración)
+            if (stats.currentDayLimit > this.limits.scaling.targetLeads) {
+                console.log(`⚠️ [RateLimiter] Ajustando límite diario de archivo (${stats.currentDayLimit}) al nuevo target máximo (${this.limits.scaling.targetLeads})`);
+                stats.currentDayLimit = this.limits.scaling.targetLeads;
+            }
+
             // Resetear si es un nuevo día (hora Argentina)
             if (stats.date !== today) {
                 console.log('📅 Nuevo día (hora Argentina) - Reseteando estadísticas');
@@ -135,12 +166,29 @@ class IntelligentRateLimiter {
             } else {
                 this.stats = stats;
                 console.log(`📊 [RateLimiter] Mismo día, continuando: ${this.stats.leadsProcessed}/${this.stats.currentDayLimit} leads`);
+                console.log(`⏰ [RateLimiter] Horario activo hoy: ${this.formatDecimalHour(this.stats.dailyStartHour)} - ${this.formatDecimalHour(this.stats.dailyEndHour)}`);
             }
 
             await this.saveStats(); // Guardar después de cualquier cambio
         } catch (error) {
             console.log(`📊 [RateLimiter] Archivo no existe, creando nuevo con fecha ${this.getArgentinaDate()}`);
+            // Inicializar por primera vez con horarios aleatorios
+            const dailyStartHour = 9.0 + Math.random();
+            const dailyEndHour = 19.0 + Math.random();
+            this.stats = {
+                date: this.getArgentinaDate(),
+                leadsProcessed: 0,
+                messagesSent: 0,
+                messagesPerHour: {},
+                currentDayLimit: 50,
+                banned: false,
+                suspiciousActivity: [],
+                scalingPhase: 1,
+                dailyStartHour,
+                dailyEndHour
+            };
             await this.saveStats();
+            console.log(`⏰ [RateLimiter] Creado nuevo archivo de límites diarios con horarios: ${this.formatDecimalHour(dailyStartHour)} - ${this.formatDecimalHour(dailyEndHour)}`);
         }
     }
 
@@ -156,6 +204,10 @@ class IntelligentRateLimiter {
         const previousLimit = this.stats.currentDayLimit || 50;
         const previousPhase = this.stats.scalingPhase || 1;
 
+        // Generar horario aleatorio para el nuevo día
+        const dailyStartHour = 9.0 + Math.random(); // 9:00 a 10:00 AM
+        const dailyEndHour = 19.0 + Math.random();  // 7:00 a 8:00 PM (19:00 a 20:00)
+
         this.stats = {
             date: this.getArgentinaDate(),
             leadsProcessed: 0,
@@ -164,10 +216,13 @@ class IntelligentRateLimiter {
             currentDayLimit: previousLimit, // Mantener límite del día anterior
             banned: false,
             suspiciousActivity: [],
-            scalingPhase: previousPhase
+            scalingPhase: previousPhase,
+            dailyStartHour,
+            dailyEndHour
         };
 
         console.log(`🔄 [RateLimiter] Stats reseteados: 0/${previousLimit} leads para ${this.stats.date}`);
+        console.log(`⏰ [RateLimiter] Nuevo horario asignado para hoy: ${this.formatDecimalHour(dailyStartHour)} - ${this.formatDecimalHour(dailyEndHour)}`);
     }
 
     /**
@@ -212,19 +267,15 @@ class IntelligentRateLimiter {
             console.log(`📅 Ayer: ${yesterdayLeads}/${yesterdayLimit} leads | Hoy: 0/${this.stats.currentDayLimit}`);
         }
 
-        // Usar hora de Argentina (UTC-3) en lugar de UTC del servidor
-        const hour = this.getArgentinaHour();
-        const day = this.getArgentinaDay();
+        // Usar hora de Argentina en formato decimal para máxima precisión
+        const currentDecimalHour = this.getArgentinaDecimalHour();
 
-        // 1. Verificar horario laboral
-        const schedule = (day === 0 || day === 6) ?
-            this.businessHours.weekend : this.businessHours.weekday;
-
-        if (hour < schedule.start || hour >= schedule.end) {
+        // 1. Verificar horario laboral con los rangos aleatorios diarios generados
+        if (currentDecimalHour < this.stats.dailyStartHour || currentDecimalHour >= this.stats.dailyEndHour) {
             return {
                 allowed: false,
                 reason: 'outside_business_hours',
-                message: `Fuera de horario (${schedule.start}:00 - ${schedule.end}:00)`,
+                message: `Fuera de horario de hoy (${this.formatDecimalHour(this.stats.dailyStartHour)} - ${this.formatDecimalHour(this.stats.dailyEndHour)})`,
                 nextAvailable: this.getNextBusinessHour()
             };
         }
@@ -411,36 +462,22 @@ class IntelligentRateLimiter {
     }
 
     getNextBusinessHour() {
-        // Usar hora Argentina (UTC-3) para cálculos
         const now = new Date();
-        const argentinaHour = this.getArgentinaHour();
-        const argentinaDay = this.getArgentinaDay();
+        const currentDecimalHour = this.getArgentinaDecimalHour();
 
-        const schedule = (argentinaDay === 0 || argentinaDay === 6) ?
-            this.businessHours.weekend : this.businessHours.weekday;
-
-        // Si estamos antes del horario de inicio (ej: 7am Argentina, abrimos 9am)
-        if (argentinaHour < schedule.start) {
-            // Crear fecha para hoy a la hora de apertura en Argentina
-            const hoursUntilOpen = schedule.start - argentinaHour;
-            const next = new Date(now.getTime() + hoursUntilOpen * 60 * 60 * 1000);
-            next.setMinutes(0, 0, 0);
+        // Si estamos hoy antes del horario de inicio aleatorio
+        if (currentDecimalHour < this.stats.dailyStartHour) {
+            const diffHours = this.stats.dailyStartHour - currentDecimalHour;
+            const next = new Date(now.getTime() + diffHours * 60 * 60 * 1000);
             return next;
         }
 
-        // Si ya cerró hoy (ej: 22:00 Argentina, cerramos 21:00), programar para mañana
-        // Calcular horas hasta las 00:00 Argentina, luego sumar hora de apertura
-        const hoursUntilMidnight = 24 - argentinaHour;
-        const tomorrowMidnight = new Date(now.getTime() + hoursUntilMidnight * 60 * 60 * 1000);
-
-        // Verificar horario de mañana
-        const tomorrowArgentinaDay = (argentinaDay + 1) % 7;
-        const nextSchedule = (tomorrowArgentinaDay === 0 || tomorrowArgentinaDay === 6) ?
-            this.businessHours.weekend : this.businessHours.weekday;
-
-        // Mañana a la hora de apertura en Argentina
-        const next = new Date(tomorrowMidnight.getTime() + nextSchedule.start * 60 * 60 * 1000);
-        next.setMinutes(0, 0, 0);
+        // Si ya pasó el horario de hoy, programar para mañana
+        const hoursUntilMidnight = 24 - currentDecimalHour;
+        // Mañana estimamos la apertura alrededor de las 9:30 AM (9.5 decimal).
+        // Al despertar a las 9:30 AM, el canSendNow() detectará el cambio de día, 
+        // generará el horario exacto para mañana, y si es necesario dormirá unos minutos más.
+        const next = new Date(now.getTime() + (hoursUntilMidnight + 9.5) * 60 * 60 * 1000);
         return next;
     }
 
