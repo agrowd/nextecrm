@@ -30,25 +30,32 @@ class ProfileManager {
     }
 
     /**
-     * Mata procesos zombie de Chromium que quedaron de ejecuciones anteriores
+     * Mata procesos zombie de Chromium que quedaron de ejecuciones anteriores para esta instancia
+     * @param {string} instanceId - ID de la instancia del bot
      */
-    static killZombieChrome() {
+    static killZombieChrome(instanceId) {
         try {
             // Solo en Linux (Docker)
             if (process.platform !== 'linux') return;
 
-            const result = execSync('pgrep -f chromium || true', { encoding: 'utf8' }).trim();
+            if (!instanceId) {
+                console.warn('⚠️ No instanceId provided to killZombieChrome, skipping targeted kill to avoid killing other bots.');
+                return;
+            }
+
+            const targetKey = `browser-${instanceId}`;
+            const result = execSync(`pgrep -f "${targetKey}" || true`, { encoding: 'utf8' }).trim();
             if (result) {
                 const pids = result.split('\n').filter(p => p.trim());
-                console.log(`🧹 Encontrados ${pids.length} procesos Chrome zombie. Matando...`);
+                console.log(`🧹 Encontrados ${pids.length} procesos Chrome zombie para ${instanceId}. Matando...`);
                 try {
-                    execSync('pkill -9 -f chromium || true', { encoding: 'utf8' });
-                    console.log('✅ Procesos Chrome zombie eliminados.');
+                    execSync(`pkill -9 -f "${targetKey}" || true`, { encoding: 'utf8' });
+                    console.log(`✅ Procesos Chrome zombie de ${instanceId} eliminados.`);
                 } catch (e) {
                     // pkill puede dar exit code 1 si no hay procesos, ignorar
                 }
             } else {
-                console.log('✅ No hay procesos Chrome zombie.');
+                console.log(`✅ No hay procesos Chrome zombie para ${instanceId}.`);
             }
         } catch (err) {
             console.warn('⚠️ Error verificando procesos zombie:', err.message);
@@ -97,8 +104,8 @@ class ProfileManager {
             }
         }
 
-        // También matar procesos zombie de Chrome
-        ProfileManager.killZombieChrome();
+        // También matar procesos zombie de Chrome específicos de esta instancia
+        ProfileManager.killZombieChrome(instanceId);
 
         if (totalCleaned > 0) {
             console.log(`✅ Limpieza completada: ${totalCleaned} archivos de bloqueo eliminados.`);

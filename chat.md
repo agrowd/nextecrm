@@ -381,3 +381,33 @@ async function startScraperWorker() {
 3. **Sincronización y Validación Global:**
    - Se ejecutó `sync-bots.js` para propagar el generador de plantillas saneado y corregido a todos los bots (`bot_1` a `bot_4`).
    - Se verificó la correcta compilación de todos los bots con `node -c` y se pusheó exitosamente al repositorio master de GitHub.
+
+---
+
+## Actualización: Corrección de Cuelgues de Chrome y Caídas Cruzadas de Bots en Docker (2026-05-24)
+
+### Síntoma Reportado:
+- Al levantar los bots en la VPS tras la reconstrucción del contenedor:
+  1. `bot_1` se quedaba congelado indefinidamente en `? Inicializando cliente WhatsApp...` sin mostrar el código QR.
+  2. `bot_2` fallaba inmediatamente al iniciar con el error `TargetCloseError: Protocol error (Runtime.callFunctionOn): Target closed`.
+  3. Prender el segundo bot provocaba que el primero se desconectara/muriera.
+
+### Diagnóstico Técnico Realizado:
+1. **Inestabilidad del Nuevo Headless Mode (Puppeteer v22+):** El bot usaba `headless: true` que lanza la nueva y pesada versión headless de Chrome. En entornos Linux simplificados (Docker slim), esta versión consume muchísima CPU/RAM y suele colgarse indefinidamente o crashearse durante el arranque de `client.initialize()`.
+2. **Conflicto Crítico de pkill entre Bots:** En el arranque, cada instancia llamaba a `ProfileManager.killZombieChrome()`, el cual ejecutaba el comando global `pkill -9 -f chromium`. Dado que todos los bots (`bot_1` a `bot_4`) se ejecutan dentro del **mismo contenedor** (`rascafull-crm`), iniciar cualquier bot mataba de inmediato la instancia activa de Chromium de todos los demás bots, causando caídas cruzadas catastróficas.
+
+### Solución Implementada:
+
+1. **Configuración de Headless Estable (Clásica):**
+   - Se modificó `bot/index.js` para cambiar `headless` a `'shell'` cuando la variable de entorno `HEADLESS` es verdadera (`headless: process.env.HEADLESS === 'true' ? 'shell' : ...`), alineándolo con la decisión de diseño bloqueada **D-01**.
+   - Esto utiliza el motor de headless clásico, sumamente estable y liviano en Docker, previniendo cuelgues indefinidos.
+
+2. **Aislamiento Quirúrgico de Procesos (Targeted pkill):**
+   - Se reescribió `ProfileManager.killZombieChrome(instanceId)` en `profileManager.js` para recibir el `instanceId` del bot actual.
+   - El bot ahora ejecuta un filtrado y matado selectivo (`pgrep -f "browser-${instanceId}"` y `pkill -9 -f "browser-${instanceId}"`).
+   - Esto garantiza que un bot **únicamente** limpie y mate sus propios procesos huérfanos/zombie (basado en su `--user-data-dir` único `browser-bot_X`), dejando a los demás bots activos corriendo de manera pacífica e ininterrumpida.
+
+3. **Sincronización y Validación:**
+   - Se corrió `sync-bots.js` para propagar los archivos corregidos a todos los slots (`bot_1` a `bot_4`).
+   - Se validó con éxito que todos compilaran de forma limpia.
+

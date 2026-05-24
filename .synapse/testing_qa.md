@@ -44,6 +44,12 @@
 - **Fix:** Cleaned, consolidated and escaped the `this.propuestas` array to contain exactly 10 correct autumn proposals stating `$530.000` combo savings, synchronized all bots, and verified with `node -c`.
 - **Status:** ✅ RESOLVED
 
+### ISSUE-08: Chrome Hanging or Crashing on Multi-Bot Launch (TargetCloseError & Naive pkill) (2026-05-24)
+- **Root Cause:** Puppeteer v22+ used the unstable new headless Chrome, hanging `client.initialize()`. Additionally, starting `bot_2` called `pkill -9 -f chromium`, killing `bot_1`'s browser process inside the shared container.
+- **Fix:** Map `HEADLESS=true` to stable `headless: 'shell'`. Modify `profileManager.js` to target only `browser-${instanceId}` processes to isolate each bot's Chromium instance.
+- **Status:** ✅ RESOLVED
+
+
 
 ## 📋 Verification Checklist (Post-Deploy)
 After VPS rebuild, verify:

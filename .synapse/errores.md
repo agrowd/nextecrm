@@ -158,3 +158,20 @@ Este archivo documenta errores encontrados y sus soluciones para NO repetirlos.
 3. Se corrió la sincronización `sync-bots.js` y se validó la sintaxis (`node -c`) exitosamente en todos los bots (`bot`, `bot_1` a `bot_4`).
 **Estado:** ✅ FIXED
 
+---
+
+## ERR-16: Bots get stuck during initialize() or throw TargetCloseError when starting second bot due to naive pkill & headless Chrome (2026-05-24)
+**Síntoma:**
+1. Al iniciar `bot_1`, se queda congelado indefinidamente en `? Inicializando cliente WhatsApp...` y nunca muestra el QR ni da error.
+2. Al iniciar `bot_2`, arroja un error crítico `TargetCloseError: Protocol error (Runtime.callFunctionOn): Target closed` y se detiene.
+3. El primer bot activo se muere de repente apenas se prende el segundo.
+**Root Cause:**
+1. **Conflicto de Headless Mode:** En versiones de Puppeteer v22+, la bandera `headless: true` activa la "nueva" versión headless de Chrome. Esta versión es inestable, muy pesada en RAM/CPU, y tiende a colgarse (hanging `initialize()`) o crashearse en entornos de contenedores slim como Docker.
+2. **Naive pkill en Startup:** El script `profileManager.js` ejecutaba en su arranque un comando global `pkill -9 -f chromium`. Dado que todos los bots (`bot_1` a `bot_4`) se ejecutan dentro del mismo contenedor Docker (`rascafull-crm`), levantar un bot (como `bot_2`) mataba instantáneamente el proceso Chromium activo de cualquier otro bot en ejecución (como `bot_1`), causando caídas cruzadas.
+**Solución:**
+1. **Configuración Estable de Headless:** Se cambió en `bot/index.js` la configuración de Puppeteer para forzar `headless: 'shell'` en lugar de `true` si la variable `HEADLESS` en el entorno es verdadera, alineándolo con la decisión bloqueada `D-01`. Esto utiliza el motor de headless clásico, sumamente estable y liviano en Docker.
+2. **Matado Quirúrgico de Procesos (Targeted pkill):** Se modificaron los métodos `killZombieChrome` y `cleanProfileLocks` en `profileManager.js` para recibir el `instanceId` actual. El bot ahora realiza un matado de procesos selectivo buscando la clave `browser-${instanceId}` (que mapea a su directorio `--user-data-dir` único), garantizando que un bot **nunca** interrumpa ni mate los procesos de otro bot activo.
+3. Se sincronizó (`sync-bots.js`) y se validó en todas las carpetas.
+**Estado:** ✅ FIXED
+
+
