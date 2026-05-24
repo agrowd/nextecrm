@@ -1,6 +1,21 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-05-22 (11:20 Argentina)
+## Current Session: 2026-05-24 (13:20 Argentina)
+- **Objective:** Fix math discrepancy in combo savings ($180k to $530k) and resolve syntax corruption in template generator across all bots.
+- **Status:** ✅ COMPLETED, SYNCHRONIZED & PUSHED
+- **Git Info:** Synced bot folders, pushed master.
+- **Deploy:** Ready to deploy on VPS.
+
+### 27. Pricing Discount Math Correction & Syntax Repair
+- **Problema:** El combo Otoño indicaba un "Ahorro directo de $180.000" cuando el precio normal es $950.000 y la promo es $420.000 (el ahorro matemático correcto es **$530.000**). Además, el archivo `advancedTemplateGenerator.js` en `bot/services/` tenía una sintaxis rota y código duplicado remanente que impedía compilar/ejecutar el bot.
+- **Solución:**
+  1. Se reparó la sintaxis en `bot/services/advancedTemplateGenerator.js`, cerrando limpiamente el array `this.presentaciones` y reescribiendo de manera consolidada `this.propuestas` con exactamente 10 propuestas válidas y limpias.
+  2. Se corrigió el valor de ahorro en todas las propuestas del combo para reflejar con precisión el ahorro de **$530.000** sobre el precio de lista.
+  3. Se sincronizaron las mejoras en todas las réplicas de bots (`bot_1`, `bot_2`, `bot_3`, `bot_4`) con `sync-bots.js`.
+  4. Se validó la correcta compilación de cada uno con `node -c`.
+- **Archivos:** `bot/services/advancedTemplateGenerator.js` y sincronizaciones.
+
+## Previous Session: 2026-05-22 (11:20 Argentina)
 - **Objective:** Implement randomized bot daily schedule (9-10 AM to 7-8 PM) and strictly cap daily limits at 50 leads/day.
 - **Status:** ✅ COMPLETED & SYNCHRONIZED
 - **Git Info:** Synced rateLimiter.js modifications across all bot slots.

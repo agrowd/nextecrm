@@ -39,6 +39,12 @@
 - **Fix:** Rewrote `sync-bots.js` to use `bot/` as source and sync the entire `services/` directory.
 - **Status:** ✅ RESOLVED
 
+### ISSUE-07: Combo Discount Math Discrepancy & Template Syntax Error (2026-05-24)
+- **Root Cause:** Corrupted overwrite of `advancedTemplateGenerator.js` during the previous pricing refactor broke syntax and left older arrays containing wrong `$180.000` discount savings instead of `$530.000`.
+- **Fix:** Cleaned, consolidated and escaped the `this.propuestas` array to contain exactly 10 correct autumn proposals stating `$530.000` combo savings, synchronized all bots, and verified with `node -c`.
+- **Status:** ✅ RESOLVED
+
+
 ## 📋 Verification Checklist (Post-Deploy)
 After VPS rebuild, verify:
 1. [ ] bot_1 starts sending at 08:00 Argentina (not skipping)

@@ -144,3 +144,17 @@ Este archivo documenta errores encontrados y sus soluciones para NO repetirlos.
 **Root Cause:** Mensajes nativos de sistema de WhatsApp (`status@broadcast` - estados y actualizaciones de canales) entran por el event listener de `message`. Como no traen un JID estándar numeríco, al llegar al backend, `req.body.phone` venía inválido o nulo.
 **Solución:** Abortar el flujo temprano chequeando `if (message.from === 'status@broadcast') return;` directamente en los bots. Y agregar un if validando `!phone` en `/messages` de `server/index.js` retornando un Bad Request (400) en lugar de un Error 500.
 **Estado:** ✅ FIXED
+
+---
+
+## ERR-15: SyntaxError and corrupted template generator files with mathematically incorrect savings ($180k to $530k) (2026-05-24)
+**Síntoma:** Los bots no iniciaban (SyntaxError) debido a un bloque de código roto y duplicado en `advancedTemplateGenerator.js` en la línea 145 (`Nexte es transparencia y resulta        this.propuestas = [`). Además, la promoción del "Combo Otoño Todo Junto" indicaba un ahorro de `$180.000` (el cual no correspondía con el precio de lista de `$950.000` a promo `$420.000`), confundiendo al cliente.
+**Root Cause:**
+1. Un reemplazo naive fallido en la sesión previa corrompió la estructura del array de propuestas en `advancedTemplateGenerator.js`, dejando código duplicado y roto.
+2. El ahorro de `$180.000` se había calculado erróneamente en base a la diferencia entre los precios promo individuales sumados ($600k) y el combo promo ($420k), en lugar de la diferencia real del precio de lista ($950k) contra la promo combo ($420k), lo cual da un ahorro real de **$530.000**.
+**Solución:**
+1. Se reescribió de manera limpia y robusta el bloque del array `this.presentaciones` (cerrándolo correctamente) y el array de las 10 variantes de `this.propuestas` en `advancedTemplateGenerator.js` para corregir la sintaxis rota y actualizar todas las descripciones a los correctos **$530.000** de ahorro directo.
+2. Se eliminaron los duplicados del array y se escaparon correctamente las comillas en la propuesta 9 (`Tu sitio web \"dominio propio\"`).
+3. Se corrió la sincronización `sync-bots.js` y se validó la sintaxis (`node -c`) exitosamente en todos los bots (`bot`, `bot_1` a `bot_4`).
+**Estado:** ✅ FIXED
+
