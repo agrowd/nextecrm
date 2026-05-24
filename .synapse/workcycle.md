@@ -2,9 +2,9 @@
 
 ## Current Session: 2026-05-24 (13:20 Argentina)
 - **Objective:** Fix math discrepancy in combo savings ($180k to $530k) and resolve syntax corruption in template generator across all bots.
-- **Status:** ✅ COMPLETED, SYNCHRONIZED & PUSHED
+- **Status:** 🟡 PENDING DEPLOY ON VPS (Timeout encountered)
 - **Git Info:** Synced bot folders, pushed master.
-- **Deploy:** Ready to deploy on VPS.
+- **Deploy:** Timeout `UnixHTTPConnectionPool` (60s) encountered on VPS while creating container. Need to increase timeout and restart Docker.
 
 ### 27. Pricing Discount Math Correction & Syntax Repair
 - **Problema:** El combo Otoño indicaba un "Ahorro directo de $180.000" cuando el precio normal es $950.000 y la promo es $420.000 (el ahorro matemático correcto es **$530.000**). Además, el archivo `advancedTemplateGenerator.js` en `bot/services/` tenía una sintaxis rota y código duplicado remanente que impedía compilar/ejecutar el bot.
