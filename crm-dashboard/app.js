@@ -141,9 +141,17 @@ function initSocket() {
     });
 
     socket.on('bot_status_update', (data) => {
-        const { instanceId, status, wid, qr } = data;
+        const { instanceId, status, wid, qr, battery, limits, statusInfo } = data;
         const current = currentState.bots.get(instanceId) || {};
-        currentState.bots.set(instanceId, { ...current, status, wid, qr });
+        currentState.bots.set(instanceId, { 
+            ...current, 
+            status: status || current.status, 
+            wid: wid !== undefined ? wid : current.wid, 
+            qr: qr !== undefined ? qr : current.qr,
+            battery: battery !== undefined ? battery : current.battery,
+            limits: limits !== undefined ? limits : current.limits,
+            statusInfo: statusInfo !== undefined ? statusInfo : current.statusInfo
+        });
         renderBotControls();
     });
 
@@ -387,6 +395,29 @@ async function renderBotSessionCards(bots) {
         const color = botColors[bot.instanceId] || '#00bcd4';
         const startStr = bot.startedAt ? new Date(bot.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
 
+        let batteryHtml = '';
+        if (bot.battery) {
+            const battIcon = bot.battery.plugged ? '⚡' : '';
+            batteryHtml = `<div style="font-size: 10px; color: #8696a0;">🔋 ${bot.battery.level}% ${battIcon}</div>`;
+        }
+        let limitHtml = '';
+        if (bot.limits) {
+            limitHtml = `<div style="font-size: 10px; color: #8696a0;">🎯 Límite: ${bot.limits.processed}/${bot.limits.max}</div>`;
+        }
+        let sleepHtml = '';
+        if (bot.statusInfo) {
+            let sleepText = 'Activo';
+            let sleepColor = '#25d366';
+            if (bot.statusInfo.outsideHours) {
+                sleepText = '🌙 Fuera de hora';
+                sleepColor = '#ff9800';
+            } else if (bot.statusInfo.sleepMode) {
+                sleepText = '💤 Suspendido';
+                sleepColor = '#2196f3';
+            }
+            sleepHtml = `<div style="font-size: 10px; color: ${sleepColor}; font-weight: 600;">${sleepText}</div>`;
+        }
+
         return `
             <div class="bot-daily-card" style="background: #111b21; border: 1px solid ${color}40; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
                 <div style="display: flex; align-items: center; gap: 12px;">
@@ -398,11 +429,19 @@ async function renderBotSessionCards(bots) {
                         <div style="font-size: 10px; color: ${bot.status === 'ready' ? '#25d366' : '#ff9800'}; font-weight: 600;">${bot.status.toUpperCase()}</div>
                     </div>
                     <div style="text-align: right;">
+                        ${sleepHtml || `
                         <div style="font-size: 10px; color: #666;">Iniciado</div>
                         <div style="font-size: 11px; color: #8696a0;">${startStr}</div>
+                        `}
                     </div>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 5px; border-top: 1px solid #2f3b4350; padding-top: 10px;">
+                ${(batteryHtml || limitHtml) ? `
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #2f3b4350; padding-top: 8px; margin-top: 5px;">
+                    ${batteryHtml}
+                    ${limitHtml}
+                </div>
+                ` : ''}
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; border-top: 1px solid #2f3b4350; padding-top: 10px; margin-top: 5px;">
                     <div style="text-align: center;">
                         <div style="font-size: 18px; font-weight: 700; color: #fff;">${bot.sessionLeads}</div>
                         <div style="font-size: 9px; color: #8696a0; text-transform: uppercase;">Leads hoy</div>
@@ -656,84 +695,7 @@ function renderActivityLog(stats) {
     `;
 }
 
-// --- CONSOLE ---
-function appendConsoleLog(data) {
-    // Append to main console
-    const consoleOut = getEl('consoleOutput');
-    if (consoleOut) {
-        const line = document.createElement('div');
-        line.style.marginBottom = '2px';
-        const time = new Date(data.timestamp).toLocaleTimeString();
-        const color = data.level === 'warn' ? '#ff9800' : (data.level === 'error' ? '#f44336' : '#0f0');
-        const instanceColor = data.instanceId === 'bot_2' ? '#7e57c2' : (data.instanceId === 'bot_3' ? '#ff9800' : '#00a884');
-
-        line.innerHTML = `<span style="color:#666;">[${time}]</span> <span style="color:${instanceColor}; font-weight:600;">[${data.instanceId || 'system'}]</span> <span style="color:${color};">${data.message}</span>`;
-        consoleOut.appendChild(line);
-
-        const wrapper = consoleOut.parentElement;
-        wrapper.scrollTop = wrapper.scrollHeight;
-
-        // Limit lines
-        while (consoleOut.children.length > 200) {
-            consoleOut.removeChild(consoleOut.firstChild);
-        }
-    }
-
-    // Also append to individual console based on instanceId
-    let targetId = null;
-    if (data.instanceId === 'bot_1') targetId = 'consoleBot1Output';
-    else if (data.instanceId === 'bot_2') targetId = 'consoleBot2Output';
-    else if (data.instanceId === 'bot_3') targetId = 'consoleBot3Output';
-    else if (data.instanceId === 'scraper') targetId = 'consoleScraperOutput';
-    else if (data.instanceId === 'server') targetId = 'consoleServerOutput';
-
-    if (targetId) {
-        const targetConsole = getEl(targetId);
-        if (targetConsole) {
-            const line = document.createElement('div');
-            line.style.marginBottom = '2px';
-            const time = new Date(data.timestamp).toLocaleTimeString();
-            const color = data.level === 'warn' ? '#ff9800' : (data.level === 'error' ? '#f44336' : '#0f0');
-            line.innerHTML = `<span style="color:#666;">[${time}]</span> <span style="color:${color};">${data.message}</span>`;
-            targetConsole.appendChild(line);
-
-            // Limit lines
-            while (targetConsole.children.length > 100) {
-                targetConsole.removeChild(targetConsole.firstChild);
-            }
-        }
-    }
-}
-
-function toggleConsole(id) {
-    const consoleEl = getEl(`console-${id}`);
-    const toggle = getEl(`toggle-${id}`);
-    if (!consoleEl) return;
-
-    const isCollapsed = consoleEl.classList.contains('collapsed');
-
-    if (isCollapsed) {
-        consoleEl.classList.remove('collapsed');
-        consoleEl.style.height = '150px';
-        consoleEl.style.padding = '15px';
-        consoleEl.style.overflow = 'auto';
-        if (toggle) toggle.textContent = 'expand_more';
-    } else {
-        consoleEl.classList.add('collapsed');
-        consoleEl.style.height = '0';
-        consoleEl.style.padding = '0'; // Change from '0 15px' to '0' to avoid jump
-        consoleEl.style.overflow = 'hidden';
-        if (toggle) toggle.textContent = 'expand_less';
-    }
-}
-
-function clearAllConsoles() {
-    const consoleIds = ['consoleOutput', 'consoleScraperOutput', 'consoleServerOutput', 'consoleBot1Output', 'consoleBot2Output', 'consoleBot3Output'];
-    consoleIds.forEach(id => {
-        const el = getEl(id);
-        if (el) el.innerHTML = '';
-    });
-}
+// (Console functions appendConsoleLog, toggleConsole, and clearAllConsoles removed here; defined at end of file)
 
 // --- SETTINGS ---
 async function fetchBotConfig() {
@@ -1103,8 +1065,62 @@ function renderBotControls() {
         } else if (bot.status === 'ready') {
             statusColor = '#25d366';
             statusHtml = `<span class="status-dot" style="background:${statusColor}; box-shadow: 0 0 8px ${statusColor};"></span> Operativo`;
+            
+            let metricsHtml = '';
+            if (bot.limits) {
+                const limitPct = Math.round((bot.limits.processed / bot.limits.max) * 100);
+                metricsHtml += `
+                    <div style="margin-top: 10px; text-align: left; background: #202c33; padding: 10px; border-radius: 6px; border: 1px solid #2f3b43; margin-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 11px; color: #8696a0; margin-bottom: 4px;">
+                            <span>Progreso Leads Hoy:</span>
+                            <span style="font-weight: 600; color: #fff;">${bot.limits.processed}/${bot.limits.max}</span>
+                        </div>
+                        <div style="width: 100%; background: #111b21; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
+                            <div style="background: #00a884; width: ${Math.min(limitPct, 100)}%; height: 100%;"></div>
+                        </div>
+                `;
+            } else {
+                metricsHtml += `<div style="margin-top: 10px; text-align: left; background: #202c33; padding: 10px; border-radius: 6px; border: 1px solid #2f3b43; margin-bottom: 10px;">`;
+            }
+            
+            if (bot.battery) {
+                const battIcon = bot.battery.plugged ? 'battery_charging_full' : (bot.battery.level > 80 ? 'battery_full' : (bot.battery.level > 30 ? 'battery_3_bar' : 'battery_alert'));
+                const battColor = bot.battery.level > 20 ? '#25d366' : '#f44336';
+                metricsHtml += `
+                        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #8696a0;">
+                            <span style="display: flex; align-items: center; gap: 4px;">
+                                <span class="material-icons" style="font-size: 14px; color: ${battColor};">${battIcon}</span>
+                                Batería:
+                            </span>
+                            <span style="font-weight: 600; color: #fff;">${bot.battery.level}% ${bot.battery.plugged ? '⚡' : ''}</span>
+                        </div>
+                `;
+            }
+            
+            if (bot.statusInfo) {
+                let sleepText = 'Activo';
+                let sleepColor = '#25d366';
+                if (bot.statusInfo.outsideHours) {
+                    sleepText = '🌙 Fuera de horario';
+                    sleepColor = '#ff9800';
+                } else if (bot.statusInfo.sleepMode) {
+                    sleepText = '💤 Suspendido temporal';
+                    sleepColor = '#2196f3';
+                }
+                metricsHtml += `
+                        <div style="display: flex; justify-content: space-between; font-size: 11px; color: #8696a0; margin-top: 6px; border-top: 1px solid #2f3b43; padding-top: 6px;">
+                            <span>Estado de Espera:</span>
+                            <span style="font-weight: 600; color: ${sleepColor};">${sleepText}</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                metricsHtml += `</div>`;
+            }
+
             actionHtml = `
-                <div style="font-size:12px; color:#25d366; margin-bottom: 15px; text-align: center;">📱 ${bot.wid || 'Conectado'}</div>
+                <div style="font-size:12px; color:#25d366; margin-bottom: 10px; text-align: center;">📱 ${bot.wid || 'Conectado'}</div>
+                ${metricsHtml}
                 <button class="action-btn stop-btn" style="width: 100%;" onclick="stopBotProcess('${id}')">DESCONECTAR & CERRAR</button>
             `;
         }
@@ -1631,8 +1647,79 @@ async function fetchAdvancedStats() {
         if (data.success) {
             renderCharts(data);
             fetchCategoryStats(); // Keep table updated too
+            fetchABTestStats(); // Fetch A/B testing statistics
         }
     } catch (e) { console.error("Error stats advanced:", e); }
+}
+
+async function fetchABTestStats() {
+    try {
+        const response = await fetchAPI('/stats/ab-testing');
+        const data = await response.json();
+        if (data.success) {
+            renderABChart(data.stats);
+        }
+    } catch (e) { console.error("Error fetching A/B testing stats:", e); }
+}
+
+function renderABChart(stats) {
+    const canvas = document.getElementById('abTestChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (chartInstances.abTest) chartInstances.abTest.destroy();
+
+    chartInstances.abTest = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: stats.map(s => `Var ${s.variant}`),
+            datasets: [
+                {
+                    label: 'Enviados',
+                    data: stats.map(s => s.sent),
+                    backgroundColor: 'rgba(134, 150, 160, 0.4)',
+                    borderColor: '#8696a0',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Respuestas',
+                    data: stats.map(s => s.responses),
+                    backgroundColor: 'rgba(0, 168, 132, 0.6)',
+                    borderColor: '#00a884',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Interesados',
+                    data: stats.map(s => s.interested),
+                    backgroundColor: 'rgba(255, 152, 0, 0.6)',
+                    borderColor: '#ff9800',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: '#e9edef' } },
+                tooltip: {
+                    callbacks: {
+                        afterBody: (context) => {
+                            const index = context[0].dataIndex;
+                            const rate = stats[index].conversionRate;
+                            return `Tasa Conversión: ${rate}%`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#2f3b43' }, ticks: { color: '#8696a0' } },
+                x: { grid: { display: false }, ticks: { color: '#8696a0' } }
+            }
+        }
+    });
 }
 
 function renderCharts(data) {
@@ -2153,7 +2240,11 @@ function clearAllConsoles() {
     const outputs = [
         'consoleOutput',
         'consoleScraperOutput',
-        'consoleServerOutput'
+        'consoleServerOutput',
+        'consoleBot1Output',
+        'consoleBot2Output',
+        'consoleBot3Output',
+        'consoleBot4Output'
     ];
     // También buscar consolas de bots dinámicas
     const botOutputs = document.querySelectorAll('[id^="consoleBotOutput-"]');

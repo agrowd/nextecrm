@@ -1,5 +1,15 @@
 # 📜 SYSTEM CHANGELOG
 
+## [2026-06-11] - Logs & Flota CRM Connectivity Alignment
+### Added
+- **Global Console Interception:** Hijacked `console.log`, `console.error`, `console.warn` globally on both central server and bot templates. Captured logs are saved to MongoDB (`Log` collection) and forwarded to Socket.io live console.
+- **Bot 4 Console UI:** Added individual console window markup (`consoleBot4Output`) in `crm-dashboard/index.html`.
+- **Global Socket Reference:** Exposed socket instance in bots via `global.botSocket = this.socket`.
+
+### Fixed
+- **Dashboard Redundancy:** Removed first set of duplicate console helper functions in `crm-dashboard/app.js`.
+- **Console Cleaning Bug:** Fixed `clearAllConsoles()` to clear static bot consoles (`Bot 1` to `Bot 4`) in addition to general logs.
+
 ## [2026-02-11] - Lead Burning Prevention
 ### Fixed
 - **session_dead Detection:** Inner catch blocks in `quickVerify` now detect browser crashes and return `session_dead` instead of false `quick_not_registered`. (`ee23cb3`)

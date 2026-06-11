@@ -1,22 +1,14 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const axios = require('axios');
+const AIHelper = require('./aiHelper');
 
 /**
  * Response Analyzer
  * Analiza respuestas de clientes para detectar rechazo y responder apropiadamente
- * 
- * Objetivo: Si cliente dice "NO" después de mensajes 1-2, disculparse y retirarse
  */
 class ResponseAnalyzer {
     constructor() {
-        this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        this.model = this.genAI.getGenerativeModel({
-            model: "gemini-1.5-flash",
-            generationConfig: {
-                temperature: 0.6,
-                topP: 0.9,
-                maxOutputTokens: 200
-            }
-        });
+        this.apiKey = process.env.OPENAI_API_KEY;
+        this.model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
         // Patrones de respuestas automáticas (ignorar)
         this.autoResponsePatterns = [
@@ -35,7 +27,7 @@ class ResponseAnalyzer {
      * Analizar si la respuesta es un rechazo
      */
     async isRejection(message) {
-        console.log(`🔍 Analizando respuesta del cliente...`);
+        console.log(`🔍 Analizando rechazo con IA...`);
 
         // 1. Verificar si es respuesta automática
         for (const pattern of this.autoResponsePatterns) {
@@ -85,28 +77,25 @@ Responde JSON:
 `;
 
         try {
-            const result = await this.model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text().trim();
+            const text = await AIHelper.generate(prompt, 'Eres un analizador de sentimientos en español. Responde estrictamente en formato JSON.', true);
+            if (text) {
+                const jsonMatch = text.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    const analysis = JSON.parse(jsonMatch[0]);
 
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                const analysis = JSON.parse(jsonMatch[0]);
+                    console.log(`${analysis.isRejection ? '❌' : '✅'} Rechazo: ${analysis.isRejection} (${(analysis.confidence * 100).toFixed(0)}%)`);
+                    console.log(`📝 ${analysis.reason}`);
 
-                console.log(`${analysis.isRejection ? '❌' : '✅'} Rechazo: ${analysis.isRejection} (${(analysis.confidence * 100).toFixed(0)}%)`);
-                console.log(`📝 ${analysis.reason}`);
-
-                return {
-                    isRejection: analysis.isRejection,
-                    confidence: analysis.confidence,
-                    shouldRespond: analysis.isRejection, // Solo responder si es rechazo
-                    reason: analysis.reason
-                };
+                    return {
+                        isRejection: analysis.isRejection,
+                        confidence: analysis.confidence,
+                        shouldRespond: analysis.isRejection, // Solo responder si es rechazo
+                        reason: analysis.reason
+                    };
+                }
             }
         } catch (error) {
-            // Silenciar error de API desactivada/404 y usar fallback
-            // console.error('Error analizando respuesta:', error.message);
-            console.log('⚠️ Análisis IA no disponible (Gemini desactivado), usando detección por palabras clave.');
+            console.log('⚠️ Análisis IA no disponible, usando detección por palabras clave. Detalle: ' + error.message);
         }
 
         // Fallback a detección simple
@@ -114,16 +103,101 @@ Responde JSON:
     }
 
     /**
+     * Analizar respuesta de forma consolidada e inteligente (Paso 1, 2, 3 de intención + generación de respuesta)
+     */
+    async analyzeIncomingMessage(message, leadName, leadCategory) {
+        console.log(`🔍 Iniciando análisis consolidado de respuesta de "${leadName}" con IA...`);
+        const simpleCheck = this.simpleRejectionCheck(message);
+        
+        // 1. Filtrar si es una autorespuesta conocida
+        const autoCheck = this.isAutoResponse(message);
+        if (autoCheck.isAutoResponse) {
+            return {
+                intent: 'auto_reply',
+                confidence: 1.0,
+                reason: autoCheck.reason,
+                reply: null,
+                shouldRespond: false
+            };
+        }
+
+        const systemPrompt = `Eres Juan Cruz, un agente de ventas y marketing de Nexte Marketing (10 años de trayectoria, operando en Argentina y 4 países más).
+Tu objetivo es vender servicios digitales (diseño web profesional por $150.000, publicidad en Google/Meta Ads, bots de WhatsApp con IA, software a medida).
+El cliente potencial (${leadName}), del rubro "${leadCategory}", respondió a nuestro mensaje de prospección en frío con este mensaje:
+"${message}"
+
+Analiza el mensaje y determina la intención y el sentimiento:
+- "rejection": No le interesa de forma neutra o educada ("No, gracias", "No me interesa", "Ya tengo web").
+- "anger": Está enojado, acusa de spam o pregunta hostilmente cómo obtuvimos su número ("Cómo conseguiste mi número?", "No molestes", "Denunciado").
+- "interest": Muestra interés directo o quiere saber más ("Me interesa", "Contame más", "Contame de qué se trata").
+- "question": Tiene preguntas específicas sobre precios, servicios o pide una llamada ("Cuánto sale?", "¿Qué incluye?", "Llamame").
+- "neutral": Mensaje ambiguo, saludo corto o no clasificado ("Ok", "Hola").
+
+Genera una respuesta en español rioplatense (cercano, amigable y muy profesional, usando "vos" y "che" con sutileza y de forma natural, sin sonar exagerado).
+Reglas de la respuesta:
+1. Si es "rejection" o "anger": Pide disculpas cordialmente por la molestia, confirma que lo removerás de la lista y desea éxitos. Corto (max 20 palabras).
+2. Si es "interest" o "question": Responde de forma clara y concisa a su duda o consulta. Ofrece una breve llamada de 5 minutos o proponer coordinar por WhatsApp para ver ejemplos de nuestro portfolio de webs reales. Sé servicial y empático. Max 45 palabras.
+3. Si es "neutral": Pregunta amablemente si le gustaría ver nuestro portfolio de páginas web de ejemplo para su rubro.
+
+Responde estrictamente en formato JSON con la siguiente estructura de ejemplo:
+{
+  "intent": "rejection" | "anger" | "interest" | "question" | "neutral",
+  "confidence": 0.0-1.0,
+  "reason": "Explicación del análisis",
+  "reply": "Respuesta generada para enviar al cliente",
+  "shouldRespond": true
+}
+`;
+
+        try {
+            const resText = await AIHelper.generate("Analiza la respuesta del cliente.", systemPrompt, true);
+            const jsonMatch = resText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const analysis = JSON.parse(jsonMatch[0]);
+                return {
+                    intent: analysis.intent,
+                    confidence: analysis.confidence || 0.9,
+                    reason: analysis.reason || '',
+                    reply: analysis.reply || null,
+                    shouldRespond: analysis.intent !== 'neutral' ? true : (analysis.shouldRespond !== false)
+                };
+            }
+        } catch (err) {
+            console.error('[AI-ANALYSIS] Error en análisis IA de entrada, usando parser por reglas:', err.message);
+        }
+
+        // Fallback a parser de reglas si la IA falla
+        const isInterest = simpleCheck.isInterest;
+        let intent = 'neutral';
+        let reply = null;
+        let shouldRespond = false;
+
+        if (simpleCheck.isRejection) {
+            intent = 'rejection';
+            reply = await this.generateApology(leadName);
+            shouldRespond = true;
+        } else if (isInterest) {
+            intent = 'interest';
+            reply = "¡Buenísimo! ¿Te gustaría que te pase algunos ejemplos de páginas web de tu rubro que ya diseñamos?";
+            shouldRespond = true;
+        }
+
+        return {
+            intent,
+            confidence: simpleCheck.confidence,
+            reason: simpleCheck.reason,
+            reply,
+            shouldRespond
+        };
+    }
+
+    /**
      * Detección simple de rechazo por keywords
-     * 🔧 FIX BUG-3: Ahora la negación se detecta ANTES que el interés
-     * "no estamos interesados" → RECHAZO (antes se detectaba como INTERÉS)
      */
     simpleRejectionCheck(message) {
         const msg = message.toLowerCase();
 
-        // ─── PASO 0: Detectar NEGACIÓN + palabras positivas (PRIORIDAD MÁXIMA) ───
-        // "no estamos interesados", "no me interesa", "no quiero", "no necesito"
-        // Estos DEBEN detectarse como rechazo ANTES de chequear interés positivo
+        // ─── PASO 0: Detectar NEGACIÓN + palabras positivas ───
         const negationPatterns = /\bno\b.*\b(interesa|interesado|interesados|quiero|queremos|necesito|necesitamos)\b/;
         if (msg.match(negationPatterns)) {
             console.log(`❌ RECHAZO con negación detectado en: "${msg.substring(0, 60)}..."`);
@@ -135,7 +209,7 @@ Responde JSON:
             };
         }
 
-        // ─── PASO 1: Rechazo CLARO (sin necesidad de negación) ───
+        // ─── PASO 1: Rechazo CLARO ───
         if (msg.match(/borra.*n[úu]mero|no me escribas|deja.*escribir|spam|molest|sacame|eliminame|bloqueado|borranos|no molesten/)) {
             return {
                 isRejection: true,
@@ -155,8 +229,7 @@ Responde JSON:
             };
         }
 
-        // ─── PASO 3: Detectar INTERÉS genuino (solo si NO hay negación previa) ───
-        // "me interesa", "quiero info", "pasame precio" → INTERÉS real
+        // ─── PASO 3: Detectar INTERÉS genuino ───
         if (msg.match(/\bme interesa\b|\bsí.*interesa|\bsi.*interesa|quiero.*info|manda|pasame|charlemos|hablemos|contame|llamame|escribime/)) {
             console.log(`✅ INTERÉS detectado en: "${msg.substring(0, 50)}..."`);
             return {
@@ -168,7 +241,7 @@ Responde JSON:
             };
         }
 
-        // ─── PASO 4: Palabras sueltas de interés (más permisivo) ───
+        // ─── PASO 4: Palabras sueltas de interés ───
         if (msg.match(/\bcuanto\b|\bprecio\b|\binfo\b|\bcotización\b|\bpresupuesto\b/)) {
             return {
                 isRejection: false,
@@ -200,7 +273,6 @@ Responde JSON:
             `Listo, te saco. Perdón si no era el momento. Éxitos con el consultorio!`
         ];
 
-        // Seleccionar aleatoriamente
         return apologies[Math.floor(Math.random() * apologies.length)];
     }
 
@@ -210,7 +282,6 @@ Responde JSON:
     isAutoResponse(message) {
         const msg = message.toLowerCase();
 
-        // Patrones típicos de mensajes automáticos de WhatsApp Business
         const autoPatterns = [
             /gracias por comunicarte/i,
             /te responderemos a la brevedad/i,
@@ -227,8 +298,6 @@ Responde JSON:
 
         const isAuto = autoPatterns.some(pattern => msg.match(pattern));
 
-        // 🚨 CASO ESPECIAL: "Hola" a secas (Respuesta automática muy corta)
-        // El usuario reportó que su auto-reply solo dice "Hola"
         if (!isAuto && msg.length < 10 && msg.match(/^(hola|buen d[ií]a)/)) {
             return {
                 isAutoResponse: true,
@@ -252,16 +321,14 @@ Responde JSON:
     isInterested(message) {
         const msg = message.toLowerCase();
 
-        // Señales de interés alto
         if (msg.match(/sí|si(?!\w)|dale|interesa|cuanto|cuesta|precio|info|contame|más detalles|cómo funciona/)) {
             return {
                 isInterested: true,
                 level: 'HIGH',
-                shouldNotify: true // Notificar al usuario para que cierre manualmente
+                shouldNotify: true
             };
         }
 
-        // Interés medio
         if (msg.match(/interesante|puede ser|veo|después|tal vez|quizás/)) {
             return {
                 isInterested: true,

@@ -411,3 +411,107 @@ async function startScraperWorker() {
    - Se corrió `sync-bots.js` para propagar los archivos corregidos a todos los slots (`bot_1` a `bot_4`).
    - Se validó con éxito que todos compilaran de forma limpia.
 
+---
+
+## Diagnóstico: nexte-bot1 Inactivo y Fuera de Horario (2026-06-11)
+
+### Síntoma Reportado:
+- El bot no envía mensajes de forma automática.
+- En los logs se muestra: `[SMART LOOP] ⏸️ Rate Limit (outside_business_hours). Durmiendo 818.2 min hasta próxima ventana.`
+- Se muestra: `❌ GEMINI_API_KEY no configurada en .env` y usa fallback de plantillas.
+- Un mensaje de `@lid` fue ignorado con el log: `No se encontró lead para 167954796826725@lid - IGNORANDO MENSAJE`.
+
+### Diagnóstico Técnico:
+1. **Sleep por Horario Comercial Aleatorio (outside_business_hours):**
+   - El bot calcula de forma aleatoria su hora de inicio (9:00 - 10:00 AM) y fin (7:00 - 8:00 PM) para simular comportamiento humano (D-24).
+   - El 10 de junio el horario aleatorio asignado fue **09:07 - 19:38**.
+   - A las 19:52 Argentina (22:52 UTC), el bot detectó que estaba fuera del rango y entró en modo sleep por 818.2 minutos, programando su próximo check para hoy (11 de junio) a las 09:30 AM Argentina.
+   - Dado que la hora actual de la consulta es las **06:28 AM**, el bot está respondiendo al diseño y sigue dormido. Despertará, reseteará estadísticas del nuevo día y reanudará envíos una vez que comience la nueva ventana laboral de hoy (después de las 9 AM).
+2. **Uso de Fallback de Plantillas (Gemini API Key):**
+   - La falta de `GEMINI_API_KEY` en el archivo `.env` activa automáticamente el **modo templates fallback**, el cual es estable y utiliza las 10 variantes preestablecidas de mensajes sin requerir IA.
+3. **Resolución de LID y Filtrado de Leads:**
+   - El bot detectó un mensaje entrante de un número de negocio (`@lid`), resolvió exitosamente el número real a `167954796826725`, pero al no estar registrado como lead pendiente en la base de datos, lo ignoró correctamente para evitar responder spam o chats externos.
+
+---
+
+## Actualización: Alineación de Logs del Sistema y Soporte para Bot 4 (2026-06-11)
+
+### Solicitud del Usuario:
+> Quiero que analices el front, el server y el bot para que se alinie todo en el crm y este todo conectado, se puedan ver logs del servidor etc, si revisas por completo el crm vas a ver que esta preparado para ello
+
+### Solución Implementada:
+
+1. **Intercepción Global de Consola en el Servidor:**
+   - Se añadió un interceptor global a nivel de proceso para `console.log`, `console.warn`, `console.error` y `console.info` al inicio de `server/index.js`.
+   - Todos los logs generados se almacenan automáticamente en la colección de MongoDB `Log` y se emiten al canal WebSocket de Socket.io (`realtime_bot_log`) con `instanceId: 'server'`, garantizando que la pestaña "Servidor" del dashboard se actualice en tiempo real.
+   - Se ajustó el método auxiliar `log` para imprimir utilizando el canal directo `originalConsoleLog` y así evitar bucles infinitos de loggeo.
+
+2. **Intercepción Global de Consola en los Bots:**
+   - Se implementó la misma intercepción global en el archivo maestro de arranque del bot (`bot/index.js`).
+   - Los bots envían sus mensajes al dashboard central vía Socket.io a través del canal `bot_log`, lo que permite monitorear eventos de Puppeteer, escaneo de códigos QR, pings de keep-alive y warnings de forma remota.
+   - Para que el interceptor tenga acceso al WebSocket en cualquier parte de la ejecución (incluidas librerías externas), se guardó el socket en el constructor mediante `global.botSocket = this.socket`.
+   - Se ajustó el método de registro `log` nativo de los bots para evitar redundancia y loops recursivos.
+
+3. **Soporte de Consola para Bot 4 en la UI:**
+   - Se añadió la sección de salida HTML colapsable para `Bot 4` (`consoleBot4Output`) en `crm-dashboard/index.html` con su respectiva cabecera y color de borde distintivo (`#2196f340`).
+   - Se saneó el archivo `crm-dashboard/app.js` eliminando definiciones duplicadas y redundantes de `appendConsoleLog`, `toggleConsole` y `clearAllConsoles`.
+   - Se reescribió `clearAllConsoles()` para asegurar la limpieza total tanto de las consolas de servidor y scraper como de las 4 consolas estáticas individuales (`Bot 1` a `Bot 4`).
+
+4. **Sincronización y Compilación de Flota:**
+   - Se ejecutó el script `node scripts/sync-bots.js` para propagar los cambios y parches a las instancias individuales `bot_1`, `bot_2`, `bot_3` y `bot_4`.
+   - Se validó la sintaxis en todos los archivos de bot y del servidor con `node -c`, confirmando que el sistema compila de manera limpia.
+
+---
+
+## Actualización: Warm-up Inteligente con Protocolo de 3 Pasos y Corrección de Logs (2026-06-11 - Sesión 2)
+
+### Solicitud del Usuario:
+> quiero que que definamos un archivo estático de configuración en el servidor con los números de teléfono activos de los bots para que se manden mensajes de calentamiento únicamente entre ellos, o que se manden mensaje en momentos del dia si es que hay mas de 1 conectado, que sea inteligente y practico. Hace esto mas todo el plan de arriba de los logs en el crm
+
+### Solución Implementada:
+
+1. **Protocolo de Calentamiento de 3 Pasos (Smart Warm-up):**
+   - Se rediseñó por completo el `WarmupManager` (`bot/services/warmupManager.js`) para evitar el bucle infinito de mensajes entre los bots de la flota.
+   - Se establecieron 3 pools de mensajes distintos en la conversación de calentamiento: `initiators` (Paso 1), `responses` (Paso 2) y `closers` (Paso 3).
+   - Cuando un bot A inicia el ping enviando un mensaje de `initiators`, el bot B lo detecta, responde con un mensaje de `responses` y finaliza allí. El bot A, al recibir la respuesta, envía un mensaje de `closers` para cerrar la interacción. El bot B recibe el closer y, al detectarlo en su pool, detiene el ciclo evitando loops infinitos de spam de forma 100% stateless y robusta.
+
+2. **Archivo Estático de Configuración (`warmupConfig.json`):**
+   - Se completó `server/warmupConfig.json` con los números de teléfono reales detectados en la base de datos de la flota de bots: `5491157351676`, `5491128179269`, `5491128761317`, `5491126642674`, `5491130194045`.
+   - El endpoint `/api/bot/warmup-numbers` lee este archivo estático y cruza la información con el estado de conexión de los bots (`status === 'ready'`).
+
+3. **Corrección de Referencias Globales de Logs y Sockets:**
+   - Se diagnosticó que `global.io` y `global.botStatuses` eran `undefined` en `server/index.js` porque no se inicializaban en el objeto global. Esto causaba que los eventos de logs del servidor y del bot no llegaran al panel de control en tiempo real.
+   - Se corrigió `server/index.js` asignando explícitamente `global.io = io` y `global.botStatuses = botStatuses` al arrancar el servidor.
+   - Se actualizó el interceptor de logs `safeLog` para utilizar `global.io` de manera segura evitando TDZ (Temporal Dead Zone) y referencias no resueltas.
+
+4. **Sincronización Global de los Bots:**
+   - Se sincronizaron todas las instancias `bot_1` a `bot_4` mediante `node scripts/sync-bots.js` y se verificó sintácticamente que todos los archivos compilen correctamente (`node -c`).
+
+---
+
+## Actualización: Análisis de Intención con IA y Respuestas Automáticas a Leads (2026-06-11 - Sesión 3)
+
+### Solicitud del Usuario:
+> Quiero que agregues que si la persona envia un mensaje, lo analice la ia, asi se genera una respuesta y realmente se sabe si quiere el servicio o esta enojado porque le hablo alguien en frio etc etc
+> No solo los mensajes con ia, si entra un mensaje de una persona que no le interesa, que se interprete con la ia y que se le pida disculpas, se ponga que no esta interesada en la base de datos, y se corte el envio de mensajes asi no reporta spam
+
+### Solución Implementada:
+
+1. **Orquestación y Corte Inmediato:**
+   - Se actualizó `bot/index.js` para que, en cuanto entre un mensaje real de un lead, se aborte la secuencia saliente de mensajes de prospección (`stopSending = true` y `abortCurrentSequence = true`), eliminando el riesgo de que el bot continúe enviando el siguiente mensaje de la secuencia fría y sea reportado como spam.
+
+2. **Ayudante Unificado de IA (`aiHelper.js`):**
+   - Se creó un módulo unificado (`AIHelper`) que gestiona el consumo de IA y soporta tanto OpenAI como Google Gemini (1.5 Flash) como plan de contingencia (failover automático). Esto asegura el funcionamiento de la IA tanto en entornos locales como en la VPS de producción (donde solo se configuró `GEMINI_API_KEY`).
+
+3. **Análisis de Intención Consolidado en una sola petición (`responseAnalyzer.js`):**
+   - Se implementó `analyzeIncomingMessage(message, leadName, leadCategory)` que clasifica el sentimiento en cinco intenciones principales (`rejection`, `anger`, `interest`, `question`, `neutral`) y genera al mismo tiempo la respuesta adecuada.
+   - El tono de las respuestas es rioplatense (profesional, amigable y usando "vos" y "che" con naturalidad).
+
+4. **Actualización de Estado en MongoDB:**
+   - La respuesta del bot actualiza el estado del lead de forma inteligente en el CRM backend: `interested` para interés y dudas, `not_interested` para rechazos cordiales, `discarded` para enojados y spam, o `manual_review` para neutros.
+
+5. **Respuestas Automáticas con Delay Humano:**
+   - Si corresponde responder, el bot agenda el envío del mensaje generado por IA con un retraso aleatorio (5 a 13 segundos). La respuesta es guardada en la base de datos (`POST /messages`) para registrarla en el historial de chat del panel del CRM.
+
+6. **Sincronización de Flota y Verificación Sintáctica:**
+   - Se sincronizaron todas las instancias `bot_1` a `bot_4` usando `node scripts/sync-bots.js` y se verificó sintácticamente que todos los archivos compilen correctamente (`node -c`).

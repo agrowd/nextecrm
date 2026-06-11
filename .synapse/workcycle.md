@@ -1,6 +1,51 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-05-24 (13:20 Argentina)
+## Current Session: 2026-06-11 (09:20 Argentina)
+- **Objective:** Implementación del warm-up inteligente entre bots y corrección de logs en tiempo real.
+- **Status:** ✅ COMPLETED
+- **Git Info:** Sincronizado y verificado.
+- **Deploy:** Listo para desplegar en VPS (git pull + docker-compose up --build).
+
+### 30. Warm-up Inteligente con Protocolo de 3 Pasos y Corrección de Logs
+- **Problema:** 
+  1. El sistema de calentamiento anterior causaba un bucle infinito de mensajes entre los bots ya que se respondían infinitamente.
+  2. Falta de inicialización de `global.io` y `global.botStatuses` en `server/index.js`, lo que rompía la emisión de logs en tiempo real y eventos de leads a la UI.
+- **Solución:**
+  1. Diseñado e implementado un protocolo de calentamiento de 3 pasos (`initiators`, `responses`, `closers`) que previene bucles infinitos y simula diálogos humanos de forma inteligente.
+  2. Actualizado `server/warmupConfig.json` con los números de teléfono reales detectados de la flota de bots.
+  3. Corregido `server/index.js` asignando `global.io = io` y `global.botStatuses = botStatuses` de manera explícita y segura, y haciendo que `safeLog` use `global.io`.
+  4. Sincronizadas las carpetas de bots con `sync-bots.js` y validada la sintaxis sin errores.
+
+## Previous Session: 2026-06-11 (08:45 Argentina)
+- **Objective:** Diseñar y realizar la alineación de logs y conectividad entre frontend, servidor y bots.
+- **Status:** ✅ COMPLETED
+- **Git Info:** Cambios de alineación de logs y UI aplicados y sincronizados.
+- **Deploy:** Listo para desplegar en VPS mediante git pull + docker-compose up --build.
+
+### 29. Alineación de Conectividad y Logs del Sistema (Servidor, Bots, Dashboard)
+- **Problema:** El usuario quiere que el servidor, los bots y la UI estén completamente alineados y conectados, incluyendo poder ver los logs del servidor y los detalles de los bots en tiempo real desde el dashboard. Actualmente, la mayoría de los logs de depuración (tanto del servidor como de los bots) usan `console.log` estándar y no se envían a MongoDB ni al WebSocket de la UI. Además, falta soporte UI para Bot 4 y existen redundancias de funciones en `app.js`.
+- **Solución Realizada:**
+  1. Implementada la intercepción global de consola (`console.log`, `console.error`, `console.warn`, `console.info`) en el servidor y en los bots (con flag anti-recursión) canalizando todo a la BD de logs y Socket.io.
+  2. Registrado el socket del bot de manera global (`global.botSocket = this.socket`) para acceso del interceptor de consola.
+  3. Agregada la consola de Bot 4 en `index.html`.
+  4. Eliminadas las redundancias en `crm-dashboard/app.js` y actualizado `clearAllConsoles()` para soportar Bot 4.
+  5. Sincronizadas las modificaciones a las carpetas `bot_1` a `bot_4` usando `sync-bots.js`.
+
+## Previous Session: 2026-06-11 (06:30 Argentina)
+- **Objective:** Analizar los logs de producción de `nexte-bot1` y diagnosticar por qué no está enviando mensajes.
+- **Status:** ✅ DIAGNOSTICADO
+- **Git Info:** Sin cambios de código necesarios en esta fase de diagnóstico.
+- **Deploy:** N/A (Verificación de logs de PM2 en VPS).
+
+### 28. Diagnóstico de Inactividad de Envío en nexte-bot1
+- **Problema:** El usuario reporta que el bot no está enviando mensajes de forma automática a los leads, a pesar de estar online en PM2 y haber enviado una respuesta manual de prueba.
+- **Causa Raíz:**
+  1. **Horario Laboral Aleatorio:** El bot está dormido bajo la restricción `outside_business_hours`. El día de ayer (10 de junio) calculó un horario de operación aleatorio de **09:07 a 19:38** (hora Argentina). A las 19:52 Arg (22:52 UTC), al estar fuera de ese rango, entró en modo de suspensión inteligente por **818.2 minutos** (13.6 horas).
+  2. **Hora de la Consulta:** Actualmente son las **06:28 AM** en Argentina, por lo que el bot sigue dentro del periodo de sueño programado hasta aproximadamente las 09:30 AM Arg (cuando despertará, detectará el cambio de fecha local, reseteará stats y asignará una nueva ventana aleatoria para el día).
+  3. **Ausencia de API Key de Gemini:** Los logs muestran `❌ GEMINI_API_KEY no configurada en .env`, por lo que el generador de texto está usando el **Modo Templates Fallback** (las 10 variantes preestablecidas por mensaje), lo cual es estable y correcto para evitar costos o fallas de IA.
+  4. **Mensaje Ignorado de LID:** Se recibió un mensaje entrante de un número de negocio (`167954796826725@lid`), el cual se resolvió a número real pero no se encontró en la cola de leads pendientes, por lo que fue ignorado correctamente para no responder spam.
+
+## Previous Session: 2026-05-24 (13:20 Argentina)
 - **Objective:** Fix math discrepancy in combo savings ($180k to $530k) and resolve syntax corruption in template generator across all bots.
 - **Status:** 🟡 PENDING DEPLOY ON VPS (Timeout encountered)
 - **Git Info:** Synced bot folders, pushed master.

@@ -6,8 +6,8 @@
 - **VPS:** Debian Linux, Docker Compose, MongoDB Atlas
 
 ## 📌 Estado Global
-- **Current Phase:** Bug Fixes (Timezone + WAPhoneUtils)
-- **Last Sync:** 2026-02-05 08:40 Argentina
+- **Current Phase:** Logs & Flota CRM Connectivity Alignment
+- **Last Sync:** 2026-06-11 08:45 Argentina
 - **Pending:** VPS rebuild to deploy fixes
 
 ## Active Shards

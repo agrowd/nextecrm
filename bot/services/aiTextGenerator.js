@@ -1,32 +1,14 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const axios = require('axios');
 const AdvancedTemplateGenerator = require('./advancedTemplateGenerator');
 
 /**
- * AI Text Generator con Google Gemini
- * 100% GRATUITO - Usa Gemini 1.5 Flash/Pro
- * 
- * Límites gratuitos Gemini:
- * - Gemini 1.5 Flash: 15 RPM, 1M tokens/min (RECOMENDADO)
- * - Gemini 1.5 Pro: 2 RPM, 32K tokens/min
- * - Gemini 2.0 Flash: 10 RPM, 4M tokens/min
- * 
- * Para 200 mensajes/día necesitamos ~320K tokens/día = 100% cubierto
+ * AI Text Generator con OpenAI ChatGPT (gpt-4o-mini)
+ * 100% compatible y optimizado para velocidad y costo.
  */
 class AITextGenerator {
     constructor() {
-        this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-        // Usar Gemini 2.5 Flash (Modelo Confirmado Funcional)
-        this.model = this.genAI.getGenerativeModel({
-            model: "gemini-2.5-flash",
-            generationConfig: {
-                temperature: 0.9,
-                topP: 0.95,
-                topK: 40,
-                maxOutputTokens: 400,
-            }
-        });
+        this.apiKey = process.env.OPENAI_API_KEY;
+        this.model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
         // Cache de mensajes generados
         this.messageCache = new Map();
@@ -41,7 +23,7 @@ class AITextGenerator {
                 tone: "profesional pero cercano",
                 focus: "modernización digital, pack dental 360°, captación de pacientes online, sistema de turnos a medida",
                 keywords: ["consultorio", "pacientes", "turnos", "odontología"],
-                softwareNeed: "high" // Alta probabilidad de necesitar software de gestión
+                softwareNeed: "high"
             },
             belleza: {
                 context: "Eres Juan Cruz de Nexte Marketing contactando salones de belleza y estética",
@@ -92,23 +74,45 @@ class AITextGenerator {
 
     async checkHealth() {
         try {
-            const model = this.genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-            const result = await model.generateContent("Ping");
-            const response = await result.response;
-            return response.text().length > 0;
+            if (!this.apiKey) return false;
+            const res = await this.generateViaOpenAI('Ping');
+            return !!res;
         } catch (e) {
-            console.error('❌ SDK Health Check Failed, trying HTTP...', e.message);
-            // Intento HTTP directo
-            try {
-                const res = await this.generateViaHttp('gemini-2.5-flash', 'Ping');
-                if (res) {
-                    console.log('✅ HTTP Fallback Health Check: OK');
-                    return true;
-                }
-            } catch (e2) { }
-
+            console.error('❌ OpenAI Health Check Failed:', e.message);
             return false;
         }
+    }
+
+    /**
+     * Helper para llamar a la API de OpenAI mediante HTTP directo con Axios
+     */
+    async generateViaOpenAI(prompt, systemPrompt = '') {
+        const apiKey = this.apiKey || process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            throw new Error('OPENAI_API_KEY no configurada en .env');
+        }
+
+        const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+            model: this.model || 'gpt-4o-mini',
+            messages: [
+                { role: 'system', content: systemPrompt || 'Eres Juan Cruz de Nexte Marketing. Ayudas a automatizar y hacer crecer negocios digitalmente.' },
+                { role: 'user', content: prompt }
+            ],
+            temperature: 0.9,
+            max_tokens: 400
+        }, {
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: 12000 // 12 segundos timeout
+        });
+
+        const content = response.data?.choices?.[0]?.message?.content;
+        if (!content) {
+            throw new Error('Respuesta inválida desde la API de OpenAI');
+        }
+        return content.trim();
     }
 
     /**
@@ -116,27 +120,22 @@ class AITextGenerator {
      */
     analyzeLeadInsights(lead) {
         const insights = {
-            // Rating analysis
             hasHighRating: (lead.rating || 0) >= 4.5,
             hasLowRating: (lead.rating || 0) < 3.5,
             ratingLabel: (lead.rating || 0) >= 4.5 ? 'excelente' :
                 (lead.rating || 0) >= 4.0 ? 'muy buena' :
                     (lead.rating || 0) >= 3.5 ? 'buena' : 'mejorable',
 
-            // Visibilidad (reviews)
             hasLowVisibility: (lead.reviewCount || 0) < 20,
             hasMediumVisibility: (lead.reviewCount || 0) >= 20 && (lead.reviewCount || 0) < 100,
             hasHighVisibility: (lead.reviewCount || 0) >= 100,
 
-            // Ubicación premium
             isPremiumLocation: lead.location && ['palermo', 'recoleta', 'belgrano', 'puerto madero', 'caballito']
                 .some(zone => lead.location.toLowerCase().includes(zone)),
 
-            // Identificar oportunidades
             opportunities: []
         };
 
-        // Detectar oportunidades específicas
         if (insights.hasHighRating && insights.hasLowVisibility) {
             insights.opportunities.push('rating_alto_visibilidad_baja');
         }
@@ -155,46 +154,42 @@ class AITextGenerator {
 
     /**
      * Generar secuencia de ENGANCHE (4 mensajes)
-     * Objetivo: Calentar lead para que Usuario cierre manualmente después
      */
     async generatePersonalizedSequence(lead) {
-        console.log(`🤖 [GENERADOR] Generando 5 mensajes para ${lead.name}`);
-
-        // ESTRATEGIA: Usar AdvancedTemplateGenerator como fuente PRINCIPAL
-        // Gemini es opcional para "mejorar" mensajes, pero no es crítico
+        console.log(`🤖 [GENERADOR] Generando 4 mensajes para ${lead.name}`);
 
         try {
             // 1. PRIMERO: Generar con plantillas avanzadas (SIEMPRE FUNCIONA)
             const templateMessages = this.templateGenerator.generatePersonalizedSequence(lead);
 
-            if (!templateMessages || templateMessages.length !== 5) {
+            if (!templateMessages || templateMessages.length !== 4) {
                 throw new Error('AdvancedTemplateGenerator falló');
             }
 
-            console.log(`✅ [TEMPLATE] 5 mensajes generados con plantillas avanzadas`);
+            console.log(`✅ [TEMPLATE] 4 mensajes generados con plantillas avanzadas`);
             console.log(`🎯 Categoría detectada: ${this.templateGenerator.detectCategory(lead)}`);
 
-            // 2. OPCIONAL: Intentar mejorar con Gemini (si está disponible)
-            if (this.stats.errors < 3) {
+            // 2. OPCIONAL: Intentar mejorar con OpenAI (si está disponible)
+            if (this.stats.errors < 3 && this.apiKey) {
                 try {
                     const template = this.getTemplateForBusiness(lead.category);
                     const enhancedMsg1 = await this.generateMessage1(lead, template);
 
                     if (enhancedMsg1 && enhancedMsg1.length > 50) {
                         templateMessages[0] = enhancedMsg1;
-                        console.log(`✨ Mensaje 1 mejorado con Gemini`);
+                        console.log(`✨ Mensaje 1 mejorado con OpenAI`);
                         this.stats.messagesGenerated += 1;
                     }
-                } catch (geminiError) {
-                    console.log(`⚠️ Gemini no disponible, usando plantilla original`);
+                } catch (openAiError) {
+                    console.log(`⚠️ OpenAI no disponible, usando plantilla original: ${openAiError.message}`);
                     this.stats.errors++;
                 }
             } else {
-                console.log(`⏸️ Gemini pausado por errores previos, usando solo plantillas`);
+                console.log(`⏸️ OpenAI pausado o no configurado, usando solo plantillas`);
             }
 
-            this.stats.messagesGenerated += 5;
-            console.log(`✅ [GENERADOR] Secuencia de 5 mensajes lista`);
+            this.stats.messagesGenerated += templateMessages.length;
+            console.log(`✅ [GENERADOR] Secuencia de 4 mensajes lista`);
 
             return templateMessages;
 
@@ -202,14 +197,16 @@ class AITextGenerator {
             console.error(`❌ Error crítico en generación:`, error.message);
             this.stats.errors++;
 
-            // FALLBACK FINAL: Mensajes hardcodeados de emergencia (5 mensajes)
+            // FALLBACK FINAL: Mensajes de emergencia (4 mensajes)
             console.log(`🚨 Usando mensajes de emergencia`);
-            return [
+            const fallbackMsgs = [
                 `¡Hola! Vi ${lead.name} en Google Maps. ¿Tienen página web? Hoy es fundamental para captar clientes.`,
                 `Desde 2015 en Nexte Marketing ayudamos a negocios a tener presencia digital profesional.`,
-                `🎉 PROMO ANIVERSARIO 2025: Web profesional completa por $50.000 (válido hasta el próximo sábado a las 21 hrs, precio normal $75.000).`,
-                `📞 ¿Querés que te llame ahora o agendamos una reunión? En nuestra web tenemos más servicios y nos adaptamos a vos.`
+                `🚀 Ofrecemos un sitio web completo por $250.000 (en 2 pagos), personalizado y adaptado a tu marca. Listo en 2 días!`,
+                `💬 Escribime si te interesa ver ejemplos de webs reales que ya diseñamos!`
             ];
+            fallbackMsgs.templateVariantUsed = 0; // Por defecto primer variante
+            return fallbackMsgs;
         }
     }
 
@@ -223,7 +220,6 @@ class AITextGenerator {
             return this.messageCache.get(cacheKey);
         }
 
-        // Analizar datos del lead
         const insights = this.analyzeLeadInsights(lead);
 
         const prompt = `
@@ -245,45 +241,23 @@ Escribe mensaje de 25-35 palabras que:
 2. Demuestre investigación real (NO spam)
 3. Cree "gap" (lo que tiene vs podría tener)
 4. Use lenguaje argentino conversacional
-5. NO uses clichés ("me gust aria", "quisiera ofrecerte")
-
-Estructuras (varía):
-A) "[Dato específico] pero [oportunidad perdida]"
-B) "[Dato]. ¿[Pregunta sobre consecuencia]?"
-C) "[Observación] = [consecuencia]. Te muestro cómo mejorarlo"
-
-Ejemplos BUENOS (adapta con datos reales):
-${insights.hasHighRating && insights.hasLowVisibility ? `✅ "${lead.rating}⭐ con ${lead.reviewCount} reviews es bueno, pero Google no te muestra primero en '${lead.category || 'tu servicio'} ${lead.location}'. Perdes clientes ahí."` : ''}
-${!lead.website ? `✅ "Excelente reputación en Maps pero sin web = dependes 100% de Google. ¿Qué pasa si cambian el algoritmo?"` : ''}
-${insights.isPremiumLocation ? `✅ "${lead.location} = público con poder adquisitivo. ¿Por qué no tener presencia digital acorde?"` : ''}
-
-CRÍTICO: USA datos reales (${lead.rating}⭐, ${lead.reviewCount} reviews, ${lead.location})
+5. NO uses clichés ("me gustaría", "quisiera ofrecerte")
 
 Escribe SOLO el mensaje:
 `;
 
         try {
-            const result = await this.model.generateContent(prompt);
-            const response = await result.response;
-            const message = response.text().trim().replace(/^["']|["']$/g, '');
+            const message = await this.generateViaOpenAI(prompt, template.context);
+            const cleanMessage = message.replace(/^["']|["']$/g, '');
 
             this.stats.apiCalls++;
-            this.stats.tokensUsed += this.estimateTokens(prompt + message);
-            this.messageCache.set(cacheKey, message);
+            this.stats.tokensUsed += this.estimateTokens(prompt + cleanMessage);
+            this.messageCache.set(cacheKey, cleanMessage);
 
-            return message;
+            return cleanMessage;
         } catch (error) {
-            console.error('Error SDK Gemini mensaje 1:', error.message);
-            console.log('🔄 Intentando fallback HTTP...');
+            console.error('Error OpenAI mensaje 1:', error.message);
 
-            try {
-                const httpMsg = await this.generateViaHttp(this.model.model, prompt);
-                if (httpMsg) return httpMsg;
-            } catch (httpErr) {
-                console.error('Error HTTP Fallback:', httpErr.message);
-            }
-
-            // Fallback hardcoded final
             if (insights.hasHighRating && insights.hasLowVisibility) {
                 return `${lead.rating}⭐ excelente pero solo ${lead.reviewCount} reviews = Google no te muestra. Perdes clientes.`;
             }
@@ -292,46 +266,6 @@ Escribe SOLO el mensaje:
             }
             return `Juan Cruz, Nexte. Vi ${lead.name} en ${lead.location} y detecté algo que te cuesta clientes.`;
         }
-    }
-
-    /**
-     * Fallback HTTP directo a la API REST de Google
-     */
-    async generateViaHttp(modelName, text) {
-        const apiKey = process.env.GEMINI_API_KEY;
-        const versions = ['v1beta', 'v1'];
-        // Normalizar nombre de modelo si viene del objeto model
-        const name = typeof modelName === 'string' ? modelName : 'gemini-2.5-flash';
-
-        for (const version of versions) {
-            try {
-                const url = `https://generativelanguage.googleapis.com/${version}/models/${name}:generateContent?key=${apiKey}`;
-
-                const response = await axios.post(url, {
-                    contents: [{ parts: [{ text: text }] }],
-                    generationConfig: {
-                        temperature: 0.9,
-                        maxOutputTokens: 400
-                    }
-                }, {
-                    headers: { 'Content-Type': 'application/json' },
-                    validateStatus: status => status < 500 // Resolver promesas incluso con 4xx para leer el error
-                });
-
-                if (response.status !== 200) {
-                    // Loguear error pero continuar
-                    // console.warn(`⚠️ HTTP ${version} error: ${response.status}`);
-                    continue;
-                }
-
-                const candidate = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (candidate) return candidate.trim();
-
-            } catch (e) {
-                console.warn(`⚠️ Error conexión HTTP ${version}: ${e.message}`);
-            }
-        }
-        return null;
     }
 
     /**
@@ -363,47 +297,35 @@ Escribe SOLO el mensaje.
 `;
 
         try {
-            const result = await this.model.generateContent(prompt);
-            const response = await result.response;
-            const message = response.text().trim().replace(/^["']|["']$/g, '');
+            const message = await this.generateViaOpenAI(prompt, template.context);
+            const cleanMessage = message.replace(/^["']|["']$/g, '');
 
             this.stats.apiCalls++;
-            this.stats.tokensUsed += this.estimateTokens(prompt + message);
-            this.messageCache.set(cacheKey, message);
+            this.stats.tokensUsed += this.estimateTokens(prompt + cleanMessage);
+            this.messageCache.set(cacheKey, cleanMessage);
 
-            return message;
+            return cleanMessage;
         } catch (error) {
-            console.error('Error Gemini mensaje 2:', error.message);
-
-            // Intentar fallback
-            try {
-                const httpMsg = await this.generateViaHttp(this.model.model, prompt);
-                if (httpMsg) return httpMsg;
-            } catch (httpErr) { }
-
+            console.error('Error OpenAI mensaje 2:', error.message);
             return "Desde 2015 ayudamos a negocios en 5 países a digitalizar sus operaciones con estrategia y tecnología.";
         }
     }
 
     /**
-     * Mensaje 3: Promo específica año nuevo (Variante A - RECOMENDADA)
+     * Mensaje 3: Promo específica (Variante A)
      */
     async generateMessage3(lead, template) {
         const insights = this.analyzeLeadInsights(lead);
 
-        // Seleccionar mejor promo según perfil del lead
-        let selectedPromo = 'web'; // Default para negocios sin web
+        let selectedPromo = 'web';
 
         if (lead.website || insights.hasHighVisibility) {
-            // Ya tiene web → ofrecer auditoría y medición (SEO/Analytics)
             selectedPromo = 'auditoria';
         } else if (['salón', 'salon', 'gym', 'gimnasio', 'belleza', 'fitness', 'spa', 'estética', 'estetica'].some(kw =>
             lead.category?.toLowerCase().includes(kw))) {
-            // Negocios visuales → community manager + ads
             selectedPromo = 'ads_cm';
         } else if (['empresa', 'corporativo', 'industrial', 'fábrica', 'fabrica', 'mayorista', 'distribuidor'].some(kw =>
             lead.category?.toLowerCase().includes(kw)) || (lead.reviewCount && lead.reviewCount > 100)) {
-            // Empresas grandes o con muchas reviews → software a medida
             selectedPromo = 'software';
         }
 
@@ -448,37 +370,20 @@ Escribe mensaje de 35-50 palabras que:
 3. Mencione que hacemos PUBLICIDAD en Google Ads y Meta Ads.
 4. Tono directo y profesional ("Juan Cruz de Nexte").
 
-Ejemplos:
-✅ "Juan, vi tu web. ¿Tenes bien configurado Google Analytics 4 y SEO Técnico? Es clave para no tirar plata en anuncios. Hacemos Google/Meta Ads también."
-✅ "¿Hicieron alguna revisión de sitio web o SEO recientemente? Sin eso, Google Ads y Meta Ads (que también manejamos) rinden la mitad."
-✅ "Para ${lead.category}: ¿Están haciendo Google Ads o Meta Ads? Si no tenés web o SEO técnico, es difícil competir hoy. ¿Te interesa una auditoría?"
-
 Escribe SOLO el mensaje:
 `;
 
         try {
-            const result = await this.model.generateContent(prompt);
-            const response = await result.response;
-            const message = response.text().trim().replace(/^["']|["']$/g, '');
-
-            this.stats.apiCalls++;
-            this.stats.tokensUsed += this.estimateTokens(prompt + message);
-
-            return message;
+            const message = await this.generateViaOpenAI(prompt);
+            return message.replace(/^["']|["']$/g, '');
         } catch (error) {
-            // Intentar fallback
-            try {
-                const httpMsg = await this.generateViaHttp(this.model.model, prompt);
-                if (httpMsg) return httpMsg;
-            } catch (httpErr) { }
-
-            // Fallback con promo seleccionada
+            console.error('Error OpenAI mensaje 3:', error.message);
             return promo.pitch + ' ' + promo.benefit;
         }
     }
 
     /**
-     * Mensaje 4: Soft CTA + mención de servicios completos
+     * Mensaje 4: Soft CTA
      */
     async generateMessage4(lead, template) {
         const prompt = `
@@ -498,35 +403,17 @@ Escribe mensaje de 25-40 palabras que:
 2. Mencione que cubren todo el espectro digital (Ads, SEO, Analytics).
 3. Tono casual y facilitador.
 
-Ejemplos:
-✅ "Cubrimos todo: desde SEO Técnico y Analytics hasta campañas en Google/Meta Ads. ¿Charlamos 5 min y te cuento qué te sirve más?"
-✅ "Si necesitas revisar tu web, configurar Analytics o arrancar con Ads, avísame. ¿Te paso info de cómo trabajamos?"
-✅ "Hacemos todo el circuito: revisión web, SEO y publicidad paga (Ads). ¿Agendamos una llamada breve para ver tu caso?"
-
 Escribe SOLO el mensaje:
 `;
 
         try {
-            const result = await this.model.generateContent(prompt);
-            const response = await result.response;
-            const message = response.text().trim().replace(/^["']|["']$/g, '');
-
-            this.stats.apiCalls++;
-            this.stats.tokensUsed += this.estimateTokens(prompt + message);
-
-            return message;
+            const message = await this.generateViaOpenAI(prompt);
+            return message.replace(/^["']|["']$/g, '');
         } catch (error) {
-            // Intentar fallback
-            try {
-                const httpMsg = await this.generateViaHttp(this.model.model, prompt);
-                if (httpMsg) return httpMsg;
-            } catch (httpErr) { }
-
+            console.error('Error OpenAI mensaje 4:', error.message);
             return "Cubrimos todo: SEO Técnico, Analytics, y Google/Meta Ads. ¿Charlamos 5 min para ver qué necesita tu negocio hoy?";
         }
     }
-
-
 
     /**
      * Detectar si un mensaje es auto-respuesta de bot
@@ -534,33 +421,19 @@ Escribe SOLO el mensaje:
     async detectAutoReply(messageText) {
         if (!messageText) return false;
 
-        // Detección rápida por palabras clave
         const botKeywords = ['menú', 'opción', 'marcar', 'bienvenido', 'horario', 'automático', 'autorespuesta', 'asistente virtual'];
         if (botKeywords.some(kw => messageText.toLowerCase().includes(kw))) return true;
 
-        // Detección por IA (más precisa)
         try {
-            // Intentar SDK primero
-            const result = await this.model.generateContent(`
+            const responseText = await this.generateViaOpenAI(`
                 Analiza si el siguiente mensaje es una respuesta automática de un bot de WhatsApp.
                 Responde SOLO "SI" o "NO".
                 
                 Mensaje: "${messageText}"
             `);
-            const response = await result.response;
-            return response.text().trim().toUpperCase().includes('SI');
+            return responseText.toUpperCase().includes('SI');
         } catch (e) {
-            // Intentar fallback HTTP
-            try {
-                const httpMsg = await this.generateViaHttp(this.model.model, `
-                Analiza si el siguiente mensaje es una respuesta automática de un bot de WhatsApp.
-                Responde SOLO "SI" o "NO".
-                
-                Mensaje: "${messageText}"
-            `);
-                if (httpMsg) return httpMsg.trim().toUpperCase().includes('SI');
-            } catch (httpErr) { }
-
+            console.error('Error OpenAI detectAutoReply:', e.message);
             return false;
         }
     }
@@ -583,23 +456,13 @@ Escribe SOLO el mensaje:
         `;
 
         try {
-            const result = await this.model.generateContent(prompt);
-            const response = await result.response;
-            return response.text().trim();
+            return await this.generateViaOpenAI(prompt);
         } catch (e) {
-            // Intentar fallback HTTP
-            try {
-                const httpMsg = await this.generateViaHttp(this.model.model, prompt);
-                if (httpMsg) return httpMsg;
-            } catch (httpErr) { }
-
+            console.error('Error OpenAI generateBotSalesPitch:', e.message);
             return "Vi que tenés respuesta automática. Nosotros implementamos bots con IA que responden dudas reales y cierran ventas, no solo saludan. ¿Te muestro la diferencia?";
         }
     }
 
-    /**
-     * Obtener plantilla según categoría
-     */
     getTemplateForBusiness(category) {
         if (!category) return this.templates.default;
 
@@ -613,24 +476,15 @@ Escribe SOLO el mensaje:
         return this.templates.default;
     }
 
-    /**
-     * Estimar tokens (aproximado)
-     */
     estimateTokens(text) {
         return Math.ceil(text.length / 4);
     }
 
-    /**
-     * Limpiar cache
-     */
     clearCache() {
         this.messageCache.clear();
         console.log('🧹 Cache de mensajes limpiado');
     }
 
-    /**
-     * Estadísticas
-     */
     getStats() {
         return {
             ...this.stats,
@@ -638,7 +492,7 @@ Escribe SOLO el mensaje:
             cacheHitRate: this.stats.apiCalls > 0 ?
                 ((this.stats.cacheHits / (this.stats.apiCalls + this.stats.cacheHits)) * 100).toFixed(1) + '%' :
                 '0%',
-            estimatedDailyCost: '$0.00 (FREE)', // Gemini es gratis
+            estimatedDailyCost: 'Acorde a tu cuota OpenAI',
             tokensPerDay: this.stats.tokensUsed
         };
     }

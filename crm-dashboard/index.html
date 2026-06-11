@@ -521,6 +521,14 @@
                             <canvas id="categoriesChart"></canvas>
                         </div>
                     </div>
+
+                    <!-- A/B Testing Chart -->
+                    <div style="background: #111b21; padding: 20px; border-radius: 12px; border: 1px solid #2f3b43; grid-column: span 2;">
+                        <h3 style="color: #e9edef; font-size: 16px; margin-bottom: 15px;">Métricas A/B Testing (Conversión por Variante de Mensaje)</h3>
+                        <div style="height: 300px;">
+                            <canvas id="abTestChart"></canvas>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- NEW: EXTRA METRICS ROW -->
@@ -688,6 +696,24 @@
                         <div class="console-wrapper collapsed" id="console-bot3"
                             style="background: #000; border: 1px solid #ff980040; border-top: none; border-radius: 0 0 8px 8px; height: 0; overflow: hidden; padding: 0 15px; font-family: 'Consolas', monospace; font-size: 11px; line-height: 1.5; transition: all 0.3s;">
                             <div class="console-output" id="consoleBot3Output"></div>
+                        </div>
+                    </div>
+
+                    <!-- Bot 4 Console -->
+                    <div class="console-section">
+                        <div class="console-header" onclick="toggleConsole('bot4')"
+                            style="background: #1a2e38; padding: 10px 12px; border-radius: 8px 8px 0 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border: 1px solid #2196f340;">
+                            <span style="font-weight: 600; color: #2196f3; font-size: 13px;">
+                                <span class="material-icons"
+                                    style="vertical-align: middle; margin-right: 6px; font-size: 16px;">smart_toy</span>
+                                Bot 4
+                            </span>
+                            <span class="material-icons console-toggle" id="toggle-bot4"
+                                style="color: #666; font-size: 18px;">expand_less</span>
+                        </div>
+                        <div class="console-wrapper collapsed" id="console-bot4"
+                            style="background: #000; border: 1px solid #2196f340; border-top: none; border-radius: 0 0 8px 8px; height: 0; overflow: hidden; padding: 0 15px; font-family: 'Consolas', monospace; font-size: 11px; line-height: 1.5; transition: all 0.3s;">
+                            <div class="console-output" id="consoleBot4Output"></div>
                         </div>
                     </div>
                 </div>

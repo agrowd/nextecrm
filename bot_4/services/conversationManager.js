@@ -1,36 +1,22 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const axios = require('axios');
 
 /**
  * Conversation Manager
  * Maneja conversaciones automáticas para evitar que bajen el número y cerrar ventas
- * 
- * Estrategias:
- * 1. Seguimiento inteligente (no abandonar después de 4 mensajes)
- * 2. Detección de interés con IA
- * 3. Respuestas contextuales automáticas
- * 4. Gatillos de urgencia progresivos
- * 5. Cierre con oferta irresistible
  */
 class ConversationManager {
     constructor() {
-        this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        this.model = this.genAI.getGenerativeModel({
-            model: "gemini-1.5-flash",
-            generationConfig: {
-                temperature: 0.7, // Menos creativo, más preciso para análisis
-                topP: 0.9,
-                maxOutputTokens: 300
-            }
-        });
+        this.apiKey = process.env.OPENAI_API_KEY;
+        this.model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
         // Niveles de interés detectados
         this.interestLevels = {
-            VERY_HIGH: 'very_high',     // "Sí, me interesa", "¿Cuánto cuesta?"
-            HIGH: 'high',               // "Contame más", "¿Qué incluye?"
-            MEDIUM: 'medium',           // "Interesante", "Puede ser"
-            LOW: 'low',                 // Respuesta vaga o automática
-            NEGATIVE: 'negative',       // "No me interesa", "Borrá mi número"
-            OBJECTION: 'objection'      // "Es caro", "No tengo tiempo", "Ya tengo"
+            VERY_HIGH: 'very_high',
+            HIGH: 'high',
+            MEDIUM: 'medium',
+            LOW: 'low',
+            NEGATIVE: 'negative',
+            OBJECTION: 'objection'
         };
 
         // Patrones de respuestas automáticas (para ignorar)
@@ -55,10 +41,75 @@ class ConversationManager {
     }
 
     /**
+     * Helper para llamar a OpenAI (Completions)
+     */
+    async generateViaOpenAI(prompt, systemPrompt = '') {
+        const apiKey = this.apiKey || process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            throw new Error('OPENAI_API_KEY no configurada');
+        }
+
+        const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+            model: this.model,
+            messages: [
+                { role: 'system', content: systemPrompt || 'Eres un asistente experto en cierre de ventas y marketing digital en español.' },
+                { role: 'user', content: prompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 300
+        }, {
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: 10000
+        });
+
+        const content = response.data?.choices?.[0]?.message?.content;
+        if (!content) {
+            throw new Error('Invalid response from OpenAI API');
+        }
+        return content.trim();
+    }
+
+    /**
+     * Helper para llamar a OpenAI esperando respuesta JSON estructurada
+     */
+    async generateViaOpenAIJson(prompt, systemPrompt = '') {
+        const apiKey = this.apiKey || process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            throw new Error('OPENAI_API_KEY no configurada');
+        }
+
+        const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+            model: this.model,
+            messages: [
+                { role: 'system', content: systemPrompt || 'Eres un clasificador experto en leads. Responde estrictamente en formato JSON.' },
+                { role: 'user', content: prompt }
+            ],
+            temperature: 0.3,
+            max_tokens: 300,
+            response_format: { type: "json_object" }
+        }, {
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: 10000
+        });
+
+        const content = response.data?.choices?.[0]?.message?.content;
+        if (!content) {
+            throw new Error('Invalid JSON response from OpenAI API');
+        }
+        return content.trim();
+    }
+
+    /**
      * Detectar nivel de interés en respuesta del cliente
      */
     async detectInterestLevel(message, leadName) {
-        console.log(`🔍 Analizando respuesta de ${leadName}...`);
+        console.log(`🔍 Analizando respuesta de ${leadName} con OpenAI...`);
 
         // 1. Verificar si es respuesta automática
         for (const pattern of this.autoResponsePatterns) {
@@ -105,12 +156,8 @@ Responde en formato JSON:
 `;
 
         try {
-            const result = await this.model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text().trim();
-
-            // Extraer JSON de la respuesta
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            const responseText = await this.generateViaOpenAIJson(prompt, 'Eres un clasificador de interés de leads para CRM. Responde estrictamente en formato JSON.');
+            const jsonMatch = responseText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 const analysis = JSON.parse(jsonMatch[0]);
 
@@ -124,7 +171,7 @@ Responde en formato JSON:
                 return analysis;
             }
         } catch (error) {
-            console.error('Error detectando interés:', error.message);
+            console.error('Error detectando interés con OpenAI:', error.message);
         }
 
         // Fallback a detección simple por palabras clave
@@ -187,11 +234,6 @@ Estrategia:
 3. Crear sentido de urgencia SIN sonar desesperado
 4. Hacer fácil decir "sí"
 
-Ejemplos:
-- "Perfecto! Te mando propuesta personalizada para ${leadName} hoy mismo. ¿Preferís por mail o por acá?"
-- "Excelente. ¿Tenés 15 min mañana para una video call y te muestro casos concretos de tu rubro?"
-- "Dale! Esta semana arranco con 2 clientes nuevos. Si confirmás hoy, entrás en el cupo de enero."
-
 Escribe respuesta de 25-40 palabras. Tono: profesional pero entusiasta.
 `;
                 break;
@@ -204,10 +246,6 @@ Estrategia:
 1. Dar info específica solicitada
 2. Usar prueba social (caso de éxito similar)
 3. Hacer pregunta para seguir conversación
-
-Ejemplos:
-- "Incluye: web completa, dominio, hosting 1 año, SEO básico, formulario de contacto. El Dr. López (${leadData.location}) lo armó en 48hs y ya tiene 12 consultas/semana. ¿Tu rubro es ${leadData.category}?"
-- "Web express ($150k): 5 páginas, diseño a medida, mobile. Premium ($500k): todo eso + blog, animaciones, chat en vivo. ¿Cuál se ajusta más a lo que buscás?"
 
 Escribe respuesta de 30-50 palabras. Tono: informativo y consultivo.
 `;
@@ -222,17 +260,12 @@ Estrategia:
 2. Ofrecer algo de valor GRATIS (audit, consejo)
 3. Dejar puerta abierta
 
-Ejemplos:
-- "Perfecto, tomate tu tiempo. Mientras tanto, ¿querés que te haga audit gratis de cómo aparece ${leadName} en Google? Te lo mando en 10 min."
-- "Dale, sin apuro. Te comparto casos de ${leadData.category} que implementaron esto: [link]. Cualquier duda, acá estoy."
-
 Escribe respuesta de 25-35 palabras. Tono: relajado, generoso.
 `;
                 break;
 
             case this.interestLevels.OBJECTION:
-                // Detectar tipo de objeción
-                const objectionPrompt = `
+                prompt = `
 Cliente tiene objeción. Manéjala:
 
 Posibles objeciones:
@@ -242,15 +275,12 @@ Posibles objeciones:
 
 Escribe respuesta que maneje la objeción sin ser agresivo. 30-45 palabras.
 `;
-                prompt = objectionPrompt;
                 break;
 
             case this.interestLevels.LOW:
-                // No responder o mensaje muy corto
                 return null;
 
             case this.interestLevels.NEGATIVE:
-                // Agradecer y desuscribir
                 return {
                     message: "Entendido, disculpá la molestia. Te saco de la lista. Éxitos!",
                     shouldUnsubscribe: true
@@ -260,19 +290,17 @@ Escribe respuesta que maneje la objeción sin ser agresivo. 30-45 palabras.
                 return null;
         }
 
-        // Generar con IA
         try {
-            const result = await this.model.generateContent(prompt);
-            const response = await result.response;
-            const message = response.text().trim().replace(/^["']|["']$/g, '');
+            const result = await this.generateViaOpenAI(prompt);
+            const message = result.replace(/^["']|["']$/g, '');
 
             return {
                 message,
                 shouldUnsubscribe: false,
-                followUpIn: this.getFollowUpDelay(level) // Cuándo hacer seguimiento
+                followUpIn: this.getFollowUpDelay(level)
             };
         } catch (error) {
-            console.error('Error generando respuesta:', error.message);
+            console.error('Error generando respuesta con OpenAI:', error.message);
             return null;
         }
     }
@@ -283,13 +311,13 @@ Escribe respuesta que maneje la objeción sin ser agresivo. 30-45 palabras.
     getFollowUpDelay(level) {
         switch (level) {
             case this.interestLevels.VERY_HIGH:
-                return 4 * 3600 * 1000; // 4 horas (strike while hot)
+                return 4 * 3600 * 1000; // 4 horas
             case this.interestLevels.HIGH:
                 return 24 * 3600 * 1000; // 1 día
             case this.interestLevels.MEDIUM:
                 return 3 * 24 * 3600 * 1000; // 3 días
             case this.interestLevels.OBJECTION:
-                return 2 * 24 * 3600 * 1000; // 2 días (dar tiempo a pensar)
+                return 2 * 24 * 3600 * 1000; // 2 días
             default:
                 return 7 * 24 * 3600 * 1000; // 1 semana
         }
@@ -300,25 +328,21 @@ Escribe respuesta que maneje la objeción sin ser agresivo. 30-45 palabras.
      */
     getFollowUpSequence(daysWithoutResponse) {
         const sequences = [
-            // Día 2: Recordatorio suave
             {
                 day: 2,
-                message: "Hola de nuevo! No sé si viste mi mensaje anterior sobre la web. Te resumo: $150k todo incluido, listo en 48hs. ¿Te sirve?"
+                message: "Hola de nuevo! No sé si viste mi mensaje anterior sobre la web. Te resumo: $250k todo incluido (en 2 pagos), listo en 48hs. ¿Te sirve?"
             },
-            // Día 4: Valor agregado
             {
                 day: 4,
                 message: "Te hice un análisis rápido: tu competencia directa en Google está captando ~30 clientes/mes que podrían ser tuyos. Te muestro cómo revertirlo?"
             },
-            // Día 7: Última oportunidad + urgencia
             {
                 day: 7,
-                message: "Última oportunidad: tengo 1 cupo libre esta semana para ${location}. Después cierro incorporaciones hasta febrero. ¿Lo tomás?"
+                message: "Última oportunidad: tengo 1 cupo libre esta semana. Después cierro incorporaciones hasta el mes que viene. ¿Lo tomás?"
             },
-            // Día 14: Oferta final + bonus
             {
                 day: 14,
-                message: "Ok, última: Web $150k + REGALO Google Ads $50k (mes gratis). Solo si confirmás HOY. ¿Dale?"
+                message: "Ok, última: Web $250k + REGALO Google Ads $50k (mes gratis). Solo si confirmás HOY. ¿Dale?"
             }
         ];
 
@@ -330,23 +354,12 @@ Escribe respuesta que maneje la objeción sin ser agresivo. 30-45 palabras.
      */
     getClosingTechniques() {
         return {
-            // Cierre asumido
             assumed: "Perfecto! Arranco mañana con el diseño. ¿Qué 3 servicios principales querés destacar en el inicio?",
-
-            // Cierre alternativo (A o B)
-            alternative: "Dale! ¿Arrancamos con Web Express ($150k) o preferís el Premium ($500k) con todo?",
-
-            // Cierre urgencia
-            urgency: "Tengo 1 cupo esta semana. Si confirmás en las próximas 2hs, entrás. Después febrero. ¿Dale?",
-
-            // Cierre inversión
-            investment: "Son $150k UNA VEZ. Si conseguís 2 clientes/mes (conservador), en 6 meses recuperaste la inversión. ¿Arrancamos?",
-
-            // Cierre garantía
-            guarantee: "Web $150k con garantía: si en 90 días no conseguiste ni 1 cliente, te devuelvo TODO. Riesgo cero. ¿Confirmamos?",
-
-            // Cierre bonus
-            bonus: "Ok: Web $150k + REGALO estrategia de Google Ads ($80k valor). Solo HOY. ¿Confirmo?"
+            alternative: "Dale! ¿Arrancamos con Web Express ($250k) o preferís el Premium ($500k) con todo?",
+            urgency: "Tengo 1 cupo esta semana. Si confirmás en las próximas 2hs, entrás. Después el mes que viene. ¿Dale?",
+            investment: "Son $250k UNA VEZ. Si conseguís 2 clientes/mes (conservador), en 6 meses recuperaste la inversión. ¿Arrancamos?",
+            guarantee: "Web $250k con garantía: si en 90 días no conseguiste ni 1 cliente, te devuelvo TODO. Riesgo cero. ¿Confirmamos?",
+            bonus: "Ok: Web $250k + REGALO estrategia de Google Ads ($80k valor). Solo HOY. ¿Confirmo?"
         };
     }
 
@@ -356,28 +369,21 @@ Escribe respuesta que maneje la objeción sin ser agresivo. 30-45 palabras.
     getBestClosingTechnique(leadData, conversationHistory) {
         const techniques = this.getClosingTechniques();
 
-        // Si mencionó precio anteriormente: usar inversión
         if (conversationHistory.some(msg => msg.includes('caro') || msg.includes('precio'))) {
             return techniques.investment;
         }
 
-        // Si es ubicación premium: usar urgencia
         if (leadData.isPremiumLocation) {
             return techniques.urgency;
         }
 
-        // Si mostró objeción: usar garantía
         if (conversationHistory.some(msg => msg.includes('no sé') || msg.includes('duda'))) {
             return techniques.guarantee;
         }
 
-        // Default: cierre alternativo (menos agresivo)
         return techniques.alternative;
     }
 
-    /**
-     * Obtener estadísticas
-     */
     getStats() {
         return {
             ...this.stats,

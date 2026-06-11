@@ -1,3 +1,52 @@
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+const originalConsoleInfo = console.info;
+
+let isLoggingInternal = false;
+
+function safeBotLog(level, args, originalFn) {
+  originalFn.apply(console, args);
+
+  if (isLoggingInternal) return;
+  isLoggingInternal = true;
+
+  try {
+    const message = args.map(arg => {
+      if (arg === null) return 'null';
+      if (arg === undefined) return 'undefined';
+      if (typeof arg === 'object') {
+        try {
+          return JSON.stringify(arg);
+        } catch (e) {
+          return '[Circular or Non-Serializable Object]';
+        }
+      }
+      return arg.toString();
+    }).join(' ');
+
+    const socket = global.botSocket;
+    const instanceId = process.env.BOT_INSTANCE_ID || 'bot';
+    if (socket && socket.connected) {
+      socket.emit('bot_log', {
+        instanceId,
+        level,
+        message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    originalConsoleError('Error in bot safeBotLog interceptor:', err);
+  } finally {
+    isLoggingInternal = false;
+  }
+}
+
+console.log = (...args) => safeBotLog('info', args, originalConsoleLog);
+console.error = (...args) => safeBotLog('error', args, originalConsoleError);
+console.warn = (...args) => safeBotLog('warn', args, originalConsoleWarn);
+console.info = (...args) => safeBotLog('info', args, originalConsoleInfo);
+
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const axios = require('axios');
@@ -38,6 +87,7 @@ const HumanBehaviorSimulator = require('./services/humanBehavior');
 const ResponseAnalyzer = require('./services/responseAnalyzer');
 const StealthBrowserManager = require('./services/stealthBrowser');
 const Scheduler = require('./services/scheduler');
+const WarmupManager = require('./services/warmupManager');
 
 class WhatsAppBot {
   constructor() {
@@ -95,9 +145,11 @@ class WhatsAppBot {
     this.responseAnalyzer = new ResponseAnalyzer();
     this.scheduler = new Scheduler(this.config); // Inicializar scheduler
     this.stealthBrowser = null; // Se inicializa antes de puppeteer
+    this.warmupManager = new WarmupManager(this);
 
     // 📡 Conexión Real-time con el Servidor
     this.socket = io(this.backendUrl.replace('/api', ''));
+    global.botSocket = this.socket;
     this.setupSocketHandlers();
 
     // Cargar configuración inicial
@@ -211,7 +263,7 @@ class WhatsAppBot {
     const prefix = level === 'info' ? 'ℹ️' : (level === 'warn' ? '⚠️' : '❌');
 
     // Log local
-    console.log(`[${this.instanceId}] ${prefix} ${message}`);
+    originalConsoleLog(`[${this.instanceId}] ${prefix} ${message}`);
 
     // Emitir al dashboard
     if (this.socket && this.socket.connected) {
@@ -480,21 +532,8 @@ class WhatsAppBot {
       this.whatsappChecker = new WhatsAppChecker(this.client, this.messageSequences);
 
       // ✅ INICIALIZAR NUEVOS SERVICIOS
-      console.log('🤖 Inicializando AI Text Generator... [MODO TEMPLATES FORZADO]');
-      // this.aiGenerator = new AITextGenerator();
-
-      // MOCK para desactivar IA y usar templates
-      this.aiGenerator = {
-        templateGenerator: new (require('./services/advancedTemplateGenerator'))(),
-        generatePersonalizedSequence: async function (lead) {
-          console.log('🤖 [MOCK] Generando secuencia con templates (IA Desactivada)...');
-          return this.templateGenerator.generatePersonalizedSequence(lead);
-        },
-        generateBotSalesPitch: async () => null,
-        detectAutoReply: async () => false,
-        checkHealth: async () => true,
-        initialize: async () => console.log('🤖 [MOCK] AI inicializado en modo offline')
-      };
+      console.log('🤖 Inicializando AI Text Generator...');
+      this.aiGenerator = new AITextGenerator();
 
       console.log('⏱️ Inicializando Rate Limiter...');
       this.rateLimiter = new IntelligentRateLimiter(this.instanceId);
@@ -519,29 +558,25 @@ class WhatsAppBot {
       console.log(`📊 Verificando estado de la cola...`);
       console.log(`🤖 AI Text Generator: ${process.env.GEMINI_API_KEY ? 'ACTIVO' : 'FALLBACK'}`);
 
-      const rateLimiterStats = await this.rateLimiter.getStats();
-      console.log(`⏱️ Rate Limiter: ${rateLimiterStats.currentDayLimit} leads/día (Fase ${rateLimiterStats.scalingPhase})`);
-      console.log(`📈 Progreso hoy: ${rateLimiterStats.leadsProcessed}/${rateLimiterStats.currentDayLimit} leads procesados`);
-      console.log(`💬 Mensajes por lead: 4 (personalizados con IA)`);
-      console.log(`🎯 Promos 2025: Web $20k | Medición $75k | CM $75k | Software custom`);
-      console.log(`=====================================\n`);
-
       // ✅ KEEP-ALIVE: Evitar desconexión por inactividad
       if (this._keepAliveInterval) clearInterval(this._keepAliveInterval);
       this._keepAliveInterval = setInterval(async () => {
         if (this.isReady) {
-          try {
-            await this.client.getBatteryStatus();
-            // console.log('💓 Keep-Alive ping enviado'); 
-          } catch (e) {
-            // Silencioso
-          }
+          await this.emitMetrics();
         }
       }, 5 * 60 * 1000);
 
       // 🛡️ Solo iniciar procesamiento UNA VEZ
       this._leadProcessingStarted = true;
       this.startLeadProcessing();
+
+      // Iniciar manager de calentamiento
+      if (this.warmupManager) {
+        this.warmupManager.start().catch(err => console.error('Error starting warmupManager:', err));
+      }
+
+      // Emitir métricas iniciales
+      this.emitMetrics().catch(err => console.error('Error emitting initial metrics:', err));
     });
 
     this.client.on('authenticated', () => {
@@ -583,6 +618,12 @@ class WhatsAppBot {
         body: message.body,
         timestamp: message.timestamp * 1000
       });
+
+      // 1. Filtrar si es un mensaje de calentamiento (warm-up)
+      if (this.warmupManager) {
+        const isWarmup = await this.warmupManager.handleIncomingMessage(message);
+        if (isWarmup) return; // Detener flujo para no procesarlo como lead real!
+      }
 
       await this.saveMessageToBackend(message);
       await this.handleIncomingMessage(message);
@@ -1451,8 +1492,13 @@ class WhatsAppBot {
       this.statsTracker.trackLead(lead, 'contacted', { messagesSent: messages.length, method: 'ai_generated' });
 
       // Marcar como contactado
-      await this.updateLeadStatus(lead.id, 'contacted', lead.name);
+      await this.updateLeadStatus(lead.id, 'contacted', lead.name, {
+        templateVariantUsed: messages.templateVariantUsed
+      });
       console.log(`   ✅ SECUENCIA COMPLETADA EXITOSAMENTE para ${lead.name}`);
+
+      // Emitir métricas actualizadas
+      await this.emitMetrics();
 
       // 🛡️ FIX: Limpiar tracking in-memory del lead actual
       this.currentlyProcessingLead = null;
@@ -1898,56 +1944,71 @@ class WhatsAppBot {
         }
       }
 
-      // 🤖 Si ya detectamos que es auto-reply, no pasar por isRejection
+      // 🤖 Si ya detectamos que es auto-reply, no pasar por análisis
       if (this.isQuickAutoReply(messageBody)) {
-        console.log(`🤖 Auto-reply ignorado en análisis de rechazo: "${messageBody.substring(0, 60)}..."`);
+        console.log(`🤖 Auto-reply ignorado en análisis: "${messageBody.substring(0, 60)}..."`);
         return;
       }
 
-      // ✅ ANALIZAR RESPUESTA CON IA
-      const analysis = await this.responseAnalyzer.isRejection(messageBody);
+      // ✅ ANALIZAR RESPUESTA CON IA CONSOLIDADA (Gemini/OpenAI)
+      const leadName = this.currentlyProcessingLead?.lead?.name || 'Cliente';
+      const leadCategory = this.currentlyProcessingLead?.lead?.category || 'General';
 
-      if (analysis.isRejection && analysis.shouldRespond) {
-        console.log(`❌ Rechazo detectado de ${contactNumber} (${(analysis.confidence * 100).toFixed(0)}%)`);
-        console.log(`📝 Razón: ${analysis.reason || 'Usuario no interesado'}`);
+      const analysis = await this.responseAnalyzer.analyzeIncomingMessage(messageBody, leadName, leadCategory);
+      console.log(`🤖 [ANALIZADOR IA] Intención: ${analysis.intent.toUpperCase()} (${(analysis.confidence * 100).toFixed(0)}%) - Razón: ${analysis.reason}`);
 
-        // CRÍTICO: Abortar secuencia en curso si hay una activa
-        this.abortCurrentSequence = true;
-
-        // Generar disculpa profesional
-        const apology = await this.responseAnalyzer.generateApology(contactNumber);
-
-        // Enviar disculpa
-        try {
-          await this.client.sendMessage(contactNumber, apology);
-          console.log(`✅ Disculpa enviada a ${contactNumber}`);
-
-          // Marcar en BD como no interesado
-          try {
-            // Buscar lead por número y actualizar status
-            await axios.put(`${this.backendUrl}/lead/by-phone/${encodeURIComponent(contactNumber)}`, {
-              status: 'not_interested',
-              rejectionReason: analysis.reason || 'Usuario rechazó oferta',
-              rejectionConfidence: analysis.confidence
-            });
-          } catch (error) {
-            console.error('Error actualizando lead status:', error.message);
-          }
-
-          return; // No procesar más este mensaje
-        } catch (error) {
-          console.error(`Error enviando disculpa:`, error.message);
-        }
+      // Abortar secuencia saliente ya que el usuario respondió (para evitar mandarle el siguiente mensaje de frío)
+      this.abortCurrentSequence = true;
+      if (this.currentlyProcessingLead) {
+        this.currentlyProcessingLead.stopSending = true;
+        this.currentlyProcessingLead.respondedAt = new Date().toISOString();
       }
 
-      // Verificar si es interés alto/medio
-      const interest = this.responseAnalyzer.isInterested(messageBody);
-      if (interest.isInterested && interest.shouldNotify) {
-        console.log(`🔥 LEAD INTERESADO (${interest.level}): ${contactNumber}`);
-        console.log(`📝 Mensaje: "${messageBody}"`);
+      // 1. Actualizar estado en base de datos en base al análisis de intención
+      let backendStatus = 'interested';
+      if (analysis.intent === 'rejection') {
+        backendStatus = 'not_interested';
+      } else if (analysis.intent === 'anger') {
+        backendStatus = 'discarded';
+      } else if (analysis.intent === 'neutral') {
+        backendStatus = 'manual_review';
+      }
 
-        // 🚨 NOTIFICAR AL USUARIO (aquí implementar notificación)
-        // TODO: Enviar a tu WhatsApp personal, Slack, email, etc.
+      try {
+        await axios.put(`${this.backendUrl}/lead/by-phone/${encodeURIComponent(contactNumber)}`, {
+          status: backendStatus,
+          whatsappResponse: messageBody,
+          rejectionReason: (analysis.intent === 'rejection' || analysis.intent === 'anger') ? analysis.reason : undefined,
+          respondedToTemplate: true
+        });
+        console.log(`💾 Estado del Lead en CRM actualizado a: ${backendStatus}`);
+      } catch (error) {
+        console.error('Error actualizando lead status:', error.message);
+      }
+
+      // 2. Responder si es necesario y hay una respuesta generada
+      if (analysis.shouldRespond && analysis.reply) {
+        const replyDelay = 5000 + Math.random() * 8000; // Delay humano de 5-13 segundos
+        console.log(`⏳ Programando respuesta inteligente en ${replyDelay/1000}s...`);
+        setTimeout(async () => {
+          try {
+            await this.client.sendMessage(contactNumber, analysis.reply);
+            console.log(`✅ Respuesta IA enviada a ${contactNumber}: "${analysis.reply}"`);
+
+            // Guardar el mensaje enviado en la base de datos
+            await axios.post(`${this.backendUrl}/messages`, {
+              phone: contactNumber.replace(/\D/g, ''),
+              content: analysis.reply,
+              fromMe: true,
+              timestamp: new Date(),
+              instanceId: this.instanceId,
+              type: 'text'
+            }).catch(e => console.error('Error guardando mensaje en DB:', e.message));
+
+          } catch (error) {
+            console.error(`Error enviando respuesta inteligente:`, error.message);
+          }
+        }, replyDelay);
       }
 
       const phoneNumber = message.from; // Re-declare or use contactNumber consistently
@@ -2511,8 +2572,60 @@ class WhatsAppBot {
     }
   }
 
-  async updateLeadStatus(leadId, status, leadName = null) {
-    // ... existing implementation ...
+  async updateLeadStatus(leadId, status, leadName = null, extraData = {}) {
+    try {
+      await axios.put(`${this.backendUrl}/lead/${leadId}/status`, {
+        status: status,
+        contactedByNumber: this.connectedNumber,
+        contactedByInstance: this.instanceId,
+        ...extraData
+      });
+      const displayName = leadName || leadId;
+      console.log(`✅ Estado actualizado a '${status}' para lead ${displayName}`);
+    } catch (error) {
+      console.error(`❌ Error actualizando estado '${status}' para lead:`, error.message);
+    }
+  }
+
+  async emitMetrics() {
+    if (!this.isReady || !this.client) return;
+    try {
+      // 1. Obtener batería
+      let battery = { level: 100, plugged: true };
+      try {
+        battery = await this.client.getBatteryStatus();
+      } catch (err) {
+        // Silencioso
+      }
+
+      // 2. Obtener cuotas/limites
+      let limits = { processed: 0, max: 50 };
+      if (this.rateLimiter) {
+        const stats = await this.rateLimiter.getStats();
+        limits.processed = stats.leadsProcessed || 0;
+        limits.max = stats.currentDayLimit || 50;
+      }
+
+      // 3. Obtener estado de sueño/espera
+      let statusInfo = { sleepMode: false, nextAvailable: null, outsideHours: false };
+      if (this.rateLimiter) {
+        const now = Date.now();
+        const nextAvailable = this.rateLimiter.nextAvailableTime || now;
+        statusInfo.nextAvailable = new Date(nextAvailable).toISOString();
+        statusInfo.sleepMode = nextAvailable > now;
+        statusInfo.outsideHours = this.rateLimiter.outsideBusinessHours || false;
+      }
+
+      this.socket.emit('bot_metrics', {
+        instanceId: this.instanceId,
+        battery,
+        limits,
+        statusInfo,
+        timestamp: new Date().toISOString()
+      });
+    } catch (e) {
+      // Silencioso para no ensuciar consola
+    }
   }
 
   /**
@@ -2583,7 +2696,8 @@ class WhatsAppBot {
   async updateLeadResponse(leadId, response, leadName = null) {
     try {
       await axios.put(`${this.backendUrl}/lead/${leadId}/status`, {
-        whatsappResponse: response
+        whatsappResponse: response,
+        respondedToTemplate: true
       });
       const displayName = leadName || leadId;
       console.log(`✅ Respuesta actualizada para lead ${displayName}: ${response}`);

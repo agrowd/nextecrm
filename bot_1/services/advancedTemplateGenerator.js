@@ -375,7 +375,9 @@ class AdvancedTemplateGenerator {
         console.log(`   3️⃣ Promo: "${msg3.substring(0, 60)}..."`);
         console.log(`   4️⃣ CTA: "${msg5.substring(0, 60)}..."`);
 
-        return [msg1, msg2, msg3, msg5];
+        const templateMessages = [msg1, msg2, msg3, msg5];
+        templateMessages.templateVariantUsed = this.propuestas.indexOf(propuesta);
+        return templateMessages;
     }
 
     getStats() {

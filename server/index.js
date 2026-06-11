@@ -1,3 +1,63 @@
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+const originalConsoleInfo = console.info;
+
+let isLoggingInternal = false;
+
+function safeLog(level, args, originalFn) {
+  originalFn.apply(console, args);
+
+  if (isLoggingInternal) return;
+  isLoggingInternal = true;
+
+  try {
+    const message = args.map(arg => {
+      if (arg === null) return 'null';
+      if (arg === undefined) return 'undefined';
+      if (typeof arg === 'object') {
+        try {
+          return JSON.stringify(arg);
+        } catch (e) {
+          return '[Circular or Non-Serializable Object]';
+        }
+      }
+      return arg.toString();
+    }).join(' ');
+
+    if (typeof mongoose !== 'undefined' && mongoose.connection && mongoose.connection.readyState === 1) {
+      const LogModel = mongoose.models.Log || (typeof Log !== 'undefined' ? Log : null);
+      if (LogModel) {
+        const logEntry = new LogModel({
+          level,
+          component: 'server',
+          instanceId: 'server',
+          message
+        });
+        logEntry.save().catch(err => originalConsoleError('Error saving intercepted log:', err));
+      }
+    }
+
+    if (global.io) {
+      global.io.emit('realtime_bot_log', {
+        instanceId: 'server',
+        level,
+        message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    originalConsoleError('Error in server safeLog interceptor:', err);
+  } finally {
+    isLoggingInternal = false;
+  }
+}
+
+console.log = (...args) => safeLog('info', args, originalConsoleLog);
+console.error = (...args) => safeLog('error', args, originalConsoleError);
+console.warn = (...args) => safeLog('warn', args, originalConsoleWarn);
+console.info = (...args) => safeLog('info', args, originalConsoleInfo);
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -10,12 +70,12 @@ const fs = require('fs').promises;
 const fsSync = require('fs'); // Versión sincrónica para algunas operaciones
 const { exec, spawn } = require('child_process');
 require('dotenv').config();
-console.log('→ MONGODB_URI:', process.env.MONGODB_URI);
+originalConsoleLog('→ MONGODB_URI:', process.env.MONGODB_URI);
 
 // Función para loggear (con emisión a dashboard)
 const log = (message, level = 'info', component = 'server', details = null, leadId = null, instanceId = 'server') => {
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] [${instanceId}] ${message}`);
+  originalConsoleLog(`[${timestamp}] [${instanceId}] ${message}`);
 
   // Emitir a dashboards conectados para consola en tiempo real
   if (typeof io !== 'undefined') {
@@ -36,7 +96,7 @@ const log = (message, level = 'info', component = 'server', details = null, lead
     details,
     leadId
   });
-  logEntry.save().catch(err => console.error('Error guardando log:', err));
+  logEntry.save().catch(err => originalConsoleError('Error guardando log:', err));
 };
 
 const Lead = require('./models/Lead');
@@ -45,6 +105,7 @@ const Log = require('./models/Log');
 const BotInstance = require('./models/BotInstance');
 const Config = require('./models/Config');
 const TemplateVariant = require('./models/TemplateVariant');
+const { auditWebsite } = require('./services/webScraper');
 // MongoDB es la fuente principal de datos
 
 const http = require('http');
@@ -124,11 +185,13 @@ const io = new Server(server, {
     methods: ["GET", "POST"]
   }
 });
+global.io = io;
 const PORT = 8484; // Forzado a 8484 para evitar conflictos con 3001
 
 // 🤖 Registro de Bots Conectados
 const connectedBots = new Map(); // instanceId -> socketId
 const botStatuses = new Map();   // instanceId -> { status, lastSeen, qr }
+global.botStatuses = botStatuses;
 
 // 1. GLOBAL DEBUG LOGGER (Verificar tráfico entrante)
 app.use((req, res, next) => {
@@ -301,15 +364,47 @@ app.post('/ingest', async (req, res) => {
       // Verificar duplicados por teléfono
       const exists = await Lead.findOne({ phone: leadData.phone });
       if (!exists) {
-        await Lead.create({
+        const hasWeb = !!(leadData.website && leadData.website.trim().length > 0);
+        const newLead = await Lead.create({
           ...leadData,
           status: 'pending',
-          source: 'extension'
+          source: 'extension',
+          hasWebsite: hasWeb
         });
         added++;
 
+        // Si tiene web, disparar auditoría en background
+        if (hasWeb) {
+          auditWebsite(leadData.website).then(async (result) => {
+            if (result.success) {
+              await Lead.findByIdAndUpdate(newLead._id, {
+                websiteValid: true,
+                pixelFacebook: result.hasFacebookPixel,
+                pixelGoogle: result.hasGooglePixel,
+                instagramUrl: result.instagramUrl,
+                facebookUrl: result.facebookUrl
+              });
+              // Emitir actualización
+              if (global.io) {
+                global.io.emit('lead_updated', {
+                  leadId: newLead._id,
+                  updates: {
+                    websiteValid: true,
+                    pixelFacebook: result.hasFacebookPixel,
+                    pixelGoogle: result.hasGooglePixel,
+                    instagramUrl: result.instagramUrl,
+                    facebookUrl: result.facebookUrl
+                  }
+                });
+              }
+            } else {
+              await Lead.findByIdAndUpdate(newLead._id, { websiteValid: false });
+            }
+          }).catch(err => originalConsoleError('Error en background auditWebsite:', err.message));
+        }
+
         // Notificar nuevo lead
-        if (global.io) global.io.emit('new_lead', leadData);
+        if (global.io) global.io.emit('new_lead', newLead.toObject());
       }
     }
 
@@ -1388,7 +1483,7 @@ app.get('/api/conversations', async (req, res) => {
 app.put('/lead/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, whatsappResponse, contactedByNumber, contactedByInstance } = req.body;
+    const { status, whatsappResponse, contactedByNumber, contactedByInstance, templateVariantUsed, respondedToTemplate } = req.body;
 
     if (id === 'undefined' || !id) {
       return res.status(400).json({
@@ -1423,6 +1518,14 @@ app.put('/lead/:id/status', async (req, res) => {
       lead.lastContactAt = new Date();
     }
 
+    // Actualizar campos de A/B testing
+    if (templateVariantUsed !== undefined && templateVariantUsed !== null) {
+      lead.templateVariantUsed = templateVariantUsed;
+    }
+    if (respondedToTemplate !== undefined) {
+      lead.respondedToTemplate = respondedToTemplate;
+    }
+
     await lead.save();
 
     res.json({
@@ -1432,7 +1535,9 @@ app.put('/lead/:id/status', async (req, res) => {
         id: lead._id,
         name: lead.name,
         status: lead.status,
-        lastContactAt: lead.lastContactAt
+        lastContactAt: lead.lastContactAt,
+        templateVariantUsed: lead.templateVariantUsed,
+        respondedToTemplate: lead.respondedToTemplate
       }
     });
 
@@ -1442,6 +1547,43 @@ app.put('/lead/:id/status', async (req, res) => {
       error: 'Error interno del servidor',
       message: error.message
     });
+  }
+});
+
+// PUT /lead/by-phone/:phone - Actualizar lead por número de teléfono (usado por el bot)
+app.put('/lead/by-phone/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    const { status, whatsappResponse, contactedByNumber, contactedByInstance, rejectionReason, rejectionConfidence, templateVariantUsed, respondedToTemplate } = req.body;
+
+    const cleanPhone = phone.replace(/\D/g, '');
+    const lead = await Lead.findOne({
+      $or: [
+        { phone: cleanPhone },
+        { phone: new RegExp(cleanPhone + '$') }
+      ]
+    });
+
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead no encontrado por teléfono' });
+    }
+
+    if (status) lead.status = status;
+    if (whatsappResponse) lead.whatsappResponse = whatsappResponse;
+    if (contactedByNumber) lead.contactedByNumber = contactedByNumber;
+    if (contactedByInstance) lead.contactedByInstance = contactedByInstance;
+    if (rejectionReason) lead.rejectionReason = rejectionReason;
+    if (rejectionConfidence !== undefined) lead.rejectionConfidence = rejectionConfidence;
+    if (templateVariantUsed !== undefined && templateVariantUsed !== null) lead.templateVariantUsed = templateVariantUsed;
+    if (respondedToTemplate !== undefined) lead.respondedToTemplate = respondedToTemplate;
+
+    lead.lastContactAt = new Date();
+    await lead.save();
+
+    res.json({ success: true, lead });
+  } catch (error) {
+    console.error('Error actualizando lead por teléfono:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -2019,7 +2161,10 @@ app.get('/api/stats/realtime', async (req, res) => {
         status: status.status,
         sessionMessages,
         sessionLeads,
-        startedAt
+        startedAt,
+        battery: status.battery,
+        limits: status.limits,
+        statusInfo: status.statusInfo
       });
     }
 
@@ -2538,6 +2683,45 @@ app.post('/api/templates/:category', async (req, res) => {
 // --- CONFIGURACIÓN GLOBAL DE BOTS (Aliases para compatibilidad sin /api) ---
 app.get('/bot/config', (req, res) => res.redirect(307, '/api/bot/config'));
 app.post('/bot/config', (req, res) => res.redirect(307, '/api/bot/config'));
+app.get('/bot/warmup-numbers', (req, res) => res.redirect(307, '/api/bot/warmup-numbers'));
+
+app.get('/api/bot/warmup-numbers', async (req, res) => {
+  try {
+    const filePath = path.join(__dirname, 'warmupConfig.json');
+    let numbers = [];
+    if (fsSync.existsSync(filePath)) {
+      const content = fsSync.readFileSync(filePath, 'utf8');
+      numbers = JSON.parse(content).map(num => num.replace(/\D/g, ''));
+    }
+    
+    // Encontrar qué números de la lista están actualmente conectados (ready)
+    const activeNumbers = [];
+    if (global.botStatuses) {
+      for (const botStatus of global.botStatuses.values()) {
+        if (botStatus.status === 'ready' && botStatus.wid) {
+          const cleanWid = botStatus.wid.replace(/\D/g, '');
+          if (numbers.includes(cleanWid)) {
+            activeNumbers.push(cleanWid);
+          }
+        }
+      }
+    } else {
+      // Fallback si no está mapeado global
+      for (const botStatus of botStatuses.values()) {
+        if (botStatus.status === 'ready' && botStatus.wid) {
+          const cleanWid = botStatus.wid.replace(/\D/g, '');
+          if (numbers.includes(cleanWid)) {
+            activeNumbers.push(cleanWid);
+          }
+        }
+      }
+    }
+
+    return res.json({ success: true, numbers, activeNumbers });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.get('/api/bot/config', async (req, res) => {
   try {
@@ -2569,6 +2753,63 @@ app.post('/api/bot/config', async (req, res) => {
     res.json({ success: true, message: 'Configuración actualizada', config: config.settings });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+// --- ESTADÍSTICAS A/B TESTING ---
+app.get('/stats/ab-testing', (req, res) => res.redirect(307, '/api/stats/ab-testing'));
+app.get('/api/stats/ab-testing', async (req, res) => {
+  try {
+    const stats = await Lead.aggregate([
+      { 
+        $match: { 
+          templateVariantUsed: { $ne: null } 
+        } 
+      },
+      {
+        $group: {
+          _id: "$templateVariantUsed",
+          sentCount: { $sum: 1 },
+          responseCount: { 
+            $sum: { 
+              $cond: [
+                { 
+                  $or: [
+                    { $eq: ["$respondedToTemplate", true] },
+                    { $ne: ["$whatsappResponse", ""] },
+                    { $eq: ["$status", "interested"] }
+                  ] 
+                }, 
+                1, 
+                0
+              ] 
+            }
+          },
+          interestedCount: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "interested"] }, 1, 0]
+            }
+          }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    const formattedStats = Array.from({ length: 10 }, (_, index) => {
+      const variantStat = stats.find(s => s._id === index);
+      return {
+        variant: index + 1,
+        sent: variantStat ? variantStat.sentCount : 0,
+        responses: variantStat ? variantStat.responseCount : 0,
+        interested: variantStat ? variantStat.interestedCount : 0,
+        conversionRate: variantStat && variantStat.sentCount > 0 
+          ? Math.round((variantStat.responseCount / variantStat.sentCount) * 100) 
+          : 0
+      };
+    });
+
+    res.json({ success: true, stats: formattedStats });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -3539,6 +3780,27 @@ io.on('connection', (socket) => {
     status.lastSeen = Date.now();
     botStatuses.set(instanceId, status);
     io.emit('bot_status_update', { instanceId, status: 'online' });
+  });
+
+  socket.on('bot_metrics', (data) => {
+    const { instanceId, battery, limits, statusInfo } = data;
+    const currentStatus = botStatuses.get(instanceId) || {};
+    botStatuses.set(instanceId, {
+      ...currentStatus,
+      battery,
+      limits,
+      statusInfo,
+      lastSeen: new Date()
+    });
+    // Retransmitir al dashboard para actualización en vivo
+    io.emit('bot_status_update', {
+      instanceId,
+      status: currentStatus.status || 'ready',
+      wid: currentStatus.wid,
+      battery,
+      limits,
+      statusInfo
+    });
   });
 
   // Relevo de desconexión con motivo (para estudio de spam/baneos)

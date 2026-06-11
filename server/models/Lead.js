@@ -48,7 +48,10 @@ const LeadSchema = new mongoose.Schema({
   // 🔑 MULTI-BOT: Tracking de asignación y contacto
   assignedToInstance: { type: String, default: '' }, // instancia asignada para contactar
   contactedByNumber: { type: String, default: '' }, // número de WhatsApp que lo contactó
-  contactedByInstance: { type: String, default: '' } // instanceId del bot que lo contactó
+  contactedByInstance: { type: String, default: '' }, // instanceId del bot que lo contactó
+  // 📊 A/B Testing Tracking
+  templateVariantUsed: { type: Number, default: null }, // Índice de variante de propuesta
+  respondedToTemplate: { type: Boolean, default: false } // Si respondió a esta propuesta
 }, {
   timestamps: true,
   strict: false, // Permite campos adicionales
