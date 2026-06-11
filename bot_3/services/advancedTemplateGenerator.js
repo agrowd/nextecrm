@@ -116,7 +116,7 @@ class AdvancedTemplateGenerator {
             "Desde 2015, en Nexte nos enfocamos en el crecimiento real: +300% en conversiones promedio para nuestros clientes.",
             "En Nexte no somos una fábrica de clientes. Trabajamos 1 a 1 para entender tu negocio y mejorarlo.",
             "Nos especializamos en CRO (Optimización de Conversiones). No solo traemos visitas, hacemos que compren.",
-            "Nexte tiene 10 años de trayectoria (2015-2025) ayudando a negocios a digitalizarse de verdad.",
+            "Nexte tiene más de 10 años de trayectoria (2015-2026) ayudando a negocios a digitalizarse de verdad.",
             "Somos tu socio estratégico. Analizamos tu competencia y audiencia para darte un plan único, no recetas genéricas.",
             "En Nexte combinamos tecnología y estrategia para crear sistemas de venta que funcionan 24/7.",
             "No hacemos solo webs bonitas. Creamos herramientas de venta enfocadas en resultados rápidos y medibles.",
@@ -223,7 +223,7 @@ class AdvancedTemplateGenerator {
                 'celulares', 'electrónica', 'tech', 'digital', 'desarrollo', 'programación']
         };
 
-        // Frases específicas por categoría - PROMO 2025
+        // Frases específicas por categoría - PROMO 2026
         this.categoryPhrases = {
             salud: {
                 hooks: [
@@ -234,9 +234,9 @@ class AdvancedTemplateGenerator {
                     "Una web te permite mostrar especialidades y equipo."
                 ],
                 propuestas: [
-                    "🏥 PROMO SALUD 2025: Web + turnos online + WhatsApp por $150k.",
-                    "🎉 Oferta enero para consultorios: web con sistema de turnos por $150.000.",
-                    "💪 Arrancá 2025 digitalizado: web médica + formulario de turnos.",
+                    "🏥 PROMO SALUD 2026: Web + turnos online + WhatsApp por $150k.",
+                    "🎉 Oferta otoño para consultorios: web con sistema de turnos por $150.000.",
+                    "💪 Arrancá 2026 digitalizado: web médica + formulario de turnos.",
                     "✨ Promo especial salud: digitalizamos tu consultorio completo por $150k."
                 ]
             },
@@ -249,9 +249,9 @@ class AdvancedTemplateGenerator {
                     "Con pedidos online propios no pagás comisiones."
                 ],
                 propuestas: [
-                    "🍕 PROMO GASTRO 2025: Web + carta QR + pedidos online por $150k.",
-                    "🎉 Oferta enero: tu sistema de delivery sin pagar a Rappi/PedidosYa.",
-                    "🔥 Arrancá 2025 digital: web + carta + reservas por $150.000.",
+                    "🍕 PROMO GASTRO 2026: Web + carta QR + pedidos online por $150k.",
+                    "🎉 Oferta otoño: tu sistema de delivery sin pagar a Rappi/PedidosYa.",
+                    "🔥 Arrancá 2026 digital: web + carta + reservas por $150.000.",
                     "✨ Promo especial gastro: delivery propio sin comisiones."
                 ]
             },
@@ -264,9 +264,9 @@ class AdvancedTemplateGenerator {
                     "Con recordatorios automáticos reducís ausencias."
                 ],
                 propuestas: [
-                    "💅 PROMO BELLEZA 2025: Web + galería + turnos por $150k.",
-                    "🎉 Oferta enero: web estética con portfolio y reservas.",
-                    "✨ Arrancá 2025: mostrá tus trabajos + tomá turnos automáticamente.",
+                    "💅 PROMO BELLEZA 2026: Web + galería + turnos por $150k.",
+                    "🎉 Oferta otoño: web estética con portfolio y reservas.",
+                    "✨ Arrancá 2026: mostrá tus trabajos + tomá turnos automáticamente.",
                     "🔥 Promo especial: web para salón con fotos y reservas online."
                 ]
             }
@@ -275,7 +275,7 @@ class AdvancedTemplateGenerator {
         this.stats = { generated: 0 };
 
         // Cargar desde DB (Asincrónico, se llenará gradualmente)
-        // this.fetchTemplates(); // DESHABILITADO TEMPORALMENTE: Usar hardcoded Feb 2025
+        // this.fetchTemplates(); // DESHABILITADO TEMPORALMENTE: Usar hardcoded Feb 2026
     }
 
     async fetchTemplates() {
@@ -354,7 +354,7 @@ class AdvancedTemplateGenerator {
         const presentacion = this.random(this.presentaciones);
         const msg2 = this.fill(presentacion, lead);
 
-        // MSG 3: PROMOCIONES 2025 (Forzar uso de las nuevas promos con precios actualizados)
+        // MSG 3: PROMOCIONES 2026 (Forzar uso de las nuevas promos con precios actualizados)
         // Ignoramos las específicas de categoría por ahora porque tienen precios desactualizados
         const propuesta = this.random(this.propuestas);
         const msg3 = this.fill(propuesta, lead);

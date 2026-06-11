@@ -1,6 +1,23 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-06-11 (09:20 Argentina)
+## Current Session: 2026-06-11 (11:00 Argentina)
+- **Objective:** Actualización de plantillas de mensajes para reflejar el año 2026 y más de 10 años de trayectoria.
+- **Status:** ✅ COMPLETED
+- **Git Info:** Sincronizado y verificado.
+- **Deploy:** Listo para desplegar en VPS (git pull + docker-compose up --build).
+
+### 31. Actualización de Plantillas a 2026 y más de 10 años de trayectoria
+- **Problema:** Los templates de prospección en frío hacían referencia a la trayectoria de 10 años (2015-2025) y promociones de 2025. Al estar en el año 2026, esto daba una imagen desactualizada.
+- **Solución:**
+  1. Se modificó `bot/services/advancedTemplateGenerator.js` actualizando la trayectoria a "más de 10 años (2015-2026)" y las ofertas de categorías a "PROMO 2026" / "Arrancá 2026".
+  2. Se modificó `bot/services/aiTextGenerator.js` en los prompts e insights para referenciar "más de 10 años de experiencia (2015-2026)".
+  3. Se actualizó el prompt en `bot/services/responseAnalyzer.js` para indicar "más de 10 años de trayectoria".
+  4. Se actualizaron los textos fijos en `bot/services/smartTemplateGenerator.js` a "más de 10 años".
+  5. Se actualizaron las variaciones de presentación en `bot/services/whatsappChecker.js` de "10 años (2015-2025)" a "más de 10 años (2015-2026)".
+  6. Se actualizó la lógica de detección del mensaje 2 en `bot/index.js` para incluir "2015-2026" en los keywords de seguimiento de prospección.
+  7. Se sincronizó la flota completa con `node scripts/sync-bots.js` y se verificó la compilación sintáctica exitosamente.
+
+## Previous Session: 2026-06-11 (09:20 Argentina)
 - **Objective:** Implementación del warm-up inteligente entre bots y corrección de logs en tiempo real.
 - **Status:** ✅ COMPLETED
 - **Git Info:** Sincronizado y verificado.

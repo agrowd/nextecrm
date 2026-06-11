@@ -20,11 +20,11 @@ class WhatsAppChecker {
       ],
       // Mensaje 2 - Presentación
       [
-        "En Nexte Marketing llevamos 10 años (2015-2025) potenciando marcas: hemos trabajado con empresas en 5 países, evolucionando de un estudio freelance a una boutique de growth con especialistas multidisciplinarios y casos de éxito comprobados.",
-        "Llevamos 10 años en Nexte Marketing (2015-2025) potenciando marcas. Trabajamos con empresas en 5 países, desde estudio freelance hasta boutique de growth con especialistas multidisciplinarios.",
-        "En Nexte Marketing tenemos 10 años (2015-2025) potenciando marcas. Hemos trabajado con empresas en 5 países, evolucionando de estudio freelance a boutique de growth con especialistas multidisciplinarios.",
-        "Nexte Marketing lleva 10 años (2015-2025) potenciando marcas. Trabajamos con empresas en 5 países, desde estudio freelance hasta boutique de growth con especialistas multidisciplinarios.",
-        "En Nexte Marketing tenemos 10 años (2015-2025) potenciando marcas: hemos trabajado con empresas en 5 países, evolucionando de un estudio freelance a una boutique de growth con especialistas multidisciplinarios."
+        "En Nexte Marketing llevamos más de 10 años (2015-2026) potenciando marcas: hemos trabajado con empresas en 5 países, evolucionando de un estudio freelance a una boutique de growth con especialistas multidisciplinarios y casos de éxito comprobados.",
+        "Llevamos más de 10 años en Nexte Marketing (2015-2026) potenciando marcas. Trabajamos con empresas en 5 países, desde estudio freelance hasta boutique de growth con especialistas multidisciplinarios.",
+        "En Nexte Marketing tenemos más de 10 años (2015-2026) potenciando marcas. Hemos trabajado con empresas en 5 países, evolucionando de estudio freelance a boutique de growth con especialistas multidisciplinarios.",
+        "Nexte Marketing lleva más de 10 años (2015-2026) potenciando marcas. Trabajamos con empresas en 5 países, desde estudio freelance hasta boutique de growth con especialistas multidisciplinarios.",
+        "En Nexte Marketing tenemos más de 10 años (2015-2026) potenciando marcas: hemos trabajado con empresas en 5 países, evolucionando de un estudio freelance a una boutique de growth con especialistas multidisciplinarios."
       ]
     ];
     this.backendUrl = process.env.BACKEND_URL || 'http://localhost:3000'; // Default backend URL

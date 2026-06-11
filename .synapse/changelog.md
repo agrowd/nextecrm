@@ -1,5 +1,12 @@
 # 📜 SYSTEM CHANGELOG
 
+## [2026-06-11] - Year & Duration Template Correction (2026 Update)
+### Changed
+- **Messaging Templates Update:** Updated all references of Nexte's duration from "10 años" to "más de 10 años" (and similar) to reflect the current year 2026.
+- **Year Ranges Update:** Updated year references from "(2015-2025)" to "(2015-2026)" across all template generating files.
+- **Promo Code/Name Update:** Updated categoric promo tags from "PROMO 2025" and similar to "PROMO 2026" to align with the current campaign year.
+- **Bot Message Detection:** Updated keyword matches and years check in `bot/index.js` to recognize "2015-2026" for message sequence detection and tracking.
+
 ## [2026-06-11] - Logs & Flota CRM Connectivity Alignment
 ### Added
 - **Global Console Interception:** Hijacked `console.log`, `console.error`, `console.warn` globally on both central server and bot templates. Captured logs are saved to MongoDB (`Log` collection) and forwarded to Socket.io live console.

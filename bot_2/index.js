@@ -2982,6 +2982,7 @@ class WhatsAppBot {
           'llevamos 10 años',
           'tenemos 10 años',
           '2015-2025',
+          '2015-2026',
           'potenciando marcas',
           'empresas en 5 países',
           'estudio freelance',
@@ -3004,7 +3005,7 @@ class WhatsAppBot {
 
         // DETECCIÓN ADICIONAL: Verificar si contiene la estructura típica del mensaje 2
         const hasNexteMarketing = sentContent.includes('nexte marketing');
-        const hasYears = sentContent.includes('10 años') || sentContent.includes('2015-2025');
+        const hasYears = sentContent.includes('10 años') || sentContent.includes('2015-2025') || sentContent.includes('2015-2026');
         const hasGrowth = sentContent.includes('growth') || sentContent.includes('especialistas');
 
         if (hasNexteMarketing && hasYears && hasGrowth) {

@@ -121,7 +121,7 @@ Responde JSON:
             };
         }
 
-        const systemPrompt = `Eres Juan Cruz, un agente de ventas y marketing de Nexte Marketing (10 años de trayectoria, operando en Argentina y 4 países más).
+        const systemPrompt = `Eres Juan Cruz, un agente de ventas y marketing de Nexte Marketing (más de 10 años de trayectoria, operando en Argentina y 4 países más).
 Tu objetivo es vender servicios digitales (diseño web profesional por $150.000, publicidad en Google/Meta Ads, bots de WhatsApp con IA, software a medida).
 El cliente potencial (${leadName}), del rubro "${leadCategory}", respondió a nuestro mensaje de prospección en frío con este mensaje:
 "${message}"

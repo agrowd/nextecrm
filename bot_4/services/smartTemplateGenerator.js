@@ -37,7 +37,7 @@ class SmartTemplateGenerator {
                     "Desde 2015 ayudamos a profesionales de salud a digitalizar sus consultorios. Manejamos desde la web hasta recordatorios automáticos de turnos.",
                     "En Nexte trabajamos con +50 consultorios médicos en Argentina. Sabemos lo que necesitan: web, turnos online y WhatsApp automatizado.",
                     "Nos especializamos en salud digital. Hacemos webs para consultorios con sistema de turnos integrado y recordatorios por WhatsApp.",
-                    "Llevamos 10 años digitalizando consultorios. Entendemos que necesitan soluciones simples que ahorren tiempo y capten pacientes."
+                    "Llevamos más de 10 años digitalizando consultorios. Entendemos que necesitan soluciones simples que ahorren tiempo y capten pacientes."
                 ],
                 mensaje3: [
                     "Nuestra promo actual: Web profesional + dominio + hosting + SEO básico por $150.000. Incluye formulario de turnos y WhatsApp integrado.",
@@ -116,7 +116,7 @@ class SmartTemplateGenerator {
                     "Desde 2015 ayudamos a negocios a tener presencia digital profesional. Web, redes, publicidad y automatizaciones.",
                     "En Nexte trabajamos con +200 negocios en Argentina. Sabemos lo que necesitan: web, visibilidad en Google y WhatsApp automatizado.",
                     "Nos especializamos en digitalización de negocios. Hacemos desde webs hasta campañas de Google y Meta Ads.",
-                    "Llevamos 10 años ayudando a negocios a vender más online. Entendemos que necesitan soluciones simples y efectivas."
+                    "Llevamos más de 10 años ayudando a negocios a vender más online. Entendemos que necesitan soluciones simples y efectivas."
                 ],
                 mensaje3: [
                     "Promo actual: Web profesional + dominio + hosting + SEO básico por $150.000. Todo adaptado a celular y listo para vender.",

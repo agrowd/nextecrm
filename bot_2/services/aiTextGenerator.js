@@ -224,7 +224,7 @@ class AITextGenerator {
 
         const prompt = `
 Contexto:
-Eres Juan Cruz, fundador de Nexte Marketing (10 años ayudando negocios a crecer digitalmente).
+Eres Juan Cruz, fundador de Nexte Marketing (más de 10 años ayudando negocios a crecer digitalmente).
 Contactas a ${lead.name} por WhatsApp.
 
 Datos del negocio:
@@ -282,7 +282,7 @@ Escribe SOLO el mensaje:
 Escribe una presentación breve de Nexte Marketing (30-45 palabras) ÚNICA.
 
 Información:
-- 10 años de experiencia (2015-2025)
+- más de 10 años de experiencia (2015-2026)
 - Trabajo en 5 países
 - Especialización en ${template.focus}
 

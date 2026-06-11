@@ -515,3 +515,22 @@ async function startScraperWorker() {
 
 6. **Sincronización de Flota y Verificación Sintáctica:**
    - Se sincronizaron todas las instancias `bot_1` a `bot_4` usando `node scripts/sync-bots.js` y se verificó sintácticamente que todos los archivos compilen correctamente (`node -c`).
+
+---
+
+## Pregunta del Usuario (2026-06-11):
+> Arreglar este tipo de mensajes ya que es 2026 y tiene que decir mas de 10 años o algo asi, dejo un ejemplo
+> Nexte tiene 10 años de trayectoria (2015-2025) ayudando a negocios a digitalizarse de verdad.
+
+---
+
+## Solución Implementada:
+
+Se modificaron todos los archivos del bot que hacían referencia a la trayectoria de 10 años y al año 2025 para actualizarlos a **más de 10 años** y al rango **2015-2026**:
+1. **`advancedTemplateGenerator.js`**: Actualizado "10 años (2015-2025)" a "más de 10 años (2015-2026)" y todas las referencias y comentarios de campañas de "PROMO 2025" a "PROMO 2026".
+2. **`aiTextGenerator.js`**: Actualizados los prompts e insights utilizados por OpenAI para referenciar "más de 10 años de experiencia (2015-2026)".
+3. **`responseAnalyzer.js`**: Corregido el prompt de sistema del analizador para pasar a "más de 10 años de trayectoria".
+4. **`smartTemplateGenerator.js`**: Se actualizaron las plantillas estáticas de todas las categorías de "10 años" a "más de 10 años".
+5. **`whatsappChecker.js`**: Actualizados los templates de presentación en frío de "10 años (2015-2025)" a "más de 10 años (2015-2026)".
+6. **`bot/index.js`**: Se añadieron `"2015-2026"` y los correspondientes patrones a las listas de palabras clave para que el bot pueda detectar si el mensaje 2 de presentación ya ha sido enviado a un lead histórico o actual.
+7. **Sincronización y Validación**: Se ejecutó `node scripts/sync-bots.js` y se verificó sintácticamente (`node -c`) toda la flota de bots (`bot_1` a `bot_4`), confirmando que compila limpiamente sin warnings ni errores.
