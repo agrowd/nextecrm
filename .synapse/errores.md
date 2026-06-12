@@ -86,6 +86,14 @@ Este archivo documenta errores encontrados y sus soluciones para NO repetirlos.
 
 ---
 
+## ERR-17: UnixHTTPConnectionPool read timeout (read timeout=60) (2026-06-11)
+**Síntoma:** Durante el despliegue en la VPS, `docker compose` compila exitosamente pero falla al crear/iniciar el contenedor arrojando error de timeout.
+**Root Cause:** El demonio de Docker está saturado, sin memoria/recursos suficientes para responder en 60 segundos a las llamadas de compose de crear la red y contenedores.
+**Solución:** Reiniciar el daemon de Docker (`systemctl restart docker`), liberar espacio y recursos de Docker (`docker system prune -f`), e incrementar el tiempo de espera por defecto de Docker Compose definiendo `COMPOSE_HTTP_TIMEOUT=300`.
+**Estado:** ✅ DOCUMENTED
+
+---
+
 ## ERR-09: Auto-reply de WhatsApp Business abortaba secuencia (2026-02-17)
 **Síntoma:** Bot 1 recibía auto-respuestas de WhatsApp Business (menús, bienvenidas) y las interpretaba como respuestas humanas. Esto causaba: `⛔ SECUENCIA ABORTADA` tras el primer mensaje, `isRejection()` clasificaba auto-replies como rechazos y enviaba disculpas.
 **Root Cause:** `handleIncomingMessage` no distinguía entre auto-replies y respuestas reales. CUALQUIER mensaje del número actual → `stopSending = true` + `abortCurrentSequence = true`. Además `isRejection()` procesaba auto-replies y los clasificaba como rechazos.
