@@ -1,6 +1,23 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-06-11 (11:00 Argentina)
+## Current Session: 2026-06-11 (23:55 Argentina)
+- **Objective:** Mejoras estéticas front, visualización de píxeles Meta/Google, enlaces a redes e intención IA.
+- **Status:** ✅ COMPLETED
+- **Git Info:** master
+- **Deploy:** Listo para desplegar en VPS (git pull + docker-compose up --build).
+
+### 32. Integración de Auditoría Web, Badges IA y Rediseño de Flota
+- **Solución:**
+  1. Se modificó el esquema de `Lead.js` agregando los campos de seguimiento IA.
+  2. Se actualizó el endpoint de actualización y el de conversaciones unificadas (populando `leadId`).
+  3. Se actualizó el payload del bot para enviar la intención detallada de la IA al CRM.
+  4. Se implementaron badges dinámicos con Material Icons para intenciones de IA en la bandeja de entrada y tabla de leads.
+  5. Se expuso la auditoría web detallada con badges `[FB]` (Meta Pixel) y `[GG]` (Google Analytics/GTM) en la tabla y modal de leads.
+  6. Se agregaron accesos premium a redes sociales (Instagram/Facebook) detectadas.
+  7. Se atenuaron a opacidad del 55% los slots de bots inactivos (`not_running`) con transiciones fluidas en hover.
+  8. Se sincronizaron todas las instancias (`bot_1` a `bot_4`) y se validó sintácticamente.
+
+## Previous Session: 2026-06-11 (11:00 Argentina)
 - **Objective:** Actualización de plantillas de mensajes para reflejar el año 2026 y más de 10 años de trayectoria.
 - **Status:** ✅ COMPLETED
 - **Git Info:** Sincronizado y verificado.

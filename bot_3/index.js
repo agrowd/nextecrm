@@ -1979,7 +1979,10 @@ class WhatsAppBot {
           status: backendStatus,
           whatsappResponse: messageBody,
           rejectionReason: (analysis.intent === 'rejection' || analysis.intent === 'anger') ? analysis.reason : undefined,
-          respondedToTemplate: true
+          respondedToTemplate: true,
+          aiIntent: analysis.intent,
+          aiConfidence: analysis.confidence,
+          aiReason: analysis.reason
         });
         console.log(`💾 Estado del Lead en CRM actualizado a: ${backendStatus}`);
       } catch (error) {

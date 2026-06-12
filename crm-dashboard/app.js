@@ -762,7 +762,19 @@ function processConversations(messages) {
     const newConvs = {};
     messages.forEach(msg => {
         const phone = msg.phone;
-        if (!newConvs[phone]) newConvs[phone] = { phone, name: msg.leadName || phone, messages: [], lastMessage: '', lastTime: null, instanceId: msg.instanceId };
+        if (!newConvs[phone]) {
+            newConvs[phone] = { 
+                phone, 
+                name: msg.leadName || phone, 
+                messages: [], 
+                lastMessage: '', 
+                lastTime: null, 
+                instanceId: msg.instanceId,
+                lead: msg.leadId || null
+            };
+        } else if (!newConvs[phone].lead && msg.leadId) {
+            newConvs[phone].lead = msg.leadId;
+        }
         newConvs[phone].messages.push(msg);
     });
     Object.values(newConvs).forEach(chat => {
@@ -790,13 +802,26 @@ function renderChatList() {
         const time = new Date(chat.lastTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const avatar = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(chat.name)}&backgroundColor=b6e3f4,c0aede,d1d4f9`;
         const botColor = chat.instanceId === 'bot_2' ? '#7e57c2' : (chat.instanceId === 'bot_3' ? '#ff9800' : '#00a884');
+        
+        const lead = chat.lead;
+        let aiBadge = '';
+        if (lead) {
+            aiBadge = getAiIntentBadge(lead);
+            // Replace margin-top of the badge to align properly in the row
+            aiBadge = aiBadge.replace('margin-top: 4px;', 'margin-top: 0;');
+        }
+
         list.insertAdjacentHTML('beforeend', `
             <div class="chat-item ${isActive}" data-phone="${chat.phone}">
                 <div class="chat-item-avatar"><img src="${avatar}"></div>
                 <div class="chat-item-content">
                     <div class="chat-row-1"><span class="chat-name">${chat.name}</span><span class="chat-time">${time}</span></div>
-                    <div class="chat-row-2"><span class="chat-last-msg">${chat.lastMessage.substring(0, 30)}...</span>
-                        <span class="bot-badge" style="background:${botColor}; font-size:10px;">${chat.instanceId ? (chat.instanceId === 'bot' ? 'B1' : chat.instanceId.replace('bot_', 'B')) : 'B1'}</span>
+                    <div class="chat-row-2" style="display:flex; justify-content:space-between; align-items:center; margin-top: 4px;">
+                        <div style="display:flex; align-items:center; gap:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80%;">
+                            ${aiBadge}
+                            <span class="chat-last-msg" style="margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${chat.lastMessage}</span>
+                        </div>
+                        <span class="bot-badge" style="background:${botColor}; font-size:10px; flex-shrink:0;">${chat.instanceId ? (chat.instanceId === 'bot' ? 'B1' : chat.instanceId.replace('bot_', 'B')) : 'B1'}</span>
                     </div>
                 </div>
             </div>`);
@@ -1013,6 +1038,13 @@ function renderBotControls() {
         card.className = `qr-card bot-${bot.status}`;
         card.style.borderColor = color + '40';
         card.style.position = 'relative';
+        
+        if (bot.status === 'not_running' || !bot.status) {
+            card.style.opacity = '0.55';
+            card.style.transition = 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+            card.setAttribute('onmouseover', "this.style.opacity='1';");
+            card.setAttribute('onmouseout', "this.style.opacity='0.55';");
+        }
 
         // Manejar alias: bot -> Bot 1
         const displayName = id === 'bot' ? 'Bot 1' : `Bot ${id.replace('bot_', '')}`;
@@ -1344,6 +1376,36 @@ async function fetchLeads() {
     } catch (e) { console.error(e); }
 }
 
+function getAiIntentBadge(lead) {
+    let intent = lead.aiIntent;
+    if (!intent) {
+        if (lead.status === 'interested') intent = 'interest';
+        else if (lead.status === 'not_interested') intent = 'rejection';
+        else if (lead.status === 'discarded') intent = 'anger';
+        else if (lead.status === 'manual_review') intent = 'neutral';
+    }
+
+    if (!intent || lead.status === 'pending' || lead.status === 'queued') {
+        return '';
+    }
+
+    const configs = {
+        'interest': { bg: 'rgba(37, 211, 102, 0.15)', color: '#25d366', text: 'Interesado', icon: 'thumb_up' },
+        'question': { bg: 'rgba(66, 165, 245, 0.15)', color: '#42a5f5', text: 'Consulta', icon: 'help_outline' },
+        'neutral': { bg: 'rgba(134, 150, 160, 0.15)', color: '#8696a0', text: 'Neutro', icon: 'remove' },
+        'rejection': { bg: 'rgba(244, 67, 54, 0.12)', color: '#ef5350', text: 'Rechazo', icon: 'thumb_down' },
+        'anger': { bg: 'rgba(239, 83, 80, 0.25)', color: '#ef5350', text: 'Enojado', icon: 'warning' },
+        'auto_reply': { bg: 'rgba(255, 152, 0, 0.15)', color: '#ff9800', text: 'Auto-Respuesta', icon: 'smart_toy' }
+    };
+
+    const conf = configs[intent] || configs['neutral'];
+    return `
+        <span class="ai-intent-badge" style="background: ${conf.bg}; color: ${conf.color}; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; border: 1px solid ${conf.color}25; margin-top: 4px;" title="${lead.aiReason || conf.text}">
+            <span class="material-icons" style="font-size: 12px;">${conf.icon}</span> ${conf.text}
+        </span>
+    `;
+}
+
 function renderLeadsTable() {
     const body = getEl('leadsTableBody'); if (!body) return;
     const leads = currentState.leads || [];
@@ -1362,9 +1424,37 @@ function renderLeadsTable() {
     leads.forEach(lead => {
         const st = statusColors[lead.status] || statusColors['pending'];
         const hasWeb = lead.hasWebsite || lead.website;
-        const webIcon = hasWeb ?
-            '<span class="material-icons" style="font-size:16px; color:#f44336;">language</span>' :
-            '<span class="material-icons" style="font-size:16px; color:#25d366;">check_circle</span>';
+        
+        let webContent = '';
+        if (hasWeb) {
+            const hasFB = lead.pixelFacebook === true;
+            const hasGG = lead.pixelGoogle === true;
+            const isAudited = lead.websiteValid !== undefined;
+            
+            const fbBadge = isAudited ? 
+                `<span class="audit-pill ${hasFB ? 'has' : 'none'}" style="font-size: 9px; padding: 1px 4px; border-radius: 3px;" title="${hasFB ? 'Pixel de Facebook activo' : 'Sin Pixel de Facebook'}">FB</span>` :
+                `<span class="audit-pill" style="font-size: 9px; padding: 1px 4px; border-radius: 3px; background: rgba(255,255,255,0.05); color:#666; border: 1px dashed rgba(255,255,255,0.1);" title="Auditoría pendiente">FB</span>`;
+                
+            const ggBadge = isAudited ?
+                `<span class="audit-pill ${hasGG ? 'has' : 'none'}" style="font-size: 9px; padding: 1px 4px; border-radius: 3px;" title="${hasGG ? 'Google Tag Manager/Analytics activo' : 'Sin Google Tag/Analytics'}">GG</span>` :
+                `<span class="audit-pill" style="font-size: 9px; padding: 1px 4px; border-radius: 3px; background: rgba(255,255,255,0.05); color:#666; border: 1px dashed rgba(255,255,255,0.1);" title="Auditoría pendiente">GG</span>`;
+            
+            webContent = `
+                <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
+                    <a href="${lead.website.startsWith('http') ? lead.website : 'http://' + lead.website}" target="_blank" style="color:#53bdeb; text-decoration:none; font-size:12px; display:flex; align-items:center; gap:2px;" onclick="event.stopPropagation();">
+                        <span class="material-icons" style="font-size:13px;">language</span> Web
+                    </a>
+                    <div style="display: flex; gap: 3px;">
+                        ${fbBadge}
+                        ${ggBadge}
+                    </div>
+                </div>
+            `;
+        } else {
+            webContent = `<span style="color:#8696a0; font-size:11px; font-style:italic;">Sin Web</span>`;
+        }
+
+        const aiIntentBadge = getAiIntentBadge(lead);
 
         body.insertAdjacentHTML('beforeend', `
             <tr data-lead-id="${lead._id}" style="cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#1a2e38'" onmouseout="this.style.background=''">
@@ -1375,8 +1465,13 @@ function renderLeadsTable() {
                 <td>${lead.phone || '-'}</td>
                 <td style="color:#8696a0; font-size:12px;">${lead.location || '-'}</td>
                 <td style="color:#8696a0; font-size:12px;">${lead.keyword || lead.category || '-'}</td>
-                <td><span style="background:${st.bg}; color:${st.color}; padding:3px 8px; border-radius:4px; font-size:11px;">${st.text}</span></td>
-                <td style="text-align:center;">${webIcon}</td>
+                <td>
+                    <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+                        <span style="background:${st.bg}; color:${st.color}; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600;">${st.text}</span>
+                        ${aiIntentBadge}
+                    </div>
+                </td>
+                <td style="text-align:center;">${webContent}</td>
                 <td style="text-align:center; color:#8696a0;">${lead.messagesSent || 0}</td>
                 <td>
                     <button class="delete-lead-btn" data-id="${lead._id}" style="background:none; border:none; cursor:pointer;">
@@ -1514,10 +1609,35 @@ function openLeadModal(leadId) {
                         </div>
                          <div style="margin-bottom:12px;">
                             <label style="color:#8696a0; font-size:11px;">Sitio Web</label>
-                            <div style="color:${lead.hasWebsite ? '#f44336' : '#25d366'}; font-size:14px;">
-                                ${lead.website ? `<a href="${lead.website}" target="_blank" style="color:#53bdeb; text-decoration:none;">🔗 ${lead.website}</a>` : 'Sin sitio web'}
+                            <div style="font-size:14px; margin-top:2px;">
+                                ${lead.website ? `
+                                    <div style="margin-bottom: 6px;">
+                                        <a href="${lead.website.startsWith('http') ? lead.website : 'http://' + lead.website}" target="_blank" style="color:#53bdeb; text-decoration:none; font-weight:600;">🔗 ${lead.website}</a>
+                                    </div>
+                                    <div style="display: flex; gap: 6px; margin-top: 4px;">
+                                        <span class="audit-pill ${lead.pixelFacebook ? 'has' : 'none'}" style="font-size: 9px; padding: 2px 5px; border-radius: 3px;">Meta Pixel: ${lead.pixelFacebook ? 'SI' : 'NO'}</span>
+                                        <span class="audit-pill ${lead.pixelGoogle ? 'has' : 'none'}" style="font-size: 9px; padding: 2px 5px; border-radius: 3px;">Google Pixel: ${lead.pixelGoogle ? 'SI' : 'NO'}</span>
+                                    </div>
+                                ` : '<span style="color:#25d366">Sin sitio web</span>'}
                             </div>
                         </div>
+                        ${(lead.instagramUrl || lead.facebookUrl) ? `
+                        <div style="margin-bottom:12px;">
+                            <label style="color:#8696a0; font-size:11px;">Redes Sociales Detectadas</label>
+                            <div style="display: flex; gap: 8px; margin-top: 4px;">
+                                ${lead.instagramUrl ? `
+                                    <a href="${lead.instagramUrl}" target="_blank" style="background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); color: white; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px;" onclick="event.stopPropagation();">
+                                        📸 Instagram
+                                    </a>
+                                ` : ''}
+                                ${lead.facebookUrl ? `
+                                    <a href="${lead.facebookUrl}" target="_blank" style="background: #1877f2; color: white; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px;" onclick="event.stopPropagation();">
+                                        👤 Facebook
+                                    </a>
+                                ` : ''}
+                            </div>
+                        </div>
+                        ` : ''}
                     </div>
 
                     <h4 style="color:#00a884; font-size:12px; margin-bottom:8px; border-bottom: 1px solid #2f3b43; padding-bottom:5px;">⭐ REPUTACIÓN</h4>
@@ -1553,10 +1673,20 @@ function openLeadModal(leadId) {
                             <label style="color:#8696a0; font-size:11px;">Mensajes Enviados</label>
                             <div style="color:#fff; font-size:14px;">${lead.messagesSent || 0}</div>
                         </div>
-                        <div>
-                             <label style="color:#8696a0; font-size:11px;">Última Actividad</label>
+                        <div style="margin-bottom:12px;">
+                            <label style="color:#8696a0; font-size:11px;">Última Actividad</label>
                             <div style="color:#fff; font-size:14px;">${lead.lastMessageAt ? new Date(lead.lastMessageAt).toLocaleString() : 'Nunca'}</div>
                         </div>
+                        ${lead.aiIntent ? `
+                        <div style="margin-top:12px; border-top: 1px solid #2f3b4350; padding-top: 10px;">
+                            <label style="color:#8696a0; font-size:11px;">Intención de IA</label>
+                            <div style="margin-top: 4px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                ${getAiIntentBadge(lead)}
+                                ${lead.aiConfidence ? `<span style="font-size:11px; color:#8696a0;">(${(lead.aiConfidence*100).toFixed(0)}% confianza)</span>` : ''}
+                            </div>
+                            ${lead.aiReason ? `<div style="font-size:11px; color:#8696a0; font-style:italic; margin-top:5px; background: rgba(0,0,0,0.15); padding: 5px; border-radius: 4px; border-left: 2px solid #8696a0;">${lead.aiReason}</div>` : ''}
+                        </div>
+                        ` : ''}
                     </div>
 
                     ${lead.whatsappResponse ? `

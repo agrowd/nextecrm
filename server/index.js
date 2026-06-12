@@ -1457,6 +1457,7 @@ app.get('/api/conversations', async (req, res) => {
 
     // Obtener mensajes de la DB
     const messages = await Message.find(query)
+      .populate('leadId')
       .sort({ sentAt: -1 }) // Más recientes primero
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
@@ -1554,7 +1555,7 @@ app.put('/lead/:id/status', async (req, res) => {
 app.put('/lead/by-phone/:phone', async (req, res) => {
   try {
     const { phone } = req.params;
-    const { status, whatsappResponse, contactedByNumber, contactedByInstance, rejectionReason, rejectionConfidence, templateVariantUsed, respondedToTemplate } = req.body;
+    const { status, whatsappResponse, contactedByNumber, contactedByInstance, rejectionReason, rejectionConfidence, templateVariantUsed, respondedToTemplate, aiIntent, aiConfidence, aiReason } = req.body;
 
     const cleanPhone = phone.replace(/\D/g, '');
     const lead = await Lead.findOne({
@@ -1576,6 +1577,9 @@ app.put('/lead/by-phone/:phone', async (req, res) => {
     if (rejectionConfidence !== undefined) lead.rejectionConfidence = rejectionConfidence;
     if (templateVariantUsed !== undefined && templateVariantUsed !== null) lead.templateVariantUsed = templateVariantUsed;
     if (respondedToTemplate !== undefined) lead.respondedToTemplate = respondedToTemplate;
+    if (aiIntent) lead.aiIntent = aiIntent;
+    if (aiConfidence !== undefined) lead.aiConfidence = aiConfidence;
+    if (aiReason) lead.aiReason = aiReason;
 
     lead.lastContactAt = new Date();
     await lead.save();

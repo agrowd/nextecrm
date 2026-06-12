@@ -29,4 +29,7 @@
 | D-27 | **Global Console Interception & Alignment** | Intercept `console.log/warn/error` globally on both backend and bot instances to channel all system messages to MongoDB and the Socket.io live dashboard logs automatically, avoiding manual file modifications. | 🔒 LOCKED |
 | D-28 | **Smart Warm-up 3-Stage Protocol** | Prevents infinite loop messaging between bots by enforcing a stateless 3-stage exchange (Initiator -> Responder -> Closer -> End). | 🔒 LOCKED |
 | D-29 | **Global Socket/Status Refs Initialization** | Assign `global.io = io` and `global.botStatuses = botStatuses` explicitly at server startup to resolve broken references in endpoints and interceptors. | 🔒 LOCKED |
+| D-30 | **Populate `leadId` on `/api/conversations` query** | Populating Mongoose's leadId in unified history allows the frontend to map lead statuses and AI-classified sentiments directly to chat rows in real time. | 🔒 LOCKED |
+| D-31 | **Expose Dynamic Website Audit Data and IA intent badges** | Exposing scraper metrics (Meta/Google pixels and Instagram/Facebook links) and IA intent classifications directly in the leads table/modal improves sales prioritization. | 🔒 LOCKED |
+| D-32 | **Atenuar/Diminish Inactive Bot Control Cards** | Applying 55% opacity and hover transformations to bots with `not_running` status visually highlights active bots while keeping inactive controls available. | 🔒 LOCKED |
 

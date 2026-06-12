@@ -1,5 +1,17 @@
 # 📜 SYSTEM CHANGELOG
 
+## [2026-06-12] - Ingested Audit Data Exposure, AI Intent Badges & Bot Dimming
+### Added
+- **AI Tracking Fields in Schema:** Added `aiIntent`, `aiConfidence`, and `aiReason` explicitly to the Lead model.
+- **AI Intent Badges in Dashboard:** Added visual HSL-colored badges with Material Icons showing AI intention (Interest, Question, Neutral, Rejection, Anger, Auto-Reply) in the leads table and chat inbox.
+- **Web Audit Data Display:** Exposed Meta Pixel `[FB]` and Google Pixel/GTM `[GG]` status badges in the Leads table and detailed view.
+- **Social Media Quick Links:** Dynamic link buttons for Instagram 📸 and Facebook 👤 in the detailed lead view if audited in the background.
+- **Active Fleet Dimming:** Reduced opacity of inactive (`not_running`) bots to 55% with interactive hover highlights.
+
+### Changed
+- **Conversations Population:** Updated `/api/conversations` query to populate `leadId`, enabling real-time lead and AI intent tracking in the chat list.
+- **Bot Analysis Integration:** Updated the bot's lead update payload to send intent classification metadata (confidence, reason) to the backend.
+
 ## [2026-06-11] - Year & Duration Template Correction (2026 Update)
 ### Changed
 - **Messaging Templates Update:** Updated all references of Nexte's duration from "10 años" to "más de 10 años" (and similar) to reflect the current year 2026.

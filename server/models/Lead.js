@@ -51,7 +51,11 @@ const LeadSchema = new mongoose.Schema({
   contactedByInstance: { type: String, default: '' }, // instanceId del bot que lo contactó
   // 📊 A/B Testing Tracking
   templateVariantUsed: { type: Number, default: null }, // Índice de variante de propuesta
-  respondedToTemplate: { type: Boolean, default: false } // Si respondió a esta propuesta
+  respondedToTemplate: { type: Boolean, default: false }, // Si respondió a esta propuesta
+  // 🤖 Tracking de IA
+  aiIntent: { type: String, default: '' },
+  aiConfidence: { type: Number, default: null },
+  aiReason: { type: String, default: '' }
 }, {
   timestamps: true,
   strict: false, // Permite campos adicionales
