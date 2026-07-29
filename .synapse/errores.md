@@ -182,4 +182,10 @@ Este archivo documenta errores encontrados y sus soluciones para NO repetirlos.
 3. Se sincronizó (`sync-bots.js`) y se validó en todas las carpetas.
 **Estado:** ✅ FIXED
 
+---
 
+## ERR-18: Cuenta de WhatsApp restringida por 7 días (2026-06-16)
+**Síntoma:** El bot no envía mensajes y se observa en la cuenta del teléfono una restricción de dispositivos vinculados por 7 días.
+**Root Cause:** Detección automática por parte de WhatsApp de mensajes fríos masivos/prospección automatizada.
+**Solución:** Acción operativa: Esperar a que expire la penalización (y reanudar con límites diarios muy bajos de 10-15) o borrar sesión en `/srv/rascafull/bot/sessions` para escanear un nuevo número de teléfono.
+**Estado:** ✅ DIAGNOSED / OPERATIONAL

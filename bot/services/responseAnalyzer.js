@@ -103,7 +103,7 @@ Responde JSON:
     }
 
     /**
-     * Analizar respuesta de forma consolidada e inteligente (Paso 1, 2, 3 de intención + generación de respuesta)
+     * Analizar respuesta de forma consolidada e inteligente (Paso 1, 2, 3 de intención + medición de enojo/interés)
      */
     async analyzeIncomingMessage(message, leadName, leadCategory) {
         console.log(`🔍 Iniciando análisis consolidado de respuesta de "${leadName}" con IA...`);
@@ -115,36 +115,42 @@ Responde JSON:
             return {
                 intent: 'auto_reply',
                 confidence: 1.0,
+                angerScore: 0,
+                interestScore: 0,
                 reason: autoCheck.reason,
                 reply: null,
                 shouldRespond: false
             };
         }
 
-        const systemPrompt = `Eres Juan Cruz, un agente de ventas y marketing de Nexte Marketing (más de 10 años de trayectoria, operando en Argentina y 4 países más).
-Tu objetivo es vender servicios digitales (diseño web profesional por $150.000, publicidad en Google/Meta Ads, bots de WhatsApp con IA, software a medida).
-El cliente potencial (${leadName}), del rubro "${leadCategory}", respondió a nuestro mensaje de prospección en frío con este mensaje:
+        const systemPrompt = `Eres Juan Cruz, director de Nexte Marketing (más de 10 años de trayectoria ayudando a negocios con software a medida, IA NatoH, sitios web y SEO local).
+El cliente potencial (${leadName}), del rubro "${leadCategory}", respondió a nuestro mensaje de prospección en frío con este texto:
 "${message}"
 
-Analiza el mensaje y determina la intención y el sentimiento:
-- "rejection": No le interesa de forma neutra o educada ("No, gracias", "No me interesa", "Ya tengo web").
-- "anger": Está enojado, acusa de spam o pregunta hostilmente cómo obtuvimos su número ("Cómo conseguiste mi número?", "No molestes", "Denunciado").
-- "interest": Muestra interés directo o quiere saber más ("Me interesa", "Contame más", "Contame de qué se trata").
-- "question": Tiene preguntas específicas sobre precios, servicios o pide una llamada ("Cuánto sale?", "¿Qué incluye?", "Llamame").
-- "neutral": Mensaje ambiguo, saludo corto o no clasificado ("Ok", "Hola").
+Analiza el mensaje detenidamente y calcula las siguientes métricas:
+1. "intent": 
+   - "rejection": No le interesa de forma educada ("No gracias", "Ya tenemos web", "Por ahora no").
+   - "anger": Está enojado, molesto, o pregunta agresivamente cómo conseguimos su número ("Borrá mi número", "Dejá de joder", "Quién te dio mi número?", "Spam").
+   - "interest": Muestra interés directo en conocer más, contratar o ver ejemplos ("Me interesa", "Pasame info", "De qué se trata?", "Mandame ejemplos").
+   - "question": Pregunta por costos, reuniones, o detalles específicos ("Cuánto sale?", "Tienen turno?", "Hacen x servicio?").
+   - "neutral": Respuesta ambigua o corta ("Ok", "Hola", "Buenas").
 
-Genera una respuesta en español rioplatense (cercano, amigable y muy profesional, usando "vos" y "che" con sutileza y de forma natural, sin sonar exagerado).
-Reglas de la respuesta:
-1. Si es "rejection" o "anger": Pide disculpas cordialmente por la molestia, confirma que lo removerás de la lista y desea éxitos. Corto (max 20 palabras).
-2. Si es "interest" o "question": Responde de forma clara y concisa a su duda o consulta. Ofrece una breve llamada de 5 minutos o proponer coordinar por WhatsApp para ver ejemplos de nuestro portfolio de webs reales. Sé servicial y empático. Max 45 palabras.
-3. Si es "neutral": Pregunta amablemente si le gustaría ver nuestro portfolio de páginas web de ejemplo para su rubro.
+2. "angerScore": Puntuación del 0 al 10 sobre qué tan enojado o molesto está el lead (0 = nada enojado, 10 = furioso/amenaza con denunciar).
+3. "interestScore": Puntuación del 0 al 10 sobre qué tanto le gustó la propuesta o qué tan interesado está (0 = nada interesado, 10 = listo para comprar/agendar).
 
-Responde estrictamente en formato JSON con la siguiente estructura de ejemplo:
+4. "reply": Genera la respuesta adecuada en español argentino profesional:
+   - SI ESTÁ ENOJADO O RECHAZA ("anger" / "rejection" o angerScore >= 4): Genera una disculpa educada y servicial según su nivel de enojo. Si el enojo es alto (angerScore >= 7), di algo como: "Disculpá la molestia. Te pido mil disculpas por la interrupción. Ya agendamos tu número para no volver a enviarte ninguna información. ¡Saludos y éxitos!". Si el rechazo es bajo: "Entendido, disculpá la molestia. Ya registramos tu número para no escribirte más. ¡Que tengas un excelente día!".
+   - SI MUESTRA INTERÉS O PREGUNTA ("interest" / "question" o interestScore >= 5): Di que un asesor especializado se comunicará con él a la brevedad para asesorarlo personalmente y mostrarle los trabajos realizados. Ej: "¡Buenísimo! Ya le pasé tu contacto a un asesor especializado de Nexte para que se comunique con vos a la brevedad y te envíe todos los ejemplos y detalles. ¡Muchas gracias!".
+   - SI ES NEUTRAL: Ofrece amablemente enviarle ejemplos de nuestro portafolio de clientes de su rubro.
+
+Responde estrictamente en formato JSON válido con la siguiente estructura:
 {
   "intent": "rejection" | "anger" | "interest" | "question" | "neutral",
   "confidence": 0.0-1.0,
+  "angerScore": 0-10,
+  "interestScore": 0-10,
   "reason": "Explicación del análisis",
-  "reply": "Respuesta generada para enviar al cliente",
+  "reply": "Texto de la respuesta final a enviar por WhatsApp",
   "shouldRespond": true
 }
 `;
@@ -155,8 +161,10 @@ Responde estrictamente en formato JSON con la siguiente estructura de ejemplo:
             if (jsonMatch) {
                 const analysis = JSON.parse(jsonMatch[0]);
                 return {
-                    intent: analysis.intent,
+                    intent: analysis.intent || 'neutral',
                     confidence: analysis.confidence || 0.9,
+                    angerScore: typeof analysis.angerScore === 'number' ? analysis.angerScore : (analysis.intent === 'anger' ? 8 : 0),
+                    interestScore: typeof analysis.interestScore === 'number' ? analysis.interestScore : (analysis.intent === 'interest' ? 9 : 0),
                     reason: analysis.reason || '',
                     reply: analysis.reply || null,
                     shouldRespond: analysis.intent !== 'neutral' ? true : (analysis.shouldRespond !== false)
@@ -169,22 +177,28 @@ Responde estrictamente en formato JSON con la siguiente estructura de ejemplo:
         // Fallback a parser de reglas si la IA falla
         const isInterest = simpleCheck.isInterest;
         let intent = 'neutral';
+        let angerScore = 0;
+        let interestScore = 0;
         let reply = null;
         let shouldRespond = false;
 
         if (simpleCheck.isRejection) {
             intent = 'rejection';
+            angerScore = simpleCheck.reason.includes('explícito') ? 8 : 4;
             reply = await this.generateApology(leadName);
             shouldRespond = true;
         } else if (isInterest) {
             intent = 'interest';
-            reply = "¡Buenísimo! ¿Te gustaría que te pase algunos ejemplos de páginas web de tu rubro que ya diseñamos?";
+            interestScore = 8;
+            reply = "¡Buenísimo! Ya le avisé a un asesor especializado de Nexte para que se comunique con vos a la brevedad y te pase los ejemplos. ¡Muchas gracias!";
             shouldRespond = true;
         }
 
         return {
             intent,
             confidence: simpleCheck.confidence,
+            angerScore,
+            interestScore,
             reason: simpleCheck.reason,
             reply,
             shouldRespond

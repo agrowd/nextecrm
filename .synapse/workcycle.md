@@ -306,3 +306,42 @@ docker compose logs -f
 - **Problem:** The Chrome Extension scraper did not natively extract rating, review count, or category from Maps, making the newly proposed dynamic variables incomplete.
 - **Solution:** Injected robust CSS and RegExp extraction targeting 'aria-label' and '.fontBodyMedium' directly into `extension/content.js`. Pushed to GitHub.
 - **Archivos:** `extension/content.js`
+
+## Current Session: 2026-06-16 (16:40 Argentina)
+- **Objective:** Diagnosticar la restricción de 7 días de WhatsApp y proveer soluciones.
+- **Status:** ✅ COMPLETED
+- **Git Info:** master
+- **Deploy:** N/A (Acción operativa en la VPS).
+
+### 33. Diagnóstico de Restricción de WhatsApp de 7 Días
+- **Problema:** El usuario compartió una captura de pantalla que muestra que la cuenta de WhatsApp fue restringida en dispositivos vinculados por 7 días debido a sospechas de spam/mensajes automáticos.
+- **Causa Raíz:** WhatsApp detectó patrones de automatización o reportes de spam de los leads y bloqueó la funcionalidad de WhatsApp Web (Linked Devices) del número por 7 días.
+- **Solución:** 
+  1. Diagnosticar el impacto en el bot.
+  2. Proveer las dos opciones: esperar los 7 días (y bajar el límite diario a 10-15 leads al reiniciar) o vincular un nuevo número inmediatamente.
+  3. Detallar comandos para limpiar los archivos de sesión del bot en la VPS si deciden cambiar de número para forzar la generación de un nuevo código QR.
+
+## Current Session: 2026-07-03 (08:55 Argentina)
+- **Objective:** Resolver falta de espacio en el servidor VPS NatoH (DonWeb).
+- **Status:** ✅ COMPLETED
+- **Git Info:** master
+- **Deploy:** N/A (Mantenimiento de servidor).
+
+### 34. Limpieza y Recuperación de Almacenamiento en VPS (NatoH)
+- **Problema:** El servidor se quedó sin almacenamiento (4.56% libre, 59.10 GB ocupados de 61.93 GB).
+- **Causa Raíz:** Acumulación de cache de build de Docker, logs de contenedores y temporales de Chromium.
+- **Solución:** Diseñar y entregar una guía de limpieza profunda y segura de Docker y del sistema operativo Linux para liberar hasta un 70% de espacio.
+
+## Current Session: 2026-07-29 (12:09 Argentina)
+- **Objective:** Implementación y sincronización de la secuencia de 4 mensajes 100% generados con ChatGPT (Sin Ads, Enfoque Software e IA NatoH).
+- **Status:** ✅ COMPLETED
+- **Git Info:** master
+- **Deploy:** Listo para deploy en el VPS.
+
+### 35. Rediseño Total de Secuencia con ChatGPT (100% IA Personalizada sin Ads)
+- **Acción:** Diseñado el nuevo flujo dinámico de 4 mensajes con `gpt-4o-mini`:
+  1. Msg 1: Saludo + Enganche ultra-personalizado basado en datos reales de Maps sin plantillas robóticas.
+  2. Msg 2: Presentación adaptada al rubro específico y trayectoria (+10 años / 2015-2026).
+  3. Msg 3: Propuesta a medida enfocada en Software/Sistemas a medida, IA NatoH, Web/E-commerce, Contenido y SEO Local (Sin Publicidad/Ads). Combo con descuento personalizado.
+  4. Msg 4: Cierre natural ofreciendo ejemplos de trabajos realizados y agendamiento.
+  5. Elaborado ejemplo demostrativo completo para validación del usuario.

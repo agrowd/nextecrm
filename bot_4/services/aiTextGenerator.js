@@ -153,65 +153,66 @@ class AITextGenerator {
     }
 
     /**
-     * Generar secuencia de ENGANCHE (4 mensajes)
+     * Generar secuencia de ENGANCHE (4 mensajes 100% personalizados con ChatGPT)
      */
     async generatePersonalizedSequence(lead) {
-        console.log(`🤖 [GENERADOR] Generando 4 mensajes para ${lead.name}`);
+        console.log(`🤖 [GENERADOR] Generando secuencia de 4 mensajes 100% IA para ${lead.name}`);
 
         try {
-            // 1. PRIMERO: Generar con plantillas avanzadas (SIEMPRE FUNCIONA)
-            const templateMessages = this.templateGenerator.generatePersonalizedSequence(lead);
+            // 1. Obtener plantilla base y contexto del rubro
+            const template = this.getTemplateForBusiness(lead.category);
+            const messages = [null, null, null, null];
 
-            if (!templateMessages || templateMessages.length !== 4) {
-                throw new Error('AdvancedTemplateGenerator falló');
-            }
-
-            console.log(`✅ [TEMPLATE] 4 mensajes generados con plantillas avanzadas`);
-            console.log(`🎯 Categoría detectada: ${this.templateGenerator.detectCategory(lead)}`);
-
-            // 2. OPCIONAL: Intentar mejorar con OpenAI (si está disponible)
+            // 2. Si OpenAI está activo y saludable, generar los 4 mensajes con ChatGPT
             if (this.stats.errors < 3 && this.apiKey) {
                 try {
-                    const template = this.getTemplateForBusiness(lead.category);
-                    const enhancedMsg1 = await this.generateMessage1(lead, template);
+                    console.log(`✨ Generando Mensaje 1 (Análisis real del negocio) con ChatGPT...`);
+                    messages[0] = await this.generateMessage1(lead, template);
 
-                    if (enhancedMsg1 && enhancedMsg1.length > 50) {
-                        templateMessages[0] = enhancedMsg1;
-                        console.log(`✨ Mensaje 1 mejorado con OpenAI`);
-                        this.stats.messagesGenerated += 1;
+                    console.log(`✨ Generando Mensaje 2 (Presentación adaptada al rubro) con ChatGPT...`);
+                    messages[1] = await this.generateMessage2(lead, template);
+
+                    console.log(`✨ Generando Mensaje 3 (Propuesta comercial a medida sin Ads) con ChatGPT...`);
+                    messages[2] = await this.generateMessage3(lead, template);
+
+                    console.log(`✨ Generando Mensaje 4 (Cierre natural con oferta de portafolio) con ChatGPT...`);
+                    messages[3] = await this.generateMessage4(lead, template);
+
+                    // Verificar que los 4 mensajes sean válidos y no vacíos
+                    if (messages.every(m => m && typeof m === 'string' && m.trim().length > 20)) {
+                        console.log(`✅ [CHATGPT] Secuencia completa de 4 mensajes generada exitosamente con IA`);
+                        this.stats.messagesGenerated += 4;
+                        return messages;
                     }
                 } catch (openAiError) {
-                    console.log(`⚠️ OpenAI no disponible, usando plantilla original: ${openAiError.message}`);
+                    console.log(`⚠️ Falló generación completa con OpenAI: ${openAiError.message}. Usando sistema de plantillas...`);
                     this.stats.errors++;
                 }
-            } else {
-                console.log(`⏸️ OpenAI pausado o no configurado, usando solo plantillas`);
             }
 
+            // 3. FALLBACK: Usar plantillas avanzadas si OpenAI falla o no está configurado
+            console.log(`📋 Usando plantillas avanzadas como fallback...`);
+            const templateMessages = this.templateGenerator.generatePersonalizedSequence(lead);
             this.stats.messagesGenerated += templateMessages.length;
-            console.log(`✅ [GENERADOR] Secuencia de 4 mensajes lista`);
-
             return templateMessages;
 
         } catch (error) {
             console.error(`❌ Error crítico en generación:`, error.message);
             this.stats.errors++;
 
-            // FALLBACK FINAL: Mensajes de emergencia (4 mensajes)
-            console.log(`🚨 Usando mensajes de emergencia`);
+            // FALLBACK FINAL DE EMERGENCIA (4 mensajes)
             const fallbackMsgs = [
-                `¡Hola! Vi ${lead.name} en Google Maps. ¿Tienen página web? Hoy es fundamental para captar clientes.`,
-                `Desde 2015 en Nexte Marketing ayudamos a negocios a tener presencia digital profesional.`,
-                `🚀 Ofrecemos un sitio web completo por $250.000 (en 2 pagos), personalizado y adaptado a tu marca. Listo en 2 días!`,
-                `💬 Escribime si te interesa ver ejemplos de webs reales que ya diseñamos!`
+                `¡Hola! Soy Juan Cruz de Nexte Marketing. Estuve revisando el perfil de ${lead.name} en Google Maps y me llamó la atención su potencial en la zona.`,
+                `En Nexte llevamos más de 10 años (2015-2026) desarrollando software a medida, asistentes virtuales con IA y soluciones digitales para hacer crecer negocios.`,
+                `🏢 *SOLUCIONES DIGITALES NEXTE 2026*\n\n⚙️ *SISTEMAS & SOFTWARE A MEDIDA:* $650.000 → Promo $350.000 en 2 pagos\n🤖 *ASISTENTE VIRTUAL IA NATOH (WHATSAPP 24/7):* $350.000 → Promo $180.000\n🌐 *PÁGINA WEB PROFESIONAL:* $500.000 → Promo $250.000\n📍 *SEO GOOGLE MAPS:* $300.000 → Promo $150.000\n\n🎁 *COMBO INTEGRAL:* $1.800.000 → 🔥 *$690.000* (Ahorro de $1.110.000).`,
+                `Si querés te puedo enviar algunos ejemplos de sistemas y sitios web reales que ya diseñamos para otros negocios. ¿Charlamos 5 min?`
             ];
-            fallbackMsgs.templateVariantUsed = 0; // Por defecto primer variante
             return fallbackMsgs;
         }
     }
 
     /**
-     * Mensaje 1: Saludo ULTRA personalizado con insights
+     * Mensaje 1: Saludo + Enganche ultra personalizado con datos reales de Google Maps
      */
     async generateMessage1(lead, template) {
         const cacheKey = `msg1_${lead.id}`;
@@ -223,27 +224,26 @@ class AITextGenerator {
         const insights = this.analyzeLeadInsights(lead);
 
         const prompt = `
-Contexto:
-Eres Juan Cruz, fundador de Nexte Marketing (más de 10 años ayudando negocios a crecer digitalmente).
-Contactas a ${lead.name} por WhatsApp.
+Contexto: Eres Juan Cruz de Nexte Marketing contactando al dueño o encargado de un negocio por WhatsApp.
+Misión: Escribir un primer mensaje extremadamente natural, humano y personalizado basándote en la información REAL extraída de Google Maps.
 
-Datos del negocio:
+Datos REALES del negocio:
 - Nombre: ${lead.name}
-- Categoría: ${lead.category || 'negocio'}
-- Rating: ${lead.rating || 'sin datos'}⭐ (${insights.ratingLabel})
-- Reviews: ${lead.reviewCount || 0} reseñas
-- Ubicación: ${lead.location || 'CABA'}${insights.isPremiumLocation ? ' (zona premium)' : ''}
-- Tiene web: ${lead.website ? 'SÍ' : 'NO'}
+- Categoría/Rubro: ${lead.category || 'negocio'}
+- Rating/Estrellas: ${lead.rating ? lead.rating + '⭐' : 'sin datos de rating'} (${insights.ratingLabel})
+- Opiniones/Reseñas: ${lead.reviewCount ? lead.reviewCount + ' opiniones en Google' : 'pocas opiniones'}
+- Ubicación: ${lead.location || 'la zona'}
+- Sitio web actual: ${lead.website ? 'Tiene sitio web (' + lead.website + ')' : 'NO tiene sitio web'}
 
-Tarea:
-Escribe mensaje de 25-35 palabras que:
-1. Mencione UN insight específico (rating, reviews, ubicación o sin web)
-2. Demuestre investigación real (NO spam)
-3. Cree "gap" (lo que tiene vs podría tener)
-4. Use lenguaje argentino conversacional
-5. NO uses clichés ("me gustaría", "quisiera ofrecerte")
+Requisitos del mensaje:
+1. Saluda cordialmente (Ej: "¡Hola! Soy Juan Cruz de Nexte Marketing...").
+2. Menciona datos específicos y reales de su negocio (su nombre real "${lead.name}", su ubicación "${lead.location || 'tu zona'}", su rating o la falta de sitio web) de forma súper fluida.
+3. Señala una oportunidad clara sin sonar agresivo ni robótico (ej: si no tiene web, la pérdida de clientes que buscan en Google; si tiene buen rating, la oportunidad de capitalizar esa reputación).
+4. NO uses placeholders como {nombre} o [rubro]. Todo debe estar redactado en texto final pulido.
+5. Usa un tono argentino conversacional, profesional y directo ("vos", "te comento", etc.).
+6. Extensión: entre 35 y 55 palabras.
 
-Escribe SOLO el mensaje:
+Escribe ÚNICAMENTE el texto final del mensaje 1:
 `;
 
         try {
@@ -257,19 +257,15 @@ Escribe SOLO el mensaje:
             return cleanMessage;
         } catch (error) {
             console.error('Error OpenAI mensaje 1:', error.message);
-
-            if (insights.hasHighRating && insights.hasLowVisibility) {
-                return `${lead.rating}⭐ excelente pero solo ${lead.reviewCount} reviews = Google no te muestra. Perdes clientes.`;
-            }
             if (!lead.website) {
-                return `Vi ${lead.name} en Maps. Sin web = 100% dependiente de Google. Te muestro cómo cambiarlo.`;
+                return `¡Hola! Soy Juan Cruz de Nexte Marketing. Estuve revisando el perfil de ${lead.name} en Google Maps y noté que no cuentan con un sitio web oficial. Hoy en día en ${lead.location || 'tu zona'}, muchos clientes buscan primero en Google antes de contactar y terminan yéndose a otros negocios.`;
             }
-            return `Juan Cruz, Nexte. Vi ${lead.name} en ${lead.location} y detecté algo que te cuesta clientes.`;
+            return `¡Hola! Soy Juan Cruz de Nexte Marketing. Vi el perfil de ${lead.name} en Google Maps con ${lead.rating || 'excelente'} rating en ${lead.location || 'tu zona'} y me llamó la atención su potencial para captar aún más clientes directos.`;
         }
     }
 
     /**
-     * Mensaje 2: Presentación
+     * Mensaje 2: Presentación de trayectoria adaptada al rubro específico
      */
     async generateMessage2(lead, template) {
         const cacheKey = `msg2_${lead.id}`;
@@ -279,21 +275,23 @@ Escribe SOLO el mensaje:
         }
 
         const prompt = `
-Escribe una presentación breve de Nexte Marketing (30-45 palabras) ÚNICA.
+Contexto: Eres Juan Cruz de Nexte Marketing enviando el segundo mensaje a ${lead.name} (Rubro: ${lead.category || 'comercial'}).
 
-Información:
-- más de 10 años de experiencia (2015-2026)
-- Trabajo en 5 países
-- Especialización en ${template.focus}
+Misión: Escribir una breve presentación de Nexte adaptada al sector de ${lead.category || 'su negocio'}.
 
-Requisitos:
-- Tono: ${template.tone}
-- NO copies formatos estándar
-- Cambia completamente la estructura
-- Conciso pero impactante
-- Sin emojis
+Datos institucionales de Nexte:
+- Más de 10 años de trayectoria (2015-2026).
+- Especialización en desarrollo de software a medida, sistemas de gestión/turnos, asistentes virtuales con IA (IA NatoH) y posicionamiento digital.
+- Enfoque directo en resultados medibles y ahorro de horas de atención.
 
-Escribe SOLO el mensaje.
+Requisitos del mensaje:
+1. Explica brevemente quiénes son en Nexte resaltando los más de 10 años de trayectoria (2015-2026).
+2. Enfoca la experiencia mencionando cómo ayudan a empresas o consultorios del rubro (${lead.category || 'tu sector'}) a implementar sistemas de gestión, asistentes de WhatsApp con IA y desarrollo de software a medida.
+3. Tono conversacional, serio y profesional. Sin exageraciones ni emojis en exceso.
+4. NO pongas títulos ni variables.
+5. Extensión: entre 40 y 60 palabras.
+
+Escribe ÚNICAMENTE el texto final del mensaje 2:
 `;
 
         try {
@@ -307,111 +305,91 @@ Escribe SOLO el mensaje.
             return cleanMessage;
         } catch (error) {
             console.error('Error OpenAI mensaje 2:', error.message);
-            return "Desde 2015 ayudamos a negocios en 5 países a digitalizar sus operaciones con estrategia y tecnología.";
+            return `En Nexte llevamos más de 10 años (2015-2026) desarrollando tecnología y sistemas para negocios y empresas. Nos especializamos en crear portales web profesionales, sistemas de gestión/turnos a medida y asistentes inteligentes por WhatsApp que responden consultas y agendan solos 24/7.`;
         }
     }
 
     /**
-     * Mensaje 3: Promo específica (Variante A)
+     * Mensaje 3: Propuesta Comercial a medida (Enfoque Software, IA NatoH, Web, SEO - SIN ADS)
      */
     async generateMessage3(lead, template) {
-        const insights = this.analyzeLeadInsights(lead);
-
-        let selectedPromo = 'web';
-
-        if (lead.website || insights.hasHighVisibility) {
-            selectedPromo = 'auditoria';
-        } else if (['salón', 'salon', 'gym', 'gimnasio', 'belleza', 'fitness', 'spa', 'estética', 'estetica'].some(kw =>
-            lead.category?.toLowerCase().includes(kw))) {
-            selectedPromo = 'ads_cm';
-        } else if (['empresa', 'corporativo', 'industrial', 'fábrica', 'fabrica', 'mayorista', 'distribuidor'].some(kw =>
-            lead.category?.toLowerCase().includes(kw)) || (lead.reviewCount && lead.reviewCount > 100)) {
-            selectedPromo = 'software';
+        const cacheKey = `msg3_${lead.id}`;
+        if (this.messageCache.has(cacheKey)) {
+            this.stats.cacheHits++;
+            return this.messageCache.get(cacheKey);
         }
 
-        const promos = {
-            web: {
-                pitch: "Diseño Web Profesional + SEO Técnico básico. Incluye dominio y hosting.",
-                benefit: "Hoy, si no estás en Google con una web rápida y optimizada, perdes el 80% de los clientes."
-            },
-            auditoria: {
-                pitch: "Auditoría SEO Técnica + Configuración Google Analytics 4.",
-                benefit: "¿Sabés realmente quién entra a tu web y por qué no compran? Sin Analytics y SEO técnico, estás volando a ciegas."
-            },
-            ads_cm: {
-                pitch: "Estrategia de Google Ads y Meta Ads para captar clientes reales.",
-                benefit: "Dejá de gastar en 'Me Gusta' y empezá a invertir en mensajes de gente que quiere comprar YA."
-            },
-            software: {
-                pitch: "Software a medida y automatización de procesos.",
-                benefit: "Eliminá tareas repetitivas y errores humanos. Un sistema a medida ahorra tiempo y dinero desde el día 1."
-            }
-        };
-
-        const promo = promos[selectedPromo];
+        const isEcommerceCandidate = ['tienda', 'indumentaria', 'ropa', 'distribuidora', 'mayorista', 'calzado', 'local', 'comercio'].some(kw =>
+            (lead.category || '').toLowerCase().includes(kw));
 
         const prompt = `
-Mensaje 3 de enganche para ${lead.name}.
+Contexto: Eres Juan Cruz de Nexte Marketing enviando la propuesta comercial detallada (Mensaje 3) a ${lead.name} (${lead.category || 'negocio'}).
 
-Propuesta principal:
-${promo.pitch}
+Misión: Escribir una propuesta comercial atractiva, clara y adaptada a su rubro con formato WhatsApp enriquecido (*negritas*, emojis limpios, separadores).
 
-Beneficio clave:
-${promo.benefit}
+Reglas y Oferta a Incluir:
+1. ⚙️ **SISTEMA DE GESTIÓN & SOFTWARE A MEDIDA**: Elevar el protagonismo y valor. Mostrar Precio regular: $650.000 → Promo: $350.000 en 2 pagos. Describir cómo ayuda a su rubro (gestión de turnos, agendas, fichas de clientes/pacientes, control de stock o procesos).
+2. 🤖 **ASISTENTE VIRTUAL CON IA NATOH (WHATSAPP 24/7)**: Precio regular: $350.000 → Promo: $180.000. Empleado virtual entrenado con sus datos que atiende 24/7, agenda turnos y valida comprobantes de pago.
+3. 🌐 **PÁGINA WEB PROFESIONAL** o **TIENDA ONLINE (E-COMMERCE)**: Si aplica e-commerce (venta de productos), ofrecer E-Commerce por $500.000 (regular $800.000). Si no, ofrecer Sitio Web Profesional por $250.000 (regular $500.000) con dominio, hosting y SSL.
+4. 📸 **GENERACIÓN DE CONTENIDO EDITORIAL & MULTIMEDIA**: Precio regular: $250.000/mes → Promo: $140.000/mes. (Piezas gráficas y contenido institucional, NO manejo genérico básico de redes).
+5. 📍 **OPTIMIZACIÓN DE GOOGLE MAPS & SEO LOCAL**: Precio regular: $300.000 → Promo: $150.000 para liderar las búsquedas locales.
+6. 🚫 **PROHIBIDO INCLUIR PUBLICIDAD/ADS**: NO menciones Google Ads ni Meta Ads. Está 100% excluido.
+7. 🎁 **COMBO INTEGRAL CON DESCUENTO**: Crear un paquete con sus servicios clave (ej. Sistema + IA NatoH + Web + SEO Maps) por un precio final de $690.000 (Regular $1.800.000) destacando un ahorro gigante de $1.110.000.
 
-Contexto:
-- Categoría: ${lead.category || 'negocio'}
-- Web: ${lead.website ? 'SÍ' : 'NO'}
-
-Tarea:
-Escribe mensaje de 35-50 palabras que:
-1. SI TIENE WEB: Pregunte si tiene configurado Google Analytics 4 o si hizo alguna revisión de SEO Técnico.
-2. SI NO TIENE WEB: Pregunte cómo captan clientes online hoy.
-3. Mencione que hacemos PUBLICIDAD en Google Ads y Meta Ads.
-4. Tono directo y profesional ("Juan Cruz de Nexte").
-
-Escribe SOLO el mensaje:
+Escribe ÚNICAMENTE el texto de la propuesta comercial final con formato WhatsApp:
 `;
 
         try {
-            const message = await this.generateViaOpenAI(prompt);
-            return message.replace(/^["']|["']$/g, '');
+            const message = await this.generateViaOpenAI(prompt, template.context);
+            const cleanMessage = message.replace(/^["']|["']$/g, '');
+
+            this.stats.apiCalls++;
+            this.stats.tokensUsed += this.estimateTokens(prompt + cleanMessage);
+            this.messageCache.set(cacheKey, cleanMessage);
+
+            return cleanMessage;
         } catch (error) {
             console.error('Error OpenAI mensaje 3:', error.message);
-            return promo.pitch + ' ' + promo.benefit;
+            return `🏢 *SOLUCIONES DIGITALES NEXTE 2026*\n\n⚙️ *SISTEMA DE GESTIÓN & SOFTWARE A MEDIDA*\nPrecio regular: *$650.000* → 🔥 *$350.000 en 2 pagos*\nSoftware a medida para tu negocio: gestión de turnos, agendas médicas o comerciales y control de procesos.\n\n🤖 *ASISTENTE VIRTUAL CON IA NATOH (WHATSAPP 24/7)*\nPrecio regular: *$350.000* → 🔥 *$180.000*\nEmpleado virtual entrenado con tus datos que atiende consultas 24/7, agendando solo y validando pagos.\n\n🌐 *PÁGINA WEB PROFESIONAL & INSTITUCIONAL*\nPrecio regular: *$500.000* → 🔥 *$250.000*\nSitio web profesional hecho a medida con dominio (.com / .ar), hosting por 1 año y SSL.\n\n📸 *GENERACIÓN DE CONTENIDO EDITORIAL*\nPrecio regular: *$250.000/mes* → 🔥 *$140.000/mes*\nDiseño multimedia e identidad visual profesional.\n\n📍 *SEO GOOGLE MAPS & POSICIONAMIENTO*\nPrecio regular: *$300.000* → 🔥 *$150.000*\nOptimización local para liderar las búsquedas de tu zona.\n\n🎁 *COMBO SOLUCIÓN INTEGRAL (Sistema + IA NatoH + Web + SEO)*\nPrecio regular: *$1.800.000* → 🔥 *$690.000* *(Ahorro de $1.110.000)*.`;
         }
     }
 
     /**
-     * Mensaje 4: Soft CTA
+     * Mensaje 4: Cierre natural ofreciendo ejemplos de trabajos y agendamiento
      */
     async generateMessage4(lead, template) {
+        const cacheKey = `msg4_${lead.id}`;
+        if (this.messageCache.has(cacheKey)) {
+            this.stats.cacheHits++;
+            return this.messageCache.get(cacheKey);
+        }
+
         const prompt = `
-Mensaje 4 (FINAL) de enganche para ${lead.name}.
+Contexto: Eres Juan Cruz de Nexte Marketing cerrando la secuencia (Mensaje 4) para ${lead.name}.
 
-Objetivo: Cerrar interés mencionando servicios CLAVE.
+Misión: Escribir un cierre sumamente natural, directo y servicial por WhatsApp.
 
-Servicios a mencionar OBLIGATORIAMENTE:
-- Google Analytics / Auditoría Web
-- SEO Técnico
-- Publicidad en Google Ads y Meta Ads
-- Software a medida
+Requisitos del mensaje:
+1. Ofrece de manera proactiva enviar **ejemplos reales de trabajos, sistemas y sitios web** desarrollados por Nexte para otros clientes del sector.
+2. Invita de forma relajada y sin presión a agendar una breve llamada de 5 minutos o responder dudas por WhatsApp.
+3. Tono conversacional argentino, amable y accesible ("si te parece", "quedo a disposición", etc.).
+4. Extensión: entre 25 y 45 palabras.
 
-Tarea:
-Escribe mensaje de 25-40 palabras que:
-1. Pregunte si puede enviarte una propuesta o charlar 5 min.
-2. Mencione que cubren todo el espectro digital (Ads, SEO, Analytics).
-3. Tono casual y facilitador.
-
-Escribe SOLO el mensaje:
+Escribe ÚNICAMENTE el texto final del mensaje 4:
 `;
 
         try {
-            const message = await this.generateViaOpenAI(prompt);
-            return message.replace(/^["']|["']$/g, '');
+            const message = await this.generateViaOpenAI(prompt, template.context);
+            const cleanMessage = message.replace(/^["']|["']$/g, '');
+
+            this.stats.apiCalls++;
+            this.stats.tokensUsed += this.estimateTokens(prompt + cleanMessage);
+            this.messageCache.set(cacheKey, cleanMessage);
+
+            return cleanMessage;
         } catch (error) {
             console.error('Error OpenAI mensaje 4:', error.message);
-            return "Cubrimos todo: SEO Técnico, Analytics, y Google/Meta Ads. ¿Charlamos 5 min para ver qué necesita tu negocio hoy?";
+            return `Si te parece, te puedo enviar algunos ejemplos de sistemas y sitios web reales que ya desarrollamos para otros negocios para que veas cómo quedan y funcionan. Si te interesa o querés agendar una breve llamada sin compromiso, quedo a tu disposición. 😊`;
         }
     }
 

@@ -1964,15 +1964,18 @@ class WhatsAppBot {
         this.currentlyProcessingLead.respondedAt = new Date().toISOString();
       }
 
-      // 1. Actualizar estado en base de datos en base al análisis de intención
+      // 1. Actualizar estado en base de datos en base al análisis de intención y puntuación
       let backendStatus = 'interested';
       if (analysis.intent === 'rejection') {
         backendStatus = 'not_interested';
-      } else if (analysis.intent === 'anger') {
+      } else if (analysis.intent === 'anger' || (analysis.angerScore && analysis.angerScore >= 6)) {
         backendStatus = 'discarded';
       } else if (analysis.intent === 'neutral') {
         backendStatus = 'manual_review';
       }
+
+      // Resolver número limpio de teléfono
+      let cleanPhoneNum = contactNumber.replace('@c.us', '').replace(/\D/g, '');
 
       try {
         await axios.put(`${this.backendUrl}/lead/by-phone/${encodeURIComponent(contactNumber)}`, {
@@ -1982,17 +1985,34 @@ class WhatsAppBot {
           respondedToTemplate: true,
           aiIntent: analysis.intent,
           aiConfidence: analysis.confidence,
-          aiReason: analysis.reason
+          aiReason: analysis.reason,
+          angerScore: analysis.angerScore,
+          interestScore: analysis.interestScore
         });
-        console.log(`💾 Estado del Lead en CRM actualizado a: ${backendStatus}`);
+        console.log(`💾 Estado del Lead en CRM actualizado a: ${backendStatus} (Anero: ${analysis.angerScore}/10, Interés: ${analysis.interestScore}/10)`);
       } catch (error) {
         console.error('Error actualizando lead status:', error.message);
+      }
+
+      // 🔔 NOTIFICAR VÍA WHATSAPP A 5491126642674 SI EL LEAD MOSTRÓ INTERÉS
+      if (backendStatus === 'interested' || analysis.intent === 'interest' || analysis.intent === 'question' || (analysis.interestScore && analysis.interestScore >= 5)) {
+        const alertTarget = '5491126642674@c.us';
+        const alertMsg = `🚨 *¡NUEVO LEAD INTERESADO DETECTADO!* 🚀\n\n🏢 *Negocio:* ${leadName}\n📂 *Rubro:* ${leadCategory}\n📞 *Teléfono:* +${cleanPhoneNum}\n💬 *Mensaje:* "${messageBody}"\n\n📌 *Estado en CRM:* Interesado (Asesor notificado)`;
+        
+        try {
+          if (this.client && this.client.info) {
+            await this.client.sendMessage(alertTarget, alertMsg);
+            console.log(`📲 [ALERTA] Notificación de cliente interesado enviada a ${alertTarget}`);
+          }
+        } catch (alertErr) {
+          console.error(`⚠️ Error enviando alerta a ${alertTarget}:`, alertErr.message);
+        }
       }
 
       // 2. Responder si es necesario y hay una respuesta generada
       if (analysis.shouldRespond && analysis.reply) {
         const replyDelay = 5000 + Math.random() * 8000; // Delay humano de 5-13 segundos
-        console.log(`⏳ Programando respuesta inteligente en ${replyDelay/1000}s...`);
+        console.log(`⏳ Programando respuesta inteligente en ${(replyDelay/1000).toFixed(1)}s...`);
         setTimeout(async () => {
           try {
             await this.client.sendMessage(contactNumber, analysis.reply);
@@ -2000,12 +2020,17 @@ class WhatsAppBot {
 
             // Guardar el mensaje enviado en la base de datos
             await axios.post(`${this.backendUrl}/messages`, {
-              phone: contactNumber.replace(/\D/g, ''),
+              phone: cleanPhoneNum,
               content: analysis.reply,
               fromMe: true,
               timestamp: new Date(),
               instanceId: this.instanceId,
-              type: 'text'
+              type: 'text',
+              metadata: {
+                aiIntent: analysis.intent,
+                angerScore: analysis.angerScore,
+                interestScore: analysis.interestScore
+              }
             }).catch(e => console.error('Error guardando mensaje en DB:', e.message));
 
           } catch (error) {

@@ -534,3 +534,55 @@ Se modificaron todos los archivos del bot que hacían referencia a la trayectori
 5. **`whatsappChecker.js`**: Actualizados los templates de presentación en frío de "10 años (2015-2025)" a "más de 10 años (2015-2026)".
 6. **`bot/index.js`**: Se añadieron `"2015-2026"` y los correspondientes patrones a las listas de palabras clave para que el bot pueda detectar si el mensaje 2 de presentación ya ha sido enviado a un lead histórico o actual.
 7. **Sincronización y Validación**: Se ejecutó `node scripts/sync-bots.js` y se verificó sintácticamente (`node -c`) toda la flota de bots (`bot_1` a `bot_4`), confirmando que compila limpiamente sin warnings ni errores.
+
+---
+
+## Pregunta del Usuario (2026-06-16):
+> [Imagen de WhatsApp: Cuenta restringida en los dispositivos vinculados por 7 días]
+> Esta es la razon por la cual no se enviaban
+
+---
+
+## Diagnóstico y Respuesta del Bot:
+El bot identificó que la causa raíz de la inactividad es el bloqueo preventivo de WhatsApp de 7 días para dispositivos vinculados (WhatsApp Web/Desktop). Se presentaron al usuario las dos vías de acción:
+1. **Opción A (Esperar 7 días):** Dejar pasar la restricción y luego reactivar con un límite diario más bajo (10-15 leads) para calentamiento.
+2. **Opción B (Cambiar de número inmediatamente):** Limpiar los archivos de sesión en la VPS para forzar un nuevo código QR en el dashboard. Se provyeron los comandos necesarios para realizar esta limpieza.
+
+---
+
+## Pregunta del Usuario (2026-07-03):
+> Como resolvemos esto. Utiliza la memoria global, es un mail de donweb para el servidor natoh / nexte
+> Tu Cloud Server Server NatoH se quedó sin espacio de almacenamiento.
+> Almacenamiento libre: 4.56 %
+> Ocupado: 59.10 GB
+> Libre: 2.83 GB
+> Total: 61.93 GB
+
+---
+
+## Diagnóstico y Respuesta del Bot:
+El bot recordó la lección global sobre la falta de espacio en la VPS (ERR-03 y anteriores), donde el demonio de Docker y las compilaciones previas consumen gran parte del disco. Se proporcionó al usuario un plan de limpieza exhaustivo paso a paso para liberar espacio de forma segura en el servidor, incluyendo:
+1. Pruning global de Docker (imágenes, contenedores inactivos y cache de compilación).
+2. Limpieza y truncado de logs de contenedores activos.
+3. Eliminación de perfiles temporales de Puppeteer en `/tmp`.
+4. Monitoreo del espacio del disco con comandos del sistema (`df -h`).
+
+---
+
+## Pregunta del Usuario (2026-07-29):
+> Ya esta ahora, hablemos de los mensajes que hay, enviame una muestra de lo que hay ahora en cada mensaje, elegi una variante para mostrarme asi las cambiamos y probamos el sistema despues con la generacion de mensajes con chatgpt
+
+---
+
+## Diagnóstico y Respuesta del Bot:
+Se seleccionó y presentó una muestra completa representativa de la secuencia activa de 4 mensajes (Saludo+Hook, Presentación de Trayectoria, Propuestas de Servicios B2B con Promo Otoño 2026, y CTA/Cierre). Se detalló la arquitectura actual (AITextGenerator + OpenAI/Gemini + AdvancedTemplateGenerator) para alinearse en los cambios solicitados.
+
+---
+
+## Pregunta del Usuario (2026-07-29):
+> vamos a generar el primer mensaje en base a chatgpt, con informacion real... el segundo tambien con la ia en base al negocio... el tercero vamos a ofrecer en base al negocio (software a medida subiendo precios, web/ecommerce si aplica, contenido, IA natoh, SEO local, SIN publicidad)... El 4to que sea mas natural con chatgpt (ofrecer ejemplos de trabajos realizados y agendamiento). Enviame un ejemplo de como quedaria una cadena.
+
+---
+
+## Diagnóstico y Respuesta del Bot:
+Se diseñó la arquitectura de los 4 prompts dinámicos para `gpt-4o-mini` sin variables robóticas y se generó una cadena de muestra real para el negocio "Clínica Dental OdontoSalud" en Palermo, demostrando la personalización fluida del flujo de mensajes.
