@@ -950,10 +950,11 @@ app.post('/api/bot/:instanceId/start', async (req, res) => {
     console.log(`🔧 [BOT-START] Ejecutando inicio para ${instanceId} (script: ${botScript})...`);
     console.log(`🔧 [BOT-START] CWD: ${botPath}`);
 
-    // Inyectar variables de entorno explícitamente
+    // Inyectar variables de entorno explícitamente y forzar AUTO_START=true
     const envVars = {
       ...process.env,
       BOT_INSTANCE_ID: instanceId,
+      AUTO_START: 'true',
       BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8484'
     };
 

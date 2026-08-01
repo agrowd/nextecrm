@@ -1080,10 +1080,12 @@ function renderBotControls() {
             `;
         } else if (bot.status === 'online') {
             statusColor = '#ff9800';
-            statusHtml = `<span class="status-dot" style="background:${statusColor}"></span> Conectado (Sin sesión)`;
+            statusHtml = `<span class="status-dot" style="background:${statusColor}"></span> Listo (Sin sesión)`;
             actionHtml = `
-                <button class="action-btn start-btn" onclick="sendCommand('${id}', 'start_bot')">ESCANEARE QR</button>
-                <button class="action-btn stop-btn" style="margin-top: 8px;" onclick="stopBotProcess('${id}')">DETENER</button>
+                <button class="action-btn start-btn" onclick="this.innerHTML='<span class=\'material-icons rotating\'>sync</span> Generando QR...'; sendCommand('${id}', 'start_bot')" style="background: ${color}; color: white; border: none; width: 100%; padding: 10px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <span class="material-icons">qr_code_scanner</span> GENERAR CÓDIGO QR
+                </button>
+                <button class="action-btn stop-btn" style="margin-top: 8px; width: 100%;" onclick="stopBotProcess('${id}')">DETENER</button>
             `;
         } else if (bot.status === 'qr_required') {
             statusColor = '#ff9800';
