@@ -1364,6 +1364,27 @@ async function triggerTestSequence() {
     }
 }
 
+async function triggerManualWebAudit(leadId) {
+    try {
+        const btn = getEl(`btnAuditWeb_${leadId}`);
+        if (btn) btn.innerHTML = '⏳ Auditando...';
+
+        const res = await fetchAPI(`/api/lead/${leadId}/audit-web`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success) {
+            ui.modal.alert('Auditoría Completa', `Inspección web finalizada para este negocio:\n\n• CMS: ${data.webAudit.cms}\n• Hallazgos:\n${data.webAudit.insights.join('\n')}`, 'success');
+            await fetchLeads();
+            openLeadModal(leadId);
+        } else {
+            ui.modal.alert('Error', data.error || 'No se pudo auditar la web', 'error');
+        }
+    } catch (e) {
+        console.error('Error auditando web:', e);
+        ui.modal.alert('Error', 'Fallo al conectar con el servidor', 'error');
+    }
+}
+
 // --- LEADS PAGE ---
 let currentLeadId = null;
 
@@ -1641,11 +1662,19 @@ function openLeadModal(leadId) {
                                 ${lead.website ? `
                                     <div style="margin-bottom: 6px;">
                                         <a href="${lead.website.startsWith('http') ? lead.website : 'http://' + lead.website}" target="_blank" style="color:#53bdeb; text-decoration:none; font-weight:600;">🔗 ${lead.website}</a>
+                                        <button id="btnAuditWeb_${lead._id}" onclick="triggerManualWebAudit('${lead._id}')" style="margin-left: 8px; background: #7e57c2; border: none; color: white; border-radius: 4px; padding: 2px 8px; font-size: 10px; cursor: pointer;">🔍 Auditar Código</button>
                                     </div>
-                                    <div style="display: flex; gap: 6px; margin-top: 4px;">
-                                        <span class="audit-pill ${lead.pixelFacebook ? 'has' : 'none'}" style="font-size: 9px; padding: 2px 5px; border-radius: 3px;">Meta Pixel: ${lead.pixelFacebook ? 'SI' : 'NO'}</span>
-                                        <span class="audit-pill ${lead.pixelGoogle ? 'has' : 'none'}" style="font-size: 9px; padding: 2px 5px; border-radius: 3px;">Google Pixel: ${lead.pixelGoogle ? 'SI' : 'NO'}</span>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">
+                                        <span style="font-size: 9px; padding: 2px 5px; border-radius: 3px; background: ${lead.webAudit?.cms ? '#7e57c2' : '#333'}; color: white;">CMS: ${lead.webAudit?.cms || 'Desconocido'}</span>
+                                        <span style="font-size: 9px; padding: 2px 5px; border-radius: 3px; background: ${lead.webAudit?.hasGA4 ? '#25d366' : '#f44336'}; color: white;">GA4: ${lead.webAudit?.hasGA4 ? 'SI' : 'NO'}</span>
+                                        <span style="font-size: 9px; padding: 2px 5px; border-radius: 3px; background: ${lead.webAudit?.hasMetaPixel ? '#25d366' : '#f44336'}; color: white;">Meta Pixel: ${lead.webAudit?.hasMetaPixel ? 'SI' : 'NO'}</span>
+                                        <span style="font-size: 9px; padding: 2px 5px; border-radius: 3px; background: ${lead.webAudit?.hasWhatsAppWidget ? '#25d366' : '#ff9800'}; color: white;">Botón WA: ${lead.webAudit?.hasWhatsAppWidget ? 'SI' : 'NO'}</span>
                                     </div>
+                                    ${lead.webAudit?.insights?.length ? `
+                                        <div style="font-size: 10px; color: #8696a0; margin-top: 6px; background: #111b21; padding: 6px; border-radius: 4px;">
+                                            📌 <b>Hallazgos para ChatGPT:</b><br>${lead.webAudit.insights.map(i => `• ${i}`).join('<br>')}
+                                        </div>
+                                    ` : ''}
                                 ` : '<span style="color:#25d366">Sin sitio web</span>'}
                             </div>
                         </div>

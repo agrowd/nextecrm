@@ -55,7 +55,22 @@ const LeadSchema = new mongoose.Schema({
   // 🤖 Tracking de IA
   aiIntent: { type: String, default: '' },
   aiConfidence: { type: Number, default: null },
-  aiReason: { type: String, default: '' }
+  aiReason: { type: String, default: '' },
+  // 🌐 Website Audit Data (Análisis automatizado de código web)
+  webAudit: {
+    auditedAt: { type: Date, default: null },
+    hasWebsite: { type: Boolean, default: false },
+    url: { type: String, default: '' },
+    ssl: { type: Boolean, default: false },
+    cms: { type: String, default: '' },
+    hasGA4: { type: Boolean, default: false },
+    hasMetaPixel: { type: Boolean, default: false },
+    hasGTM: { type: Boolean, default: false },
+    hasGoogleAds: { type: Boolean, default: false },
+    hasWhatsAppWidget: { type: Boolean, default: false },
+    title: { type: String, default: '' },
+    insights: { type: [String], default: [] }
+  }
 }, {
   timestamps: true,
   strict: false, // Permite campos adicionales

@@ -70,6 +70,7 @@ const fs = require('fs').promises;
 const fsSync = require('fs'); // Versión sincrónica para algunas operaciones
 const { exec, spawn } = require('child_process');
 require('dotenv').config();
+const websiteAuditor = require('./services/websiteAuditor');
 originalConsoleLog('→ MONGODB_URI:', process.env.MONGODB_URI);
 
 // Función para loggear (con emisión a dashboard)
@@ -1477,6 +1478,18 @@ app.get('/api/next', async (req, res) => {
       });
     }
 
+    // 🌐 WEBSITE AUDITOR: Auditar código web en tiempo real si el lead tiene sitio y no ha sido auditado
+    if (lead.website && (!lead.webAudit || !lead.webAudit.auditedAt)) {
+      try {
+        console.log(`🌐 [AUTO-AUDIT] Ejecutando WebsiteAuditor para ${lead.name} (${lead.website})...`);
+        const auditRes = await websiteAuditor.audit(lead.website);
+        lead.webAudit = auditRes;
+        await lead.save();
+      } catch (auditErr) {
+        console.warn(`⚠️ Error en auto-auditoría web para ${lead.name}:`, auditErr.message);
+      }
+    }
+
     // Obtener información de la cola
     const pendingLeads = await Lead.countDocuments({ status: 'pending' });
     const totalLeads = await Lead.countDocuments();
@@ -1488,11 +1501,13 @@ app.get('/api/next', async (req, res) => {
         name: lead.name,
         phone: lead.phone,
         address: lead.address,
+        website: lead.website,
         category: lead.category,
         rating: lead.rating,
         reviewCount: lead.reviewCount,
         keyword: lead.keyword,
-        status: lead.status
+        status: lead.status,
+        webAudit: lead.webAudit || null
       },
       queue: {
         pending: pendingLeads,
@@ -1542,6 +1557,26 @@ app.get('/api/conversations', async (req, res) => {
   } catch (error) {
     console.error('Error fetching conversations:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/lead/:leadId/audit-web - Forzar auditoría técnica de web de un lead
+app.post('/api/lead/:leadId/audit-web', async (req, res) => {
+  try {
+    const { leadId } = req.params;
+    const lead = await Lead.findById(leadId);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead no encontrado' });
+    if (!lead.website) return res.status(400).json({ success: false, error: 'El lead no posee sitio web registrado' });
+
+    console.log(`🌐 [MANUAL AUDIT] Ejecutando WebsiteAuditor para ${lead.name} (${lead.website})...`);
+    const auditRes = await websiteAuditor.audit(lead.website);
+    lead.webAudit = auditRes;
+    await lead.save();
+
+    res.json({ success: true, message: 'Auditoría web completada', webAudit: lead.webAudit });
+  } catch (error) {
+    console.error('Error en audit-web endpoint:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

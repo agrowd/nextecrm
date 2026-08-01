@@ -223,9 +223,13 @@ class AITextGenerator {
 
         const insights = this.analyzeLeadInsights(lead);
 
+        const webAuditInfo = (lead.webAudit && lead.webAudit.insights && lead.webAudit.insights.length > 0)
+            ? `- AUDITORÍA DE CÓDIGO WEB REAL (${lead.website}): ${lead.webAudit.insights.join(', ')} (Tecnología: ${lead.webAudit.cms})`
+            : '';
+
         const prompt = `
 Contexto: Eres Juan Cruz de Nexte Marketing contactando al dueño o encargado de un negocio por WhatsApp.
-Misión: Escribir un primer mensaje extremadamente natural, humano y personalizado basándote en la información REAL extraída de Google Maps.
+Misión: Escribir un primer mensaje extremadamente natural, humano y personalizado basándote en la información REAL extraída de Google Maps y la auditoría de su web.
 
 Datos REALES del negocio:
 - Nombre: ${lead.name}
@@ -234,14 +238,15 @@ Datos REALES del negocio:
 - Opiniones/Reseñas: ${lead.reviewCount ? lead.reviewCount + ' opiniones en Google' : 'pocas opiniones'}
 - Ubicación: ${lead.location || 'la zona'}
 - Sitio web actual: ${lead.website ? 'Tiene sitio web (' + lead.website + ')' : 'NO tiene sitio web'}
+${webAuditInfo}
 
 Requisitos del mensaje:
 1. Saluda cordialmente (Ej: "¡Hola! Soy Juan Cruz de Nexte Marketing...").
-2. Menciona datos específicos y reales de su negocio (su nombre real "${lead.name}", su ubicación "${lead.location || 'tu zona'}", su rating o la falta de sitio web) de forma súper fluida.
-3. Señala una oportunidad clara sin sonar agresivo ni robótico (ej: si no tiene web, la pérdida de clientes que buscan en Google; si tiene buen rating, la oportunidad de capitalizar esa reputación).
+2. Menciona datos específicos y reales de su negocio (su nombre real "${lead.name}", su ubicación "${lead.location || 'tu zona'}", su rating, o si revisaste su código web).
+3. Si hay datos de AUDITORÍA DE CÓDIGO WEB (ej: sin Google Analytics 4, sin Píxel de Meta, o sin botón de WhatsApp flotante en su web), mencionalo de forma súper natural como alguien técnico que revisó su sitio antes de escribirle.
 4. NO uses placeholders como {nombre} o [rubro]. Todo debe estar redactado en texto final pulido.
 5. Usa un tono argentino conversacional, profesional y directo ("vos", "te comento", etc.).
-6. Extensión: entre 35 y 55 palabras.
+6. Extensión: entre 35 y 60 palabras.
 
 Escribe ÚNICAMENTE el texto final del mensaje 1:
 `;
