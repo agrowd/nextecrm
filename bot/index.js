@@ -554,6 +554,17 @@ class WhatsAppBot {
       // Mostrar información inicial de la cola
       await this.checkServices();
 
+      // 🔔 NOTIFICAR AL ADMIN QUE EL BOT ESTÁ OPERATIVO CON MENÚ DE COMANDOS
+      const adminTarget = '5491126642674@c.us';
+      const welcomeMsg = `✅ *¡BOT OPERATIVO Y LISTO!* 🚀\n\n📱 *Instancia:* ${this.instanceId}\n📞 *Número Conectado:* +${this.connectedNumber}\n⏰ *Hora:* ${new Date().toLocaleTimeString('es-AR')}\n\n🤖 *COMANDOS DISPONIBLES EN ESTE CHAT:*\n• Escribí *#test* o *!test* o *prueba* en este chat para enviarte una secuencia de prueba de 4 mensajes generados con ChatGPT (simulando un negocio scrapeado de Google Maps).\n• Escribí *#estado* o *!estado* para consultar el estado de la cola de leads.`;
+
+      try {
+        await this.client.sendMessage(adminTarget, welcomeMsg);
+        console.log(`📲 [READY] Notificación de Bot Operativo enviada exitosamente a ${adminTarget}`);
+      } catch (adminErr) {
+        console.warn(`⚠️ No se pudo enviar notificación al admin ${adminTarget}:`, adminErr.message);
+      }
+
       console.log(`\n🚀 === BOT INICIADO CON SERVICIOS INTEGRADOS ===`);
       console.log(`📊 Verificando estado de la cola...`);
       console.log(`🤖 AI Text Generator: ${process.env.GEMINI_API_KEY ? 'ACTIVO' : 'FALLBACK'}`);
@@ -1897,6 +1908,48 @@ class WhatsAppBot {
       const messageBody = message.body;
 
       console.log(`📨 Mensaje recibido de ${contactNumber}: "${messageBody}"`);
+
+      // 👑 COMANDOS DE ADMIN (#test, !test, prueba, #estado, !estado)
+      const cleanContactPhone = contactNumber.replace('@c.us', '').replace(/\D/g, '');
+      const trimmedBody = messageBody.trim().toLowerCase();
+
+      if (cleanContactPhone.endsWith('1126642674') || cleanContactPhone.endsWith('5491126642674') || trimmedBody.startsWith('#test') || trimmedBody.startsWith('!test') || trimmedBody === 'prueba') {
+        if (trimmedBody.includes('test') || trimmedBody.includes('prueba')) {
+          console.log(`👑 [ADMIN COMMAND] Ejecutando comando de prueba IA solicitado por ${contactNumber}...`);
+          await this.client.sendMessage(contactNumber, '🧪 *[PRUEBA IA EN PROCESO]*\nGenerando negocio simulado de Google Maps y redactando 4 mensajes con ChatGPT...');
+
+          // Generar lead simulado aleatorio
+          const mockLeads = [
+            { name: 'Clínica Odontológica Recoleta', category: 'Consultorio odontológico', rating: 4.9, reviewCount: 84, location: 'Recoleta, CABA', website: '' },
+            { name: 'Estética & Kinesiología Palermo', category: 'Centro de estética y kinesiología', rating: 4.7, reviewCount: 42, location: 'Palermo, CABA', website: '' },
+            { name: 'Parrilla & Cervecería El Ombú', category: 'Restaurante y Parrilla', rating: 4.6, reviewCount: 156, location: 'Belgrano, CABA', website: 'http://elomburestaurante.com.ar' },
+            { name: 'Estudio Jurídico San Isidro', category: 'Estudio jurídico', rating: 4.8, reviewCount: 29, location: 'San Isidro, GBA Norte', website: '' }
+          ];
+          const mockLead = mockLeads[Math.floor(Math.random() * mockLeads.length)];
+          mockLead.phone = cleanContactPhone;
+
+          if (this.aiGenerator) {
+            const sequence = await this.aiGenerator.generatePersonalizedSequence(mockLead);
+            for (let i = 0; i < sequence.length; i++) {
+              await new Promise(r => setTimeout(r, 3000));
+              await this.client.sendMessage(contactNumber, `📩 *[MENSAJE DE PRUEBA ${i + 1}/4 - ${mockLead.name}]*\n\n${sequence[i]}`);
+            }
+            await this.client.sendMessage(contactNumber, '🎉 *[PRUEBA FINALIZADA]* La secuencia de 4 mensajes de ChatGPT ha sido entregada.');
+          }
+          return;
+        }
+
+        if (trimmedBody.includes('estado') || trimmedBody.includes('status')) {
+          try {
+            const qRes = await axios.get(`${this.backendUrl}/next`);
+            const qInfo = qRes.data.queue || {};
+            await this.client.sendMessage(contactNumber, `📊 *[ESTADO DE LA FLOTA]*\n\n• Instancia: ${this.instanceId}\n• Pendientes en cola: ${qInfo.pending || 0}\n• Total acumulado: ${qInfo.total || 0}`);
+          } catch (err) {
+            await this.client.sendMessage(contactNumber, `📊 Instancia: ${this.instanceId} activa.`);
+          }
+          return;
+        }
+      }
 
       // 🛡️ FIX: Detectar respuesta del lead ACTUALMENTE en procesamiento (in-memory)
       if (this.currentlyProcessingLead && !this.currentlyProcessingLead.stopSending) {

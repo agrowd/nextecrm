@@ -1,7 +1,17 @@
-const axios = require('axios');
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 require('dotenv').config({ path: path.resolve(__dirname, '../bot/.env') });
+
+let axios;
+try {
+    axios = require('axios');
+} catch (e) {
+    try {
+        axios = require('./node_modules/axios');
+    } catch (e2) {
+        axios = require('../bot/node_modules/axios');
+    }
+}
 
 const AITextGenerator = require('../bot/services/aiTextGenerator');
 
