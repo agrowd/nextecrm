@@ -15,7 +15,7 @@ try {
 
 const AITextGenerator = require('../bot/services/aiTextGenerator');
 
-// 🎲 Lista de negocios falsos hiper-realistas de Argentina (como recién scrapeados de Maps)
+// 🎲 Lista de negocios falsos hiper-realistas de Argentina (como recién scrapeados de Maps con auditoría de código)
 const mockBusinesses = [
     {
         name: 'Clínica Odontológica Recoleta',
@@ -23,7 +23,18 @@ const mockBusinesses = [
         rating: 4.9,
         reviewCount: 84,
         location: 'Recoleta, CABA',
-        website: ''
+        website: 'https://odontorecoleta-ejemplo.com.ar',
+        webAudit: {
+            cms: 'WordPress',
+            hasGA4: false,
+            hasMetaPixel: false,
+            hasWhatsAppWidget: true,
+            insights: [
+                'Sitio desarrollado en WordPress',
+                'Sin Google Analytics 4 (No miden tráfico de búsqueda)',
+                'Sin Píxel de Meta/Facebook (No hacen remarketing en Instagram/FB)'
+            ]
+        }
     },
     {
         name: 'Estética & Nutrición Palermo',
@@ -31,7 +42,18 @@ const mockBusinesses = [
         rating: 4.7,
         reviewCount: 42,
         location: 'Palermo, CABA',
-        website: ''
+        website: 'https://esteticapalermo-ejemplo.com',
+        webAudit: {
+            cms: 'Wix',
+            hasGA4: true,
+            hasMetaPixel: false,
+            hasWhatsAppWidget: false,
+            insights: [
+                'Sitio desarrollado en Wix',
+                'Sin botón flotante de WhatsApp directo en la web',
+                'Sin Píxel de Meta/Facebook para campañas'
+            ]
+        }
     },
     {
         name: 'Parrilla & Cervecería El Ombú',
@@ -39,7 +61,18 @@ const mockBusinesses = [
         rating: 4.6,
         reviewCount: 156,
         location: 'Belgrano, CABA',
-        website: 'http://elomburestaurante.com.ar'
+        website: 'http://elomburestaurante.com.ar',
+        webAudit: {
+            cms: 'Tiendanube',
+            hasGA4: false,
+            hasMetaPixel: false,
+            hasWhatsAppWidget: true,
+            insights: [
+                'Sitio desarrollado en Tiendanube',
+                'Sin Google Analytics 4',
+                'Sin Píxel de Meta instalado'
+            ]
+        }
     },
     {
         name: 'Estudio Jurídico & Contable San Isidro',
@@ -47,14 +80,6 @@ const mockBusinesses = [
         rating: 4.8,
         reviewCount: 29,
         location: 'San Isidro, GBA Norte',
-        website: ''
-    },
-    {
-        name: 'Gimnasio Fitness Center Caballito',
-        category: 'Gimnasio y Pilates',
-        rating: 4.5,
-        reviewCount: 112,
-        location: 'Caballito, CABA',
         website: ''
     }
 ];

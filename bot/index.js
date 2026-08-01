@@ -1918,12 +1918,65 @@ class WhatsAppBot {
           console.log(`👑 [ADMIN COMMAND] Ejecutando comando de prueba IA solicitado por ${contactNumber}...`);
           await this.client.sendMessage(contactNumber, '🧪 *[PRUEBA IA EN PROCESO]*\nGenerando negocio simulado de Google Maps y redactando 4 mensajes con ChatGPT...');
 
-          // Generar lead simulado aleatorio
+          // Generar lead simulado aleatorio con auditoría de código web
           const mockLeads = [
-            { name: 'Clínica Odontológica Recoleta', category: 'Consultorio odontológico', rating: 4.9, reviewCount: 84, location: 'Recoleta, CABA', website: '' },
-            { name: 'Estética & Kinesiología Palermo', category: 'Centro de estética y kinesiología', rating: 4.7, reviewCount: 42, location: 'Palermo, CABA', website: '' },
-            { name: 'Parrilla & Cervecería El Ombú', category: 'Restaurante y Parrilla', rating: 4.6, reviewCount: 156, location: 'Belgrano, CABA', website: 'http://elomburestaurante.com.ar' },
-            { name: 'Estudio Jurídico San Isidro', category: 'Estudio jurídico', rating: 4.8, reviewCount: 29, location: 'San Isidro, GBA Norte', website: '' }
+            {
+              name: 'Clínica Odontológica Recoleta',
+              category: 'Consultorio odontológico',
+              rating: 4.9,
+              reviewCount: 84,
+              location: 'Recoleta, CABA',
+              website: 'https://odontorecoleta-ejemplo.com.ar',
+              webAudit: {
+                cms: 'WordPress',
+                hasGA4: false,
+                hasMetaPixel: false,
+                hasWhatsAppWidget: true,
+                insights: [
+                  'Sitio desarrollado en WordPress',
+                  'Sin Google Analytics 4 (No miden tráfico de búsqueda)',
+                  'Sin Píxel de Meta/Facebook (No hacen remarketing en Instagram/FB)'
+                ]
+              }
+            },
+            {
+              name: 'Estética & Kinesiología Palermo',
+              category: 'Centro de estética y kinesiología',
+              rating: 4.7,
+              reviewCount: 42,
+              location: 'Palermo, CABA',
+              website: 'https://esteticapalermo-ejemplo.com',
+              webAudit: {
+                cms: 'Wix',
+                hasGA4: true,
+                hasMetaPixel: false,
+                hasWhatsAppWidget: false,
+                insights: [
+                  'Sitio desarrollado en Wix',
+                  'Sin botón flotante de WhatsApp directo en la web',
+                  'Sin Píxel de Meta/Facebook para campañas'
+                ]
+              }
+            },
+            {
+              name: 'Parrilla & Cervecería El Ombú',
+              category: 'Restaurante y Parrilla',
+              rating: 4.6,
+              reviewCount: 156,
+              location: 'Belgrano, CABA',
+              website: 'http://elomburestaurante.com.ar',
+              webAudit: {
+                cms: 'Tiendanube',
+                hasGA4: false,
+                hasMetaPixel: false,
+                hasWhatsAppWidget: true,
+                insights: [
+                  'Sitio desarrollado en Tiendanube',
+                  'Sin Google Analytics 4',
+                  'Sin Píxel de Meta instalado'
+                ]
+              }
+            }
           ];
           const mockLead = mockLeads[Math.floor(Math.random() * mockLeads.length)];
           mockLead.phone = cleanContactPhone;
