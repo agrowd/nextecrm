@@ -345,3 +345,14 @@ docker compose logs -f
   3. Msg 3: Propuesta a medida enfocada en Software/Sistemas a medida, IA NatoH, Web/E-commerce, Contenido y SEO Local (Sin Publicidad/Ads). Combo con descuento personalizado.
   4. Msg 4: Cierre natural ofreciendo ejemplos de trabajos realizados y agendamiento.
   5. Elaborado ejemplo demostrativo completo para validación del usuario.
+
+## Current Session: 2026-08-01 (02:00 Argentina)
+- **Objective:** Añadir comando de prueba de secuencia IA hacia número admin y botón en Dashboard.
+- **Status:** ✅ COMPLETED
+- **Git Info:** master
+- **Deploy:** Pushed to origin/master (e65c975).
+
+### 36. Comando y Botón de Prueba de Secuencia IA para Admin
+- **Acción:** Creado el script `server/test-send-sequence.js` y el endpoint `/api/bot/test-sequence`.
+- **Funcionamiento:** Selecciona un negocio simulado aleatorio (nombre, rubro, rating, zona) como recién scrapeado de Google Maps, genera la secuencia de 4 mensajes con ChatGPT (`gpt-4o-mini`) y los envía secuencialmente al teléfono de admin `5491126642674`.
+- **UI:** Integrado botón morado `🧪 PROBAR SECUENCIA IA` en la vista de Conexión de Bots del Dashboard.
