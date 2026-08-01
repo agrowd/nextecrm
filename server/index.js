@@ -944,35 +944,57 @@ app.post('/api/bot/:instanceId/start', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Script del bot no encontrado' });
     }
 
-    // Iniciar el bot con pm2
+    // Iniciar el bot con pm2 (o fallback a node directo si pm2 falla)
     const pm2Name = instanceId === 'bot_1' ? 'nexte-bot1' : `nexte-${instanceId}`;
 
-    console.log(`🔧 [BOT-START] Ejecutando: pm2 start ${botScript} --name ${pm2Name}`);
+    console.log(`🔧 [BOT-START] Ejecutando inicio para ${instanceId} (script: ${botScript})...`);
     console.log(`🔧 [BOT-START] CWD: ${botPath}`);
 
-    // Inyectar variables de entorno explícitamente y forzar actualización
+    // Inyectar variables de entorno explícitamente
     const envVars = {
       ...process.env,
       BOT_INSTANCE_ID: instanceId,
       BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8484'
     };
 
-    // Agregar --update-env para asegurar que tome las nuevas variables si ya existía
-    exec(`pm2 start ${botScript} --name ${pm2Name} --watch=false --update-env`, {
+    const startDirectNode = () => {
+      console.log(`⚠️ [BOT-START] PM2 no disponible o falló. Iniciando con node directo (background spawn)...`);
+      try {
+        const outLog = fsSync.openSync(path.join(botPath, 'out.log'), 'a');
+        const errLog = fsSync.openSync(path.join(botPath, 'out.log'), 'a');
+
+        const botProcess = spawn('node', [botScript], {
+          cwd: botPath,
+          env: envVars,
+          detached: true,
+          stdio: ['ignore', outLog, errLog]
+        });
+        botProcess.unref();
+
+        console.log(`✅ [BOT-START] Proceso node (PID: ${botProcess.pid}) lanzado exitosamente para ${instanceId}`);
+        botStatuses.set(instanceId, { status: 'starting', startedAt: new Date() });
+        io.emit('bot_status_update', { instanceId, status: 'starting' });
+
+        return res.json({ success: true, message: `Bot ${instanceId} iniciando con Node...` });
+      } catch (nodeErr) {
+        console.error(`❌ [BOT-START] Error fatal iniciando node directo para ${instanceId}:`, nodeErr);
+        return res.status(500).json({ success: false, error: nodeErr.message });
+      }
+    };
+
+    // Intentar PM2 primero
+    exec(`pm2 start "${botScript}" --name ${pm2Name} --watch=false --update-env`, {
       cwd: botPath,
       env: envVars
     }, (error, stdout, stderr) => {
       if (error) {
-        console.error(`❌ [BOT-START] Error pm2 ${instanceId}:`, error.message);
-        console.error(`❌ [BOT-START] STDERR:`, stderr);
-        return res.status(500).json({ success: false, error: error.message });
+        console.warn(`⚠️ [BOT-START] Error pm2 start (${error.message}). Usando fallback node...`);
+        return startDirectNode();
       }
 
       console.log(`✅ [BOT-START] PM2 stdout: ${stdout}`);
-      if (stderr) console.log(`⚠️ [BOT-START] PM2 stderr: ${stderr}`);
-      console.log(`✅ [BOT-START] Bot ${instanceId} iniciado con pm2 (esperando conexión socket...)`);
+      console.log(`✅ [BOT-START] Bot ${instanceId} registrado en PM2 (esperando conexión socket...)`);
 
-      // Usar status 'starting' - cambiará a 'online' cuando el bot conecte via socket
       botStatuses.set(instanceId, { status: 'starting', startedAt: new Date() });
       io.emit('bot_status_update', { instanceId, status: 'starting' });
 
@@ -980,15 +1002,9 @@ app.post('/api/bot/:instanceId/start', async (req, res) => {
       setTimeout(() => {
         const status = botStatuses.get(instanceId);
         if (status && status.status === 'starting') {
-          console.log(`⚠️ [BOT-START] Bot ${instanceId} sigue en 'starting' después de 15s - posible problema`);
-          console.log(`⚠️ [BOT-START] connectedBots tiene: ${Array.from(connectedBots.keys()).join(', ') || 'vacío'}`);
-          // Obtener logs de pm2 para diagnóstico
-          exec(`pm2 logs ${pm2Name} --lines 20 --nostream`, (err, logOut, logErr) => {
-            if (logOut) console.log(`📋 [BOT-LOG] Últimas líneas de ${pm2Name}:\n${logOut}`);
-            if (logErr) console.log(`📋 [BOT-LOG] Error logs: ${logErr}`);
-          });
+          console.log(`⚠️ [BOT-START] Bot ${instanceId} sigue en 'starting' después de 15s`);
         } else {
-          console.log(`✅ [BOT-START] Bot ${instanceId} conectó correctamente (status: ${status?.status})`);
+          console.log(`✅ [BOT-START] Bot ${instanceId} estado actual: ${status?.status}`);
         }
       }, 15000);
 
