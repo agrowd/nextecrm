@@ -814,7 +814,10 @@
             <section id="view-connection" class="view-section">
                 <header class="section-header">
                     <h1>Conexión de Bots</h1>
-                    <div class="header-actions">
+                    <div class="header-actions" style="display: flex; gap: 10px;">
+                        <button class="action-btn" onclick="triggerTestSequence()" style="background: #7e57c2; border: none; color: white; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 10px 15px; border-radius: 8px; font-weight: 600;">
+                            <span class="material-icons">science</span> 🧪 PROBAR SECUENCIA IA (Enviar a Admin)
+                        </button>
                         <button class="gen-btn" onclick="generateNewBot()">
                             <span class="material-icons">add_circle</span> Generar Nueva Instancia
                         </button>

@@ -1338,6 +1338,32 @@ async function generateNewBot() {
 
 function sendCommand(instanceId, command, payload = {}) { socket.emit('command_bot', { instanceId, command, payload }); }
 
+async function triggerTestSequence() {
+    const confirmed = await ui.modal.confirm(
+        '🧪 Probar Secuencia IA',
+        'Se generará un negocio aleatorio de prueba (como si fuese scrapeado de Google Maps) y se enviará la secuencia de 4 mensajes con ChatGPT al número de admin 5491126642674. ¿Deseas enviarla?',
+        'info'
+    );
+    if (!confirmed) return;
+
+    try {
+        console.log('🧪 Enviando secuencia de prueba con IA...');
+        const res = await fetchAPI('/bot/test-sequence', {
+            method: 'POST',
+            body: JSON.stringify({ targetPhone: '5491126642674' })
+        });
+        const data = await res.json();
+        if (data.success) {
+            ui.modal.alert('Prueba Lanzada', 'La secuencia de 4 mensajes de prueba con IA ha sido lanzada al número 5491126642674. Revisá tu WhatsApp en unos instantes.', 'success');
+        } else {
+            ui.modal.alert('Error', data.message || 'No se pudo iniciar la prueba', 'error');
+        }
+    } catch (e) {
+        console.error('Error enviando secuencia de prueba:', e);
+        ui.modal.alert('Error de Conexión', 'Fallo al conectar con el servidor', 'error');
+    }
+}
+
 // --- LEADS PAGE ---
 let currentLeadId = null;
 

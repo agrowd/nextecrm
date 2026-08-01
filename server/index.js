@@ -1017,6 +1017,54 @@ app.post('/api/bot/:instanceId/start', async (req, res) => {
   }
 });
 
+// POST /api/bot/test-send-message - Enviar un mensaje de prueba desde el bot activo
+app.post('/api/bot/test-send-message', async (req, res) => {
+  try {
+    const { phone, message, leadName, messageNumber } = req.body;
+    if (!phone || !message) {
+      return res.status(400).json({ success: false, error: 'Phone and message are required' });
+    }
+
+    const activeBotId = Array.from(connectedBots.keys())[0] || 'bot_1';
+    console.log(`🧪 [TEST SEND] Enviando mensaje de prueba ${messageNumber || 1} a ${phone} mediante ${activeBotId}...`);
+
+    io.emit('command_bot', {
+      instanceId: activeBotId,
+      command: 'send_whatsapp_message',
+      payload: {
+        phone: phone,
+        message: message
+      }
+    });
+
+    res.json({ success: true, message: `Mensaje enviado de prueba a ${phone}` });
+  } catch (error) {
+    console.error('Error en test-send-message:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/bot/test-sequence - Enviar secuencia de 4 mensajes de prueba con IA
+app.post('/api/bot/test-sequence', async (req, res) => {
+  try {
+    const { targetPhone } = req.body;
+    const phone = targetPhone || '5491126642674';
+
+    console.log(`🧪 [TEST API] Ejecutando prueba de secuencia IA hacia ${phone}...`);
+    const scriptPath = path.join(__dirname, 'test-send-sequence.js');
+
+    exec(`node "${scriptPath}" ${phone}`, (error, stdout, stderr) => {
+      if (error) console.error('Error ejecutando test-send-sequence:', error.message);
+      if (stdout) console.log(stdout);
+    });
+
+    res.json({ success: true, message: `Secuencia de prueba lanzada para el número ${phone}` });
+  } catch (error) {
+    console.error('Error en test-sequence:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // POST /api/bot/:instanceId/stop - Detener un bot
 app.post('/api/bot/:instanceId/stop', async (req, res) => {
   const { instanceId } = req.params;
