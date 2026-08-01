@@ -355,7 +355,7 @@ Escribe ÚNICAMENTE el texto de la propuesta comercial final con formato WhatsAp
     }
 
     /**
-     * Mensaje 4: Cierre natural ofreciendo ejemplos de trabajos y agendamiento
+     * Mensaje 4: Cierre natural expresando adaptación 100% al negocio, ejemplos y agendamiento
      */
     async generateMessage4(lead, template) {
         const cacheKey = `msg4_${lead.id}`;
@@ -365,15 +365,16 @@ Escribe ÚNICAMENTE el texto de la propuesta comercial final con formato WhatsAp
         }
 
         const prompt = `
-Contexto: Eres Juan Cruz de Nexte Marketing cerrando la secuencia (Mensaje 4) para ${lead.name}.
+Contexto: Eres Juan Cruz de Nexte Marketing cerrando la secuencia (Mensaje 4) para ${lead.name} (${lead.category || 'negocio'}).
 
-Misión: Escribir un cierre sumamente natural, directo y servicial por WhatsApp.
+Misión: Escribir un cierre sumamente natural, directo y servicial por WhatsApp que exprese claramente que nos adaptamos 100% a la realidad de su negocio.
 
 Requisitos del mensaje:
-1. Ofrece de manera proactiva enviar **ejemplos reales de trabajos, sistemas y sitios web** desarrollados por Nexte para otros clientes del sector.
-2. Invita de forma relajada y sin presión a agendar una breve llamada de 5 minutos o responder dudas por WhatsApp.
-3. Tono conversacional argentino, amable y accesible ("si te parece", "quedo a disposición", etc.).
-4. Extensión: entre 25 y 45 palabras.
+1. Mencioná explícitamente que en Nexte **nos adaptamos 100% a la realidad, escala y necesidades de su negocio (${lead.name})**, armando propuestas y módulos a medida según lo que requiera.
+2. Ofrece de manera proactiva enviar **ejemplos reales de trabajos realizados, sistemas y sitios web** desarrollados por Nexte para otros negocios.
+3. Invita de forma relajada y sin presión a agendar una breve conversación o responder cualquier duda si le interesa saber algo más.
+4. Tono conversacional argentino, amable y accesible ("nos adaptamos a lo que necesites", "si te parece", "quedo a disposición").
+5. Extensión: entre 30 y 50 palabras.
 
 Escribe ÚNICAMENTE el texto final del mensaje 4:
 `;
@@ -389,7 +390,7 @@ Escribe ÚNICAMENTE el texto final del mensaje 4:
             return cleanMessage;
         } catch (error) {
             console.error('Error OpenAI mensaje 4:', error.message);
-            return `Si te parece, te puedo enviar algunos ejemplos de sistemas y sitios web reales que ya desarrollamos para otros negocios para que veas cómo quedan y funcionan. Si te interesa o querés agendar una breve llamada sin compromiso, quedo a tu disposición. 😊`;
+            return `Nos adaptamos 100% a la realidad y necesidades de tu negocio, armando propuestas a medida según lo que requieras. Si querés te puedo enviar algunos ejemplos de trabajos realizados y sistemas reales, y si te interesa agendar o saber algo más quedo a tu entera disposición. 😊`;
         }
     }
 
