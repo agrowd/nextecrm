@@ -346,13 +346,19 @@ docker compose logs -f
   4. Msg 4: Cierre natural ofreciendo ejemplos de trabajos realizados y agendamiento.
   5. Elaborado ejemplo demostrativo completo para validación del usuario.
 
-## Current Session: 2026-08-01 (03:15 Argentina)
-- **Objective:** Adaptación explícita al negocio en el mensaje 4 y generación 100% personalizada con IA en toda la secuencia.
+## Current Session: 2026-08-01 (03:24 Argentina)
+- **Objective:** Implementación completa del módulo WebsiteAuditor (auditoría automática de webs para ChatGPT).
 - **Status:** ✅ COMPLETED
 - **Git Info:** master
-- **Deploy:** Pushed to origin/master (41d7937).
+- **Deploy:** Pushed to origin/master (9289194).
 
-### 37. Ajuste de Secuencia IA (Mensaje 4 con Adaptación 100% al Negocio)
-- **Acción:** Modificado el prompt de `generateMessage4` en `aiTextGenerator.js` de todas las instancias (`bot`, `bot_1`, `bot_2`, `bot_3`, `bot_4`).
-- **Detalle del Mensaje 4:** Incluye explícitamente la declaración de que en Nexte **nos adaptamos 100% a la realidad, escala y necesidades del negocio**, armando soluciones a medida según lo que requieran, junto con la oferta de portafolio y agendamiento relajado.
-- **Coherencia IA:** Todos los 4 mensajes (1, 2, 3 y 4) utilizan los datos reales del negocio de Google Maps (nombre, rubro, rating, zona, web) para redactar contenido hiper-personalizado con ChatGPT (`gpt-4o-mini`).
+### 38. Implementación del Módulo WebsiteAuditor
+- **Servicio Creado:** `server/services/websiteAuditor.js` (inspección de HTML/código en 1-2s con timeout estricto).
+- **Detecciones Automatizadas:**
+  - GA4 (`G-`), Meta Pixel (`fbq`), GTM (`GTM-`), Google Ads.
+  - CMS / Tecnologías: WordPress, Shopify, Tiendanube, Wix, WooCommerce, Next.js/React.
+  - Conversión & UX: Botón flotante de WhatsApp, SSL, Título `<title>`.
+  - Generación de hallazgos sintetizados (`insights`).
+- **Integración MongoDB:** Añadido esquema `webAudit` en `Lead.js`.
+- **Integración ChatGPT:** Prompt de `aiTextGenerator.js` enriquece Mensaje 1 y 3 con datos de auditoría web.
+- **CRM Dashboard & API:** Añadido botón "🔍 Auditar Código" en el modal de Lead y endpoint `POST /api/lead/:leadId/audit-web`.
