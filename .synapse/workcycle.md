@@ -346,13 +346,13 @@ docker compose logs -f
   4. Msg 4: Cierre natural ofreciendo ejemplos de trabajos realizados y agendamiento.
   5. Elaborado ejemplo demostrativo completo para validación del usuario.
 
-## Current Session: 2026-08-01 (02:00 Argentina)
-- **Objective:** Añadir comando de prueba de secuencia IA hacia número admin y botón en Dashboard.
+## Current Session: 2026-08-01 (03:15 Argentina)
+- **Objective:** Adaptación explícita al negocio en el mensaje 4 y generación 100% personalizada con IA en toda la secuencia.
 - **Status:** ✅ COMPLETED
 - **Git Info:** master
-- **Deploy:** Pushed to origin/master (e65c975).
+- **Deploy:** Pushed to origin/master (41d7937).
 
-### 36. Comando y Botón de Prueba de Secuencia IA para Admin
-- **Acción:** Creado el script `server/test-send-sequence.js` y el endpoint `/api/bot/test-sequence`.
-- **Funcionamiento:** Selecciona un negocio simulado aleatorio (nombre, rubro, rating, zona) como recién scrapeado de Google Maps, genera la secuencia de 4 mensajes con ChatGPT (`gpt-4o-mini`) y los envía secuencialmente al teléfono de admin `5491126642674`.
-- **UI:** Integrado botón morado `🧪 PROBAR SECUENCIA IA` en la vista de Conexión de Bots del Dashboard.
+### 37. Ajuste de Secuencia IA (Mensaje 4 con Adaptación 100% al Negocio)
+- **Acción:** Modificado el prompt de `generateMessage4` en `aiTextGenerator.js` de todas las instancias (`bot`, `bot_1`, `bot_2`, `bot_3`, `bot_4`).
+- **Detalle del Mensaje 4:** Incluye explícitamente la declaración de que en Nexte **nos adaptamos 100% a la realidad, escala y necesidades del negocio**, armando soluciones a medida según lo que requieran, junto con la oferta de portafolio y agendamiento relajado.
+- **Coherencia IA:** Todos los 4 mensajes (1, 2, 3 y 4) utilizan los datos reales del negocio de Google Maps (nombre, rubro, rating, zona, web) para redactar contenido hiper-personalizado con ChatGPT (`gpt-4o-mini`).
