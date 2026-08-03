@@ -1426,28 +1426,22 @@ class WhatsAppBot {
             await this.sleep(Math.min(typingTime, 2000));
           }
 
-          // Enviar mensaje
+          // Enviar mensaje (con reintento automático para errores transitorios de Puppeteer)
           console.log(`      📤 Enviando a API de WhatsApp...`);
           let sentMessage;
-          try {
-            if (!this.client || !this.client.info) {
-              console.warn('⚠️ Cliente desconectado detectado antes de enviar. Abortando.');
-              return;
-            }
-            // 🛡️ Enviar mensaje directamente usando client.sendMessage (robusto y seguro para chats nuevos)
-            sentMessage = await this.client.sendMessage(whatsappFormat, message);
-          } catch (criticalError) {
-            console.error(`⚠️ Error con sendMessage directo: ${criticalError.message}. Intentando fallback por chat...`);
+          let sendAttempts = 0;
+          while (sendAttempts < 2 && !sentMessage) {
+            sendAttempts++;
             try {
-              const chatToSend = await this.client.getChatById(whatsappFormat);
-              if (chatToSend) {
-                sentMessage = await chatToSend.sendMessage(message);
-              } else {
-                throw criticalError;
+              if (!this.client || !this.client.info) {
+                console.warn('⚠️ Cliente desconectado detectado antes de enviar. Abortando.');
+                return;
               }
-            } catch (fallbackError) {
-              console.error(`🔥 ERROR CRÍTICO enviando mensaje ${i + 1}: ${fallbackError.message}`);
-              throw fallbackError;
+              sentMessage = await this.client.sendMessage(whatsappFormat, message);
+            } catch (sendError) {
+              console.warn(`      ⚠️ Reintento ${sendAttempts}/2 por error de envío: ${sendError.message}`);
+              if (sendAttempts >= 2) throw sendError;
+              await this.sleep(2000);
             }
           }
 
