@@ -106,14 +106,14 @@ class AITextGenerator {
                 { role: 'system', content: systemPrompt || 'Eres Juan Cruz de Nexte Marketing. Ayudas a automatizar y hacer crecer negocios digitalmente.' },
                 { role: 'user', content: prompt }
             ],
-            temperature: 0.9,
-            max_tokens: 400
+            temperature: 0.5,
+            max_tokens: 1200
         }, {
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json'
             },
-            timeout: 12000 // 12 segundos timeout
+            timeout: 15000 // 15 segundos timeout
         });
 
         const content = response.data?.choices?.[0]?.message?.content;
@@ -161,41 +161,81 @@ class AITextGenerator {
     }
 
     /**
-     * Generar secuencia de ENGANCHE (4 mensajes 100% personalizados con ChatGPT)
+     * Generar secuencia de ENGANCHE (4 mensajes 100% personalizados y COHERENTES con ChatGPT)
      */
     async generatePersonalizedSequence(lead) {
         console.log(`🤖 [GENERADOR] Generando secuencia de 4 mensajes 100% IA para ${lead.name}`);
 
         try {
-            // 1. Obtener plantilla base y contexto del rubro
             const template = this.getTemplateForBusiness(lead.category);
-            const messages = [null, null, null, null];
-
-            // 2. Si OpenAI está activo y saludable, generar los 4 mensajes con ChatGPT
             const activeApiKey = this.apiKey || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
+
             if (this.stats.errors < 3 && activeApiKey) {
                 this.apiKey = activeApiKey;
+                const cleanName = this.getCleanBusinessName(lead.name);
+                const webAuditInfo = (lead.webAudit && lead.webAudit.insights && lead.webAudit.insights.length > 0)
+                    ? `Observaciones en su web (${lead.website}): ${lead.webAudit.insights.join(', ')}`
+                    : '';
+
+                const prompt = `
+Contexto: Escribes por WhatsApp como Juan Cruz de Nexte Marketing contactando al dueño o encargado de ${cleanName} (${lead.category || 'su rubro'}) en ${lead.location || 'la zona'}.
+
+Misión: Generar UNA SECUENCIA CONTINUA DE 4 MENSAJES que se enviarán uno tras otro en el mismo chat de WhatsApp.
+LA SECUENCIA DEBE TENER COHERENCIA PERFECTA COMO UNA SOLA CONVERSACIÓN FLUIDA.
+
+⚠️ REGLAS OBLIGATORIAS DE ESTRUCTURA Y FLUIDEZ:
+1. MENSAJE 1 (Saludo + Enganche):
+   - DEBE empezar con saludo natural ("¡Hola! Te escribe Juan Cruz de Nexte Marketing..." o "¡Buenas! Soy Juan Cruz de Nexte Marketing...").
+   - Mencioná ${cleanName} de forma muy orgánica.
+   - Si hay observaciones web (${webAuditInfo}), mencioná de forma sutil un detalle técnico real.
+   - PROHIBIDO DESPEDIRSE en el mensaje 1 (NUNCA digas "Un abrazo", "Saludos", ni hagas preguntas de cierre aquí). Es solo la apertura.
+
+2. MENSAJE 2 (Presentación de experiencia y valor):
+   - CONTINÚA el pensamiento sin volver a saludar.
+   - PROHIBIDO repetir "¡Hola!", "Soy Juan Cruz" o "Buenas".
+   - Mencioná cómo en Nexte (más de 10 años de trayectoria) ayudan a negocios como ${cleanName} con software a medida, turneros automáticos y asistentes de WhatsApp con IA para desahogar la atención.
+
+3. MENSAJE 3 (Propuesta Comercial COMPLETA sin cortarse):
+   - PROHIBIDO saludar de nuevo.
+   - Presentá la propuesta con formato WhatsApp (*negritas*, emojis limpios):
+     ⚙️ **SISTEMA DE GESTIÓN & SOFTWARE A MEDIDA**: Regular $650.000 → Promo $350.000 en 2 pagos. (Optimiza turnos, agendas, fichas de clientes/pacientes y stock).
+     🤖 **ASISTENTE VIRTUAL IA NATOH (WHATSAPP 24/7)**: Regular $350.000 → Promo $180.000. (Atiende 24/7, agendan turnos y valida comprobantes de pago).
+     🌐 **PÁGINA WEB PROFESIONAL o TIENDA E-COMMERCE**: Web Profesional $250.000 (o E-Commerce $500.000) con dominio, hosting y SSL.
+     📸 **CONTENIDO EDITORIAL & MULTIMEDIA**: Promo $140.000/mes.
+     📍 **OPTIMIZACIÓN GOOGLE MAPS & SEO LOCAL**: Promo $150.000.
+     🎁 **COMBO INTEGRAL CON DESCUENTO**: $1.800.000 → Promo final *$690.000* (Ahorro de $1.110.000).
+   - ASEGÚRATE de escribir la propuesta completa sin cortar ningún servicio ni precio.
+
+4. MENSAJE 4 (Cierre y Llamado a la Acción):
+   - Mencioná que en Nexte se adaptan 100% a la escala de ${cleanName}.
+   - Ofrecé enviar ejemplos reales de sistemas/webs desarrollados o agendar una breve charla.
+   - AQUÍ Y SOLO AQUÍ va la despedida final ("Quedo a disposición. ¡Saludos!").
+
+FORMATO DE RESPUESTA REQUERIDO (Devuelve ÚNICAMENTE un JSON válido con 4 elementos):
+[
+  "Texto del Mensaje 1",
+  "Texto del Mensaje 2",
+  "Texto del Mensaje 3",
+  "Texto del Mensaje 4"
+]
+`;
+
                 try {
-                    console.log(`✨ Generando Mensaje 1 (Análisis real del negocio) con ChatGPT...`);
-                    messages[0] = await this.generateMessage1(lead, template);
-
-                    console.log(`✨ Generando Mensaje 2 (Presentación adaptada al rubro) con ChatGPT...`);
-                    messages[1] = await this.generateMessage2(lead, template);
-
-                    console.log(`✨ Generando Mensaje 3 (Propuesta comercial a medida sin Ads) con ChatGPT...`);
-                    messages[2] = await this.generateMessage3(lead, template);
-
-                    console.log(`✨ Generando Mensaje 4 (Cierre natural con oferta de portafolio) con ChatGPT...`);
-                    messages[3] = await this.generateMessage4(lead, template);
-
-                    // Verificar que los 4 mensajes sean válidos y no vacíos
-                    if (messages.every(m => m && typeof m === 'string' && m.trim().length > 20)) {
-                        console.log(`✅ [CHATGPT] Secuencia completa de 4 mensajes generada exitosamente con IA`);
-                        this.stats.messagesGenerated += 4;
-                        return messages;
+                    console.log(`✨ Generando secuencia atómica de 4 mensajes coherentes con ChatGPT...`);
+                    const rawResponse = await this.generateViaOpenAI(prompt, template.context);
+                    
+                    // Extraer JSON array de la respuesta
+                    const jsonMatch = rawResponse.match(/\[[\s\S]*\]/);
+                    if (jsonMatch) {
+                        const parsedMessages = JSON.parse(jsonMatch[0]);
+                        if (Array.isArray(parsedMessages) && parsedMessages.length === 4 && parsedMessages.every(m => typeof m === 'string' && m.trim().length > 10)) {
+                            console.log(`✅ [CHATGPT] Secuencia atómica de 4 mensajes generada con coherencia fluida`);
+                            this.stats.messagesGenerated += 4;
+                            return parsedMessages;
+                        }
                     }
                 } catch (openAiError) {
-                    console.log(`⚠️ Falló generación completa con OpenAI: ${openAiError.message}. Usando sistema de plantillas...`);
+                    console.log(`⚠️ Falló generación atómica con OpenAI: ${openAiError.message}. Usando sistema de plantillas...`);
                     this.stats.errors++;
                 }
             }
@@ -212,10 +252,10 @@ class AITextGenerator {
 
             // FALLBACK FINAL DE EMERGENCIA (4 mensajes)
             const fallbackMsgs = [
-                `¡Hola! Soy Juan Cruz de Nexte Marketing. Estuve revisando el perfil de ${lead.name} en Google Maps y me llamó la atención su potencial en la zona.`,
-                `En Nexte llevamos más de 10 años (2015-2026) desarrollando software a medida, asistentes virtuales con IA y soluciones digitales para hacer crecer negocios.`,
+                `¡Hola! Soy Juan Cruz de Nexte Marketing. Estuve revisando la presencia digital de ${lead.name} y me llamó la atención su potencial en la zona.`,
+                `En Nexte llevamos más de 10 años desarrollando software a medida, asistentes virtuales con IA y soluciones para desahogar la atención de negocios.`,
                 `🏢 *SOLUCIONES DIGITALES NEXTE 2026*\n\n⚙️ *SISTEMAS & SOFTWARE A MEDIDA:* $650.000 → Promo $350.000 en 2 pagos\n🤖 *ASISTENTE VIRTUAL IA NATOH (WHATSAPP 24/7):* $350.000 → Promo $180.000\n🌐 *PÁGINA WEB PROFESIONAL:* $500.000 → Promo $250.000\n📍 *SEO GOOGLE MAPS:* $300.000 → Promo $150.000\n\n🎁 *COMBO INTEGRAL:* $1.800.000 → 🔥 *$690.000* (Ahorro de $1.110.000).`,
-                `Si querés te puedo enviar algunos ejemplos de sistemas y sitios web reales que ya diseñamos para otros negocios. ¿Charlamos 5 min?`
+                `Nos adaptamos a la escala de tu negocio. Si querés te envío algunos ejemplos reales de sistemas desarrollados o agendamos una llamada breve. ¡Saludos!`
             ];
             return fallbackMsgs;
         }
