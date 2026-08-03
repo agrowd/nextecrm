@@ -221,6 +221,13 @@ class AITextGenerator {
         }
     }
 
+function getCleanBusinessName(name) {
+    if (!name) return 'tu negocio';
+    let clean = String(name).split('|')[0].split('-')[0].split('–')[0].split('/')[0].trim();
+    clean = clean.replace(/\b(SA|SRL|Inc|LLC|Sucursal|Oficial|CABA|GBA)\b/gi, '').trim();
+    return clean || name.split('|')[0].trim();
+}
+
     /**
      * Mensaje 1: Saludo + Enganche ultra personalizado con datos reales de Google Maps
      */
@@ -232,31 +239,23 @@ class AITextGenerator {
         }
 
         const insights = this.analyzeLeadInsights(lead);
+        const cleanName = getCleanBusinessName(lead.name);
 
         const webAuditInfo = (lead.webAudit && lead.webAudit.insights && lead.webAudit.insights.length > 0)
-            ? `- AUDITORÍA DE CÓDIGO WEB REAL (${lead.website}): ${lead.webAudit.insights.join(', ')} (Tecnología: ${lead.webAudit.cms})`
+            ? `- Hallazgos técnicos web (${lead.website}): ${lead.webAudit.insights.join(', ')}`
             : '';
 
         const prompt = `
-Contexto: Eres Juan Cruz de Nexte Marketing contactando al dueño o encargado de un negocio por WhatsApp.
-Misión: Escribir un primer mensaje extremadamente natural, humano y personalizado basándote en la información REAL extraída de Google Maps y la auditoría de su web.
+Contexto: Escribes por WhatsApp como Juan Cruz de Nexte Marketing.
+Misión: Redactar un primer mensaje super natural, fluido, 100% humano y conversacional para el dueño o encargado de ${cleanName}.
 
-Datos REALES del negocio:
-- Nombre: ${lead.name}
-- Categoría/Rubro: ${lead.category || 'negocio'}
-- Rating/Estrellas: ${lead.rating ? lead.rating + '⭐' : 'sin datos de rating'} (${insights.ratingLabel})
-- Opiniones/Reseñas: ${lead.reviewCount ? lead.reviewCount + ' opiniones en Google' : 'pocas opiniones'}
-- Ubicación: ${lead.location || 'la zona'}
-- Sitio web actual: ${lead.website ? 'Tiene sitio web (' + lead.website + ')' : 'NO tiene sitio web'}
-${webAuditInfo}
-
-Requisitos del mensaje:
-1. Saluda cordialmente (Ej: "¡Hola! Soy Juan Cruz de Nexte Marketing...").
-2. Menciona datos específicos y reales de su negocio (su nombre real "${lead.name}", su ubicación "${lead.location || 'tu zona'}", su rating, o si revisaste su código web).
-3. Si hay datos de AUDITORÍA DE CÓDIGO WEB (ej: sin Google Analytics 4, sin Píxel de Meta, o sin botón de WhatsApp flotante en su web), mencionalo de forma súper natural como alguien técnico que revisó su sitio antes de escribirle.
-4. NO uses placeholders como {nombre} o [rubro]. Todo debe estar redactado en texto final pulido.
-5. Usa un tono argentino conversacional, profesional y directo ("vos", "te comento", etc.).
-6. Extensión: entre 35 y 60 palabras.
+REGLAS DE ORO DEESTILO (OBLIGATORIO):
+1. NUNCA leas la ficha técnica de Google Maps como un robot (PROHIBIDO decir "noté que aún no tienen rating", "estaba viendo sobre X en Y" o "contar con pocas opiniones").
+2. Saludá de forma natural y cercana (ej: "¡Hola! Soy Juan Cruz de Nexte Marketing...").
+3. Mencioná ${cleanName} de forma orgánica y fluida.
+4. Si hay hallazgos técnicos (${webAuditInfo}), comentá de forma amable y sutil una sola observación técnica (ej: "vi que la web no tiene botón directo de WhatsApp" o "noté que les falta configurar la medición de visitas").
+5. Tono argentino conversacional, profesional y directo ("vos", "te comento", "un abrazo"). Sin excesos de emojis.
+6. Extensión: entre 30 y 50 palabras máximo.
 
 Escribe ÚNICAMENTE el texto final del mensaje 1:
 `;
@@ -279,9 +278,6 @@ Escribe ÚNICAMENTE el texto final del mensaje 1:
         }
     }
 
-    /**
-     * Mensaje 2: Presentación de trayectoria adaptada al rubro específico
-     */
     async generateMessage2(lead, template) {
         const cacheKey = `msg2_${lead.id}`;
         if (this.messageCache.has(cacheKey)) {
@@ -289,10 +285,12 @@ Escribe ÚNICAMENTE el texto final del mensaje 1:
             return this.messageCache.get(cacheKey);
         }
 
-        const prompt = `
-Contexto: Eres Juan Cruz de Nexte Marketing enviando el segundo mensaje a ${lead.name} (Rubro: ${lead.category || 'comercial'}).
+        const cleanName = getCleanBusinessName(lead.name);
 
-Misión: Escribir una breve presentación de Nexte adaptada al sector de ${lead.category || 'su negocio'}.
+        const prompt = `
+Contexto: Eres Juan Cruz de Nexte Marketing enviando el segundo mensaje a ${cleanName} (${lead.category || 'su rubro'}).
+
+Misión: Escribir una breve presentación de Nexte adaptada al sector de ${lead.category || 'su negocio'}, ultra natural y conversacional.
 
 Datos institucionales de Nexte:
 - Más de 10 años de trayectoria (2015-2026).
@@ -300,11 +298,11 @@ Datos institucionales de Nexte:
 - Enfoque directo en resultados medibles y ahorro de horas de atención.
 
 Requisitos del mensaje:
-1. Explica brevemente quiénes son en Nexte resaltando los más de 10 años de trayectoria (2015-2026).
-2. Enfoca la experiencia mencionando cómo ayudan a empresas o consultorios del rubro (${lead.category || 'tu sector'}) a implementar sistemas de gestión, asistentes de WhatsApp con IA y desarrollo de software a medida.
-3. Tono conversacional, serio y profesional. Sin exageraciones ni emojis en exceso.
+1. Explica brevemente quiénes son en Nexte de forma muy fluida y humana (más de 10 años de trayectoria).
+2. Mencioná cómo ayudan a lugares como ${cleanName} a implementar software a medida, turneros automáticos o asistentes de WhatsApp con IA para desahogar la atención.
+3. Tono argentino conversacional, profesional y directo ("vos", "te comento"). Sin sonar robótico ni corporativo acartonado.
 4. NO pongas títulos ni variables.
-5. Extensión: entre 40 y 60 palabras.
+5. Extensión: entre 35 y 55 palabras.
 
 Escribe ÚNICAMENTE el texto final del mensaje 2:
 `;
@@ -320,7 +318,7 @@ Escribe ÚNICAMENTE el texto final del mensaje 2:
             return cleanMessage;
         } catch (error) {
             console.error('Error OpenAI mensaje 2:', error.message);
-            return `En Nexte llevamos más de 10 años (2015-2026) desarrollando tecnología y sistemas para negocios y empresas. Nos especializamos en crear portales web profesionales, sistemas de gestión/turnos a medida y asistentes inteligentes por WhatsApp que responden consultas y agendan solos 24/7.`;
+            return `En Nexte llevamos más de 10 años desarrollando tecnología y software a medida para negocios. Nos especializamos en crear portales web, sistemas de gestión/turnos a medida y asistentes inteligentes por WhatsApp que atienden consultas y agendan solos 24/7.`;
         }
     }
 
@@ -334,11 +332,12 @@ Escribe ÚNICAMENTE el texto final del mensaje 2:
             return this.messageCache.get(cacheKey);
         }
 
+        const cleanName = getCleanBusinessName(lead.name);
         const isEcommerceCandidate = ['tienda', 'indumentaria', 'ropa', 'distribuidora', 'mayorista', 'calzado', 'local', 'comercio'].some(kw =>
             (lead.category || '').toLowerCase().includes(kw));
 
         const prompt = `
-Contexto: Eres Juan Cruz de Nexte Marketing enviando la propuesta comercial detallada (Mensaje 3) a ${lead.name} (${lead.category || 'negocio'}).
+Contexto: Eres Juan Cruz de Nexte Marketing enviando la propuesta comercial detallada (Mensaje 3) a ${cleanName}.
 
 Misión: Escribir una propuesta comercial atractiva, clara y adaptada a su rubro con formato WhatsApp enriquecido (*negritas*, emojis limpios, separadores).
 

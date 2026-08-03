@@ -1426,22 +1426,23 @@ class WhatsAppBot {
             await this.sleep(Math.min(typingTime, 2000));
           }
 
-          // Enviar mensaje (con reintento automático para errores transitorios de Puppeteer)
+          // Enviar mensaje (ejecución limpia de 1 solo intento para evitar duplicados)
           console.log(`      📤 Enviando a API de WhatsApp...`);
           let sentMessage;
-          let sendAttempts = 0;
-          while (sendAttempts < 2 && !sentMessage) {
-            sendAttempts++;
+          try {
+            if (!this.client || !this.client.info) {
+              console.warn('⚠️ Cliente desconectado detectado antes de enviar. Abortando.');
+              return;
+            }
+            sentMessage = await this.client.sendMessage(whatsappFormat, message);
+          } catch (sendError) {
+            console.warn(`      ⚠️ Error en envío (${sendError.message}). Reintentando 1 vez en 2s...`);
+            await this.sleep(2000);
             try {
-              if (!this.client || !this.client.info) {
-                console.warn('⚠️ Cliente desconectado detectado antes de enviar. Abortando.');
-                return;
-              }
               sentMessage = await this.client.sendMessage(whatsappFormat, message);
-            } catch (sendError) {
-              console.warn(`      ⚠️ Reintento ${sendAttempts}/2 por error de envío: ${sendError.message}`);
-              if (sendAttempts >= 2) throw sendError;
-              await this.sleep(2000);
+            } catch (retryErr) {
+              console.error(`      ❌ Error fatal enviando mensaje ${i + 1}: ${retryErr.message}`);
+              throw retryErr;
             }
           }
 
