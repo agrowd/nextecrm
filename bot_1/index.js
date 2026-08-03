@@ -87,7 +87,19 @@ const HumanBehaviorSimulator = require('./services/humanBehavior');
 const ResponseAnalyzer = require('./services/responseAnalyzer');
 const StealthBrowserManager = require('./services/stealthBrowser');
 const Scheduler = require('./services/scheduler');
-const WarmupManager = require('./services/warmupManager');
+function formatPhoneClean(phone) {
+  if (!phone) return '';
+  let clean = String(phone).replace('@c.us', '').replace('@lid', '').replace(/\D/g, '');
+  if (clean.startsWith('549')) {
+    if (clean.length === 13) {
+      return `+54 9 ${clean.substring(3, 5)} ${clean.substring(5, 9)}-${clean.substring(9)}`;
+    }
+    return `+54 9 ${clean.substring(3)}`;
+  } else if (clean.startsWith('54')) {
+    return `+54 ${clean.substring(2)}`;
+  }
+  return `+${clean}`;
+}
 
 class WhatsAppBot {
   constructor() {
