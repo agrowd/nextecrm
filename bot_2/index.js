@@ -556,13 +556,14 @@ class WhatsAppBot {
       console.log('📊 Response Analyzer: ACTIVO');
       console.log('🔒 Stealth Browser: ACTIVO');
 
-      // Verificar API key de Gemini
-      if (!process.env.GEMINI_API_KEY) {
-        console.error('❌ GEMINI_API_KEY no configurada en .env');
-        console.error('📝 Obtener en: https://makersuite.google.com/app/apikey');
-        console.error('⚠️ Los mensajes usarán fallback hardcoded sin IA');
+      // Verificar API key de OpenAI / Gemini
+      const hasAiKey = process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
+      if (!hasAiKey) {
+        console.error('❌ OPENAI_API_KEY o GEMINI_API_KEY no configurada en .env');
+        console.error('⚠️ Los mensajes usarán fallback inteligente');
       } else {
-        console.log('✅ Gemini API configurada correctamente');
+        const provider = process.env.OPENAI_API_KEY ? 'OpenAI ChatGPT (gpt-4o-mini)' : 'Gemini AI';
+        console.log(`✅ ${provider} configurada correctamente`);
       }
 
       // Mostrar información inicial de la cola
@@ -581,7 +582,7 @@ class WhatsAppBot {
 
       console.log(`\n🚀 === BOT INICIADO CON SERVICIOS INTEGRADOS ===`);
       console.log(`📊 Verificando estado de la cola...`);
-      console.log(`🤖 AI Text Generator: ${process.env.GEMINI_API_KEY ? 'ACTIVO' : 'FALLBACK'}`);
+      console.log(`🤖 AI Text Generator: ${hasAiKey ? 'ACTIVO (' + (process.env.OPENAI_API_KEY ? 'ChatGPT' : 'Gemini') + ')' : 'FALLBACK'}`);
 
       // ✅ KEEP-ALIVE: Evitar desconexión por inactividad
       if (this._keepAliveInterval) clearInterval(this._keepAliveInterval);
