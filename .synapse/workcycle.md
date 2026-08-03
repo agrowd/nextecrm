@@ -346,19 +346,14 @@ docker compose logs -f
   4. Msg 4: Cierre natural ofreciendo ejemplos de trabajos realizados y agendamiento.
   5. Elaborado ejemplo demostrativo completo para validación del usuario.
 
-## Current Session: 2026-08-01 (03:24 Argentina)
-- **Objective:** Implementación completa del módulo WebsiteAuditor (auditoría automática de webs para ChatGPT).
+## Current Session: 2026-08-03 (09:54 Argentina)
+- **Objective:** Visualización de último envío en tarjeta de bot (nombre + hora) y formateo limpio de teléfonos para notificaciones de Admin.
 - **Status:** ✅ COMPLETED
 - **Git Info:** master
-- **Deploy:** Pushed to origin/master (9289194).
+- **Deploy:** Pushed to origin/master (ecb97d6).
 
-### 38. Implementación del Módulo WebsiteAuditor
-- **Servicio Creado:** `server/services/websiteAuditor.js` (inspección de HTML/código en 1-2s con timeout estricto).
-- **Detecciones Automatizadas:**
-  - GA4 (`G-`), Meta Pixel (`fbq`), GTM (`GTM-`), Google Ads.
-  - CMS / Tecnologías: WordPress, Shopify, Tiendanube, Wix, WooCommerce, Next.js/React.
-  - Conversión & UX: Botón flotante de WhatsApp, SSL, Título `<title>`.
-  - Generación de hallazgos sintetizados (`insights`).
-- **Integración MongoDB:** Añadido esquema `webAudit` en `Lead.js`.
-- **Integración ChatGPT:** Prompt de `aiTextGenerator.js` enriquece Mensaje 1 y 3 con datos de auditoría web.
-- **CRM Dashboard & API:** Añadido botón "🔍 Auditar Código" en el modal de Lead y endpoint `POST /api/lead/:leadId/audit-web`.
+### 39. Visualización de Último Envío & Formateo de Teléfonos
+- **Frontend CRM:** Agregada la fila **"Último Envío"** en la tarjeta de cada bot (ej. `FedericoNatoH (09:42 hs)`).
+- **Backend & Bot Statuses:** Registra dinámicamente `lastSentInfo` (nombre del lead, teléfono y hora local) y lo emite en tiempo real vía Socket.io.
+- **Formateo de Teléfonos para Admin:** Integrada función `formatPhoneClean(phone)` que formatea números a formato limpio internacional (ej. `+54 9 11 5832-6331`) en alertas y notificaciones al admin `5491126642674`.
+- **Logs del VPS:** Entregados comandos exactos para inspeccionar el historial y estado real de envíos de mensajes del Bot 1.
