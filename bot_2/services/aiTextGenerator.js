@@ -172,7 +172,9 @@ class AITextGenerator {
             const messages = [null, null, null, null];
 
             // 2. Si OpenAI está activo y saludable, generar los 4 mensajes con ChatGPT
-            if (this.stats.errors < 3 && this.apiKey) {
+            const activeApiKey = this.apiKey || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
+            if (this.stats.errors < 3 && activeApiKey) {
+                this.apiKey = activeApiKey;
                 try {
                     console.log(`✨ Generando Mensaje 1 (Análisis real del negocio) con ChatGPT...`);
                     messages[0] = await this.generateMessage1(lead, template);
