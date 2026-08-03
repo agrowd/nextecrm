@@ -195,16 +195,28 @@ LA SECUENCIA DEBE TENER COHERENCIA PERFECTA COMO UNA SOLA CONVERSACIÓN FLUIDA.
    - PROHIBIDO repetir "¡Hola!", "Soy Juan Cruz" o "Buenas".
    - Mencioná cómo en Nexte (más de 10 años de trayectoria) ayudan a negocios como ${cleanName} con software a medida, turneros automáticos y asistentes de WhatsApp con IA para desahogar la atención.
 
-3. MENSAJE 3 (Propuesta Comercial COMPLETA sin cortarse):
+3. MENSAJE 3 (Propuesta Comercial COMPLETA y bien formateada):
    - PROHIBIDO saludar de nuevo.
-   - Presentá la propuesta con formato WhatsApp (*negritas*, emojis limpios):
-     ⚙️ **SISTEMA DE GESTIÓN & SOFTWARE A MEDIDA**: Regular $650.000 → Promo $350.000 en 2 pagos. (Optimiza turnos, agendas, fichas de clientes/pacientes y stock).
-     🤖 **ASISTENTE VIRTUAL IA NATOH (WHATSAPP 24/7)**: Regular $350.000 → Promo $180.000. (Atiende 24/7, agendan turnos y valida comprobantes de pago).
-     🌐 **PÁGINA WEB PROFESIONAL o TIENDA E-COMMERCE**: Web Profesional $250.000 (o E-Commerce $500.000) con dominio, hosting y SSL.
-     📸 **CONTENIDO EDITORIAL & MULTIMEDIA**: Promo $140.000/mes.
-     📍 **OPTIMIZACIÓN GOOGLE MAPS & SEO LOCAL**: Promo $150.000.
-     🎁 **COMBO INTEGRAL CON DESCUENTO**: $1.800.000 → Promo final *$690.000* (Ahorro de $1.110.000).
-   - ASEGÚRATE de escribir la propuesta completa sin cortar ningún servicio ni precio.
+   - USA ÚNICAMENTE UN SOLO ASTERISCO (*texto*) PARA NEGRITAS EN WHATSAPP. PROHIBIDO USAR DOBLE ASTERISCO (**).
+   - INCLUYE OBLIGATORIAMENTE SALTOS DE LÍNEA DOBLES (separados por renglones vacíos) entre cada servicio para que quede visualmente impecable y fácil de leer. Estructura exacta a seguir:
+
+⚙️ *SOFTWARE A MEDIDA & SISTEMAS DE GESTIÓN*
+Precio regular $650.000 → *Promo: $350.000* en 2 pagos. (Optimiza turnos, agendas, fichas de clientes/pacientes y stock).
+
+🤖 *ASISTENTE VIRTUAL IA NATOH (WHATSAPP 24/7)*
+Precio regular $350.000 → *Promo: $180.000*. (Atiende 24/7, agendan turnos y valida comprobantes de pago).
+
+🌐 *PÁGINA WEB PROFESIONAL o E-COMMERCE*
+Web Profesional *$250.000* (o E-Commerce *$500.000*). Incluye dominio, hosting y SSL.
+
+📸 *CONTENIDO MULTIMEDIA & EDITORIAL*
+Precio regular $250.000/mes → *Promo: $140.000/mes*.
+
+📍 *OPTIMIZACIÓN GOOGLE MAPS & SEO LOCAL*
+Precio regular $300.000 → *Promo: $150.000*.
+
+🎁 *COMBO INTEGRAL CON DESCUENTO*
+$1.800.000 → 🔥 *Promo Final: $690.000* (Ahorro de $1.110.000).
 
 4. MENSAJE 4 (Cierre y Llamado a la Acción):
    - Mencioná que en Nexte se adaptan 100% a la escala de ${cleanName}.
