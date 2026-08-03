@@ -1162,7 +1162,11 @@ app.get('/api/bots/list', async (req, res) => {
         status: statusObj.status || 'not_running',
         wid: statusObj.wid || null,
         qr: statusObj.qr || null,
-        lastSeen: statusObj.lastSeen || null
+        lastSeen: statusObj.lastSeen || null,
+        lastSentInfo: statusObj.lastSentInfo || null,
+        limits: statusObj.limits || null,
+        battery: statusObj.battery || null,
+        statusInfo: statusObj.statusInfo || null
       }))
       .sort((a, b) => {
         const numA = parseInt(a.instanceId.replace('bot_', '').replace('bot', '1')) || 99;
@@ -1628,6 +1632,19 @@ app.put('/lead/:id/status', async (req, res) => {
     }
 
     await lead.save();
+
+    // 📊 Actualizar último envío en botStatuses para el Dashboard
+    const activeInstance = contactedByInstance || lead.contactedByInstance || lead.assignedToInstance || 'bot_1';
+    if (botStatuses && botStatuses.has(activeInstance)) {
+      const bStatus = botStatuses.get(activeInstance) || {};
+      bStatus.lastSentInfo = {
+        leadName: lead.name,
+        phone: lead.phone,
+        time: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+      };
+      botStatuses.set(activeInstance, bStatus);
+      io.emit('bot_status_update', { instanceId: activeInstance, ...bStatus });
+    }
 
     res.json({
       success: true,

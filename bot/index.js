@@ -556,7 +556,7 @@ class WhatsAppBot {
 
       // 🔔 NOTIFICAR AL ADMIN QUE EL BOT ESTÁ OPERATIVO CON MENÚ DE COMANDOS
       const adminTarget = '5491126642674@c.us';
-      const welcomeMsg = `✅ *¡BOT OPERATIVO Y LISTO!* 🚀\n\n📱 *Instancia:* ${this.instanceId}\n📞 *Número Conectado:* +${this.connectedNumber}\n⏰ *Hora:* ${new Date().toLocaleTimeString('es-AR')}\n\n🤖 *COMANDOS DISPONIBLES EN ESTE CHAT:*\n• Escribí *#test* o *!test* o *prueba* en este chat para enviarte una secuencia de prueba de 4 mensajes generados con ChatGPT (simulando un negocio scrapeado de Google Maps).\n• Escribí *#estado* o *!estado* para consultar el estado de la cola de leads.`;
+      const welcomeMsg = `✅ *¡BOT OPERATIVO Y LISTO!* 🚀\n\n📱 *Instancia:* ${this.instanceId}\n📞 *Número Conectado:* ${formatPhoneClean(this.connectedNumber)}\n⏰ *Hora:* ${new Date().toLocaleTimeString('es-AR')}\n\n🤖 *COMANDOS DISPONIBLES EN ESTE CHAT:*\n• Escribí *#test* o *!test* o *prueba* en este chat para enviarte una secuencia de prueba de 4 mensajes generados con ChatGPT (simulando un negocio scrapeado de Google Maps).\n• Escribí *#estado* o *!estado* para consultar el estado de la cola de leads.`;
 
       try {
         await this.client.sendMessage(adminTarget, welcomeMsg);
@@ -2103,7 +2103,7 @@ class WhatsAppBot {
       // 🔔 NOTIFICAR VÍA WHATSAPP A 5491126642674 SI EL LEAD MOSTRÓ INTERÉS
       if (backendStatus === 'interested' || analysis.intent === 'interest' || analysis.intent === 'question' || (analysis.interestScore && analysis.interestScore >= 5)) {
         const alertTarget = '5491126642674@c.us';
-        const alertMsg = `🚨 *¡NUEVO LEAD INTERESADO DETECTADO!* 🚀\n\n🏢 *Negocio:* ${leadName}\n📂 *Rubro:* ${leadCategory}\n📞 *Teléfono:* +${cleanPhoneNum}\n💬 *Mensaje:* "${messageBody}"\n\n📌 *Estado en CRM:* Interesado (Asesor notificado)`;
+        const alertMsg = `🚨 *¡NUEVO LEAD INTERESADO DETECTADO!* 🚀\n\n🏢 *Negocio:* ${leadName}\n📂 *Rubro:* ${leadCategory}\n📞 *Teléfono:* ${formatPhoneClean(cleanPhoneNum)}\n💬 *Mensaje:* "${messageBody}"\n\n📌 *Estado en CRM:* Interesado (Asesor notificado)`;
         
         try {
           if (this.client && this.client.info) {

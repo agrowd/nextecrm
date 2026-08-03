@@ -3,6 +3,20 @@
 const API_URL = window.location.port === '8484' ? '' : `http://${window.location.hostname}:8484`;
 const REFRESH_INTERVAL = 5000;
 
+function formatPhoneClean(phone) {
+    if (!phone) return '';
+    let clean = String(phone).replace('@c.us', '').replace('@lid', '').replace(/\D/g, '');
+    if (clean.startsWith('549')) {
+        if (clean.length === 13) {
+            return `+54 9 ${clean.substring(3, 5)} ${clean.substring(5, 9)}-${clean.substring(9)}`;
+        }
+        return `+54 9 ${clean.substring(3)}`;
+    } else if (clean.startsWith('54')) {
+        return `+54 ${clean.substring(2)}`;
+    }
+    return `+${clean}`;
+}
+
 // Wrapper para fetch que maneja el prefijo /api/, credenciales y redirección a login
 async function fetchAPI(endpoint, options = {}) {
     // Asegurar que el endpoint empiece con /api/ si no lo tiene
@@ -1131,6 +1145,19 @@ function renderBotControls() {
                 `;
             }
             
+            if (bot.lastSentInfo) {
+                const cleanPhone = formatPhoneClean(bot.lastSentInfo.phone);
+                const displayLeadName = bot.lastSentInfo.leadName || cleanPhone;
+                metricsHtml += `
+                        <div style="display: flex; justify-content: space-between; font-size: 11px; color: #8696a0; margin-top: 6px; border-top: 1px solid #2f3b43; padding-top: 6px;">
+                            <span>Último Envío:</span>
+                            <span style="font-weight: 600; color: #53bdeb; text-align: right; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${displayLeadName} (${cleanPhone})">
+                                ${displayLeadName} (${bot.lastSentInfo.time})
+                            </span>
+                        </div>
+                `;
+            }
+
             if (bot.statusInfo) {
                 let sleepText = 'Activo';
                 let sleepColor = '#25d366';
