@@ -1396,23 +1396,18 @@ class WhatsAppBot {
           const typingTime = this.behaviorSimulator.getTypingTime(message);
           console.log(`      ⌨️  Escribiendo... (duración calculada: ${(typingTime / 1000).toFixed(1)}s)`);
 
-          // Mostrar indicador "escribiendo..." en WhatsApp
+          // Mostrar indicador "escribiendo..." en WhatsApp (modo seguro)
           try {
             if (this.client.sendStateTyping) {
-              await this.client.sendStateTyping(whatsappFormat);
+              await this.client.sendStateTyping(whatsappFormat).catch(() => {});
+              await this.sleep(typingTime);
+              if (this.client.sendStateTyping) {
+                await this.client.sendStateTyping(whatsappFormat, false).catch(() => {});
+              }
             } else {
-              const chat = await this.client.getChatById(whatsappFormat);
-              if (chat && chat.sendStateTyping) await chat.sendStateTyping();
-            }
-            await this.sleep(typingTime);
-            if (this.client.sendStateTyping) {
-              await this.client.sendStateTyping(whatsappFormat, false);
-            } else {
-              const chat = await this.client.getChatById(whatsappFormat);
-              if (chat && chat.clearStateTyping) await chat.clearStateTyping();
+              await this.sleep(Math.min(typingTime, 2000));
             }
           } catch (typingError) {
-            console.log(`      ⚠️ Warning: Error simulando typing (${typingError.message}). Continuando...`);
             await this.sleep(Math.min(typingTime, 2000));
           }
 
@@ -1424,15 +1419,21 @@ class WhatsAppBot {
               console.warn('⚠️ Cliente desconectado detectado antes de enviar. Abortando.');
               return;
             }
-            const chatToSend = await this.client.getChatById(whatsappFormat);
-            if (!chatToSend) throw new Error(`Chat object is null for ${whatsappFormat}`);
-            sentMessage = await chatToSend.sendMessage(message);
+            // 🛡️ Enviar mensaje directamente usando client.sendMessage (robusto y seguro para chats nuevos)
+            sentMessage = await this.client.sendMessage(whatsappFormat, message);
           } catch (criticalError) {
-            if (criticalError.message.includes('getChat') || criticalError.message.includes('Session Closed') || criticalError.message.includes('protocol') || criticalError.message.includes('detached') || criticalError.message.includes('Target closed')) {
-              console.error(`🔥 ERROR CRÍTICO DE SESIÓN enviando mensaje: ${criticalError.message}. Deteniendo secuencia.`);
-              return;
+            console.error(`⚠️ Error con sendMessage directo: ${criticalError.message}. Intentando fallback por chat...`);
+            try {
+              const chatToSend = await this.client.getChatById(whatsappFormat);
+              if (chatToSend) {
+                sentMessage = await chatToSend.sendMessage(message);
+              } else {
+                throw criticalError;
+              }
+            } catch (fallbackError) {
+              console.error(`🔥 ERROR CRÍTICO enviando mensaje ${i + 1}: ${fallbackError.message}`);
+              throw fallbackError;
             }
-            throw criticalError;
           }
 
           // Grabar cuando enviamos el primer mensaje
