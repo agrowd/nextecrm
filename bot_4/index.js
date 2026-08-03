@@ -87,6 +87,8 @@ const HumanBehaviorSimulator = require('./services/humanBehavior');
 const ResponseAnalyzer = require('./services/responseAnalyzer');
 const StealthBrowserManager = require('./services/stealthBrowser');
 const Scheduler = require('./services/scheduler');
+const WarmupManager = require('./services/warmupManager');
+
 function formatPhoneClean(phone) {
   if (!phone) return '';
   let clean = String(phone).replace('@c.us', '').replace('@lid', '').replace(/\D/g, '');
