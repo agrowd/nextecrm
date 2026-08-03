@@ -159,13 +159,22 @@ class AdvancedTemplateGenerator {
         ];
 
         // MSG 4: TODOS LOS SERVICIOS (Variantes con nuevos servicios solicitados)
+        // MSG 4: TODOS LOS SERVICIOS (DESHABILITADO - Ya incluido en Msg 3)
         this.serviciosCompletos = [];
 
-        // MSG 5 / MSG 4: CTAs SUAVES - Con ofrecimiento de portafolio y agendamiento
+        // MSG 5: CTAs SUAVES - Con mención ABRIL + Llamada/Explicación
+        // MSG 5: CTAs SUAVES - Con mención ABRIL + Llamada/Explicación + Adaptabilidad
         this.ctasReunion = [
-            "Si te parece, te puedo enviar algunos ejemplos de sistemas y sitios web reales que ya desarrollamos para otros negocios para que veas la calidad y cómo funcionan.\n\nSi querés verlos o agendar una breve charla de 5 minutos sin compromiso, quedo a tu disposición. 😊",
-            "¿Te gustaría que te mande algunos ejemplos de plataformas y páginas que armamos para clientes del rubro?\n\nDecime y te los comparto, o coordinamos un llamado rápido cuando gustes.",
-            "Podemos enviarte ejemplos reales de proyectos que ya implementamos para que veas cómo trabajan nuestras soluciones.\n\nQuedo a tu disposición si querés agendar una breve conversación o sacarte alguna duda."
+            "Cualquier cosa, organizamos una charla telefónica o nos juntamos.\n\n📌 *Dato:* En nuestro sitio web tenemos más servicios y nos adaptamos a lo que necesites.\n\n⏰ La promo especial es válida hasta el próximo sábado a las 21 hrs. Guardamos tu lugar si te interesa.",
+            "Si tenés dudas, lo charlamos por teléfono o videollamada sin compromiso.\n\n📌 *Importante:* Tenemos más opciones en la web y podemos adaptar cualquier plan a tu medida.\n\n⏰ La promo abril es válida hasta el próximo sábado a las 21 hrs. Avisame para guardarte el cupo.",
+            "¿Te interesa algún servicio? Podemos agendar una llamada para ver qué te sirve más.\n\n📌 *Ojo:* En nuestra web hay más servicios disponibles y nos adaptamos 100% a tu negocio.\n\n⏰ Recordá que los precios rebajados aplican hasta el próximo sábado a las 21 hrs. Podemos reservarte el cupo.",
+            "Estoy disponible para una reunión o videollamada si querés conocer más.\n\n📌 *Nota:* Si buscás algo puntual, en la web hay más info y nos ajustamos a tus necesidades.\n\n⏰ Importante: el descuento por abril es válido hasta el próximo sábado a las 21 hrs. Te guardamos lugar.",
+            "Si alguna opción te convence, armamos una charla para darte todos los detalles.\n\n📌 *A saber:* En nuestro sitio tenemos un catálogo más amplio y flexibilidad para armar algo a medida.\n\n⏰ Los precios de abril están disponibles hasta el próximo sábado a las 21 hrs. Se puede asegurar el cupo ahora.",
+            "Para lo que necesites, podemos hacer una llamada y lo charlamos tranquilos.\n\n📌 *Plus:* En la web vas a ver más servicios. Nos adaptamos a lo que tu empresa necesite.\n\n⏰ Atención: la oferta especial es válida hasta el próximo sábado a las 21 hrs. Si querés aprovecharla, avisame y te reservo.",
+            "¿Querés más info? Coordinamos una reunión o llamada cuando te venga bien.\n\n📌 *Info:* Tenemos más soluciones en nuestro sitio y podemos personalizar todo a tu gusto.\n\n⏰ Tené en cuenta: descuentos disponibles hasta el próximo sábado a las 21 hrs. Puedo guardar tu cupo si te decidís.",
+            "Si te copa, programamos una videollamada o nos encontramos.\n\n📌 *Tip:* Si necesitás algo específico, mirá nuestra web o chiflame, nos adaptamos a vos.\n\n⏰ Ojo que la promo de abril es válida hasta el próximo sábado a las 21 hrs. Avisame si querés asegurar el precio.",
+            "Cualquier duda, hablamos por teléfono o agendamos algo presencial.\n\n📌 *Recordá:* En la web hay más servicios y somos super flexibles para adaptarnos a tu proyecto.\n\n⏰ Recordatorio: los valores promocionales son válidos hasta el próximo sábado a las 21 hrs. Te guardo lugar si confirmás.",
+            "Estoy a disposición para lo que necesites. Podemos tener una charla o llamada.\n\n📌 *Aclaración:* En el sitio web tenemos más alternativas y nos ajustamos a tu requerimiento.\n\n⏰ Dato importante: precios de abril válidos hasta el próximo sábado a las 21 hrs. Puedo reservar tu cupo."
         ];
 
         // ============ TEMPLATES POR CATEGORÍA ============
@@ -246,6 +255,9 @@ class AdvancedTemplateGenerator {
         };
 
         this.stats = { generated: 0 };
+
+        // Cargar desde DB (Asincrónico, se llenará gradualmente)
+        // this.fetchTemplates(); // DESHABILITADO TEMPORALMENTE: Usar hardcoded Feb 2026
     }
 
     async fetchTemplates() {
@@ -308,7 +320,7 @@ class AdvancedTemplateGenerator {
             .replace(/{ubicacion}/g, ubicacion);
     }
 
-    // Generar 4 mensajes únicos - NUEVA ESTRUCTURA
+    // Generar 5 mensajes únicos - NUEVA ESTRUCTURA
     generatePersonalizedSequence(lead) {
         const cat = this.detectCategory(lead);
         const catPhrases = this.categoryPhrases[cat] || {};
@@ -324,11 +336,16 @@ class AdvancedTemplateGenerator {
         const presentacion = this.random(this.presentaciones);
         const msg2 = this.fill(presentacion, lead);
 
-        // MSG 3: PROMOCIONES (Software, IA NatoH, Web, SEO - SIN ADS)
+        // MSG 3: PROMOCIONES 2026 (Forzar uso de las nuevas promos con precios actualizados)
+        // Ignoramos las específicas de categoría por ahora porque tienen precios desactualizados
         const propuesta = this.random(this.propuestas);
         const msg3 = this.fill(propuesta, lead);
 
-        // MSG 4: CTA LLAMADA/REUNIÓN Y PORTAFOLIO
+        // MSG 4: TODOS LOS SERVICIOS (DESHABILITADO - Msg 3 ya tiene todo)
+        // const servicios = this.random(this.serviciosCompletos);
+        // const msg4 = servicios;
+
+        // MSG 5: CTA LLAMADA/REUNIÓN (Ahora es el 4to mensaje)
         const ctaReunion = this.random(this.ctasReunion);
         const msg5 = ctaReunion;
 

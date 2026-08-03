@@ -1459,7 +1459,8 @@ class WhatsAppBot {
             }
           }
           this.lastMessageTimestamps.set(whatsappFormat, Date.now());
-          console.log(`      ✅ Mensaje ENVIADO (ID: ${sentMessage.id._serialized})`);
+          const sentMsgId = (sentMessage && sentMessage.id) ? (sentMessage.id._serialized || sentMessage.id.id || String(sentMessage.id)) : `msg_${Date.now()}`;
+          console.log(`      ✅ Mensaje ENVIADO (ID: ${sentMsgId})`);
 
           // Guardar en BD con metadata de IA
           try {
@@ -1473,7 +1474,7 @@ class WhatsAppBot {
               type: 'oferta_servicio',
               status: 'sent',
               sentAt: new Date(),
-              whatsappMessageId: sentMessage.id._serialized,
+              whatsappMessageId: sentMsgId,
               // 🔑 MULTI-BOT: Tracking de qué número/instancia envió
               sentFromNumber: this.connectedNumber,
               instanceId: this.instanceId,
@@ -2024,12 +2025,15 @@ class WhatsAppBot {
         let resolvedNumber = contactNumber;
         if (contactNumber.includes('@lid')) {
           try {
-            const chat = await this.client.getChatById(contactNumber);
-            const contact = await chat.getContact();
+            const contact = await msg.getContact().catch(() => null);
             if (contact && contact.number) {
               resolvedNumber = contact.number + '@c.us';
+            } else if (this.currentlyProcessingLead) {
+              resolvedNumber = this.currentlyProcessingLead.phone;
             }
-          } catch (e) { /* silenciar */ }
+          } catch (e) {
+            if (this.currentlyProcessingLead) resolvedNumber = this.currentlyProcessingLead.phone;
+          }
         }
         const cleanIncoming = resolvedNumber.replace('@c.us', '').replace(/\D/g, '');
         const cleanCurrent = this.currentlyProcessingLead.phone.replace(/\D/g, '');

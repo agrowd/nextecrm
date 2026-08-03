@@ -7,7 +7,15 @@ const AIHelper = require('./aiHelper');
  */
 class ResponseAnalyzer {
     constructor() {
-        this.apiKey = process.env.OPENAI_API_KEY;
+        if (!process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
+            try {
+                const path = require('path');
+                require('dotenv').config({ path: path.join(__dirname, '../../../.env') });
+                require('dotenv').config({ path: path.join(__dirname, '../../server/.env') });
+                require('dotenv').config({ path: path.join(__dirname, '../.env') });
+            } catch (e) {}
+        }
+        this.apiKey = process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
         this.model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
         // Patrones de respuestas automáticas (ignorar)
