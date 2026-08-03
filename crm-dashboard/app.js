@@ -1114,53 +1114,12 @@ function renderBotControls() {
             statusColor = '#25d366';
             statusHtml = `<span class="status-dot" style="background:${statusColor}; box-shadow: 0 0 8px ${statusColor};"></span> Operativo`;
             
-            let metricsHtml = '';
-            if (bot.limits) {
-                const limitPct = Math.round((bot.limits.processed / bot.limits.max) * 100);
-                metricsHtml += `
-                    <div style="margin-top: 10px; text-align: left; background: #202c33; padding: 10px; border-radius: 6px; border: 1px solid #2f3b43; margin-bottom: 10px;">
-                        <div style="display: flex; justify-content: space-between; font-size: 11px; color: #8696a0; margin-bottom: 4px;">
-                            <span>Progreso Leads Hoy:</span>
-                            <span style="font-weight: 600; color: #fff;">${bot.limits.processed}/${bot.limits.max}</span>
-                        </div>
-                        <div style="width: 100%; background: #111b21; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
-                            <div style="background: #00a884; width: ${Math.min(limitPct, 100)}%; height: 100%;"></div>
-                        </div>
-                `;
-            } else {
-                metricsHtml += `<div style="margin-top: 10px; text-align: left; background: #202c33; padding: 10px; border-radius: 6px; border: 1px solid #2f3b43; margin-bottom: 10px;">`;
-            }
-            
-            if (bot.battery) {
-                const battIcon = bot.battery.plugged ? 'battery_charging_full' : (bot.battery.level > 80 ? 'battery_full' : (bot.battery.level > 30 ? 'battery_3_bar' : 'battery_alert'));
-                const battColor = bot.battery.level > 20 ? '#25d366' : '#f44336';
-                metricsHtml += `
-                        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #8696a0;">
-                            <span style="display: flex; align-items: center; gap: 4px;">
-                                <span class="material-icons" style="font-size: 14px; color: ${battColor};">${battIcon}</span>
-                                Batería:
-                            </span>
-                            <span style="font-weight: 600; color: #fff;">${bot.battery.level}% ${bot.battery.plugged ? '⚡' : ''}</span>
-                        </div>
-                `;
-            }
-            
-            if (bot.lastSentInfo) {
-                const cleanPhone = formatPhoneClean(bot.lastSentInfo.phone);
-                const displayLeadName = bot.lastSentInfo.leadName || cleanPhone;
-                metricsHtml += `
-                        <div style="display: flex; justify-content: space-between; font-size: 11px; color: #8696a0; margin-top: 6px; border-top: 1px solid #2f3b43; padding-top: 6px;">
-                            <span>Último Envío:</span>
-                            <span style="font-weight: 600; color: #53bdeb; text-align: right; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${displayLeadName} (${cleanPhone})">
-                                ${displayLeadName} (${bot.lastSentInfo.time})
-                            </span>
-                        </div>
-                `;
-            }
+            const limits = bot.limits || { processed: 0, max: 50 };
+            const limitPct = Math.round((limits.processed / limits.max) * 100);
 
+            let sleepText = 'Activo';
+            let sleepColor = '#25d366';
             if (bot.statusInfo) {
-                let sleepText = 'Activo';
-                let sleepColor = '#25d366';
                 if (bot.statusInfo.outsideHours) {
                     sleepText = '🌙 Fuera de horario';
                     sleepColor = '#ff9800';
@@ -1168,16 +1127,61 @@ function renderBotControls() {
                     sleepText = '💤 Suspendido temporal';
                     sleepColor = '#2196f3';
                 }
-                metricsHtml += `
-                        <div style="display: flex; justify-content: space-between; font-size: 11px; color: #8696a0; margin-top: 6px; border-top: 1px solid #2f3b43; padding-top: 6px;">
-                            <span>Estado de Espera:</span>
-                            <span style="font-weight: 600; color: ${sleepColor};">${sleepText}</span>
-                        </div>
+            }
+
+            let batteryHtml = '';
+            if (bot.battery) {
+                const battIcon = bot.battery.plugged ? 'battery_charging_full' : (bot.battery.level > 80 ? 'battery_full' : (bot.battery.level > 30 ? 'battery_3_bar' : 'battery_alert'));
+                const battColor = bot.battery.level > 20 ? '#25d366' : '#f44336';
+                batteryHtml = `
+                    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #8696a0; margin-top: 4px;">
+                        <span style="display: flex; align-items: center; gap: 4px;">
+                            <span class="material-icons" style="font-size: 14px; color: ${battColor};">${battIcon}</span>
+                            Batería:
+                        </span>
+                        <span style="font-weight: 600; color: #fff;">${bot.battery.level}% ${bot.battery.plugged ? '⚡' : ''}</span>
+                    </div>
+                `;
+            }
+
+            let lastSentHtml = '';
+            if (bot.lastSentInfo) {
+                const cleanPhone = formatPhoneClean(bot.lastSentInfo.phone);
+                const displayLeadName = bot.lastSentInfo.leadName || cleanPhone;
+                lastSentHtml = `
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #8696a0; margin-top: 6px; border-top: 1px solid #2f3b43; padding-top: 6px;">
+                        <span>Último Envío:</span>
+                        <span style="font-weight: 600; color: #53bdeb; text-align: right; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${displayLeadName} (${cleanPhone})">
+                            ${displayLeadName} (${bot.lastSentInfo.time})
+                        </span>
                     </div>
                 `;
             } else {
-                metricsHtml += `</div>`;
+                lastSentHtml = `
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #8696a0; margin-top: 6px; border-top: 1px solid #2f3b43; padding-top: 6px;">
+                        <span>Último Envío:</span>
+                        <span style="font-weight: 400; color: #667781; text-align: right;">Pendiente</span>
+                    </div>
+                `;
             }
+
+            let metricsHtml = `
+                <div style="margin-top: 10px; text-align: left; background: #202c33; padding: 10px; border-radius: 6px; border: 1px solid #2f3b43; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #8696a0; margin-bottom: 4px;">
+                        <span>Progreso Leads Hoy:</span>
+                        <span style="font-weight: 600; color: #fff;">${limits.processed}/${limits.max}</span>
+                    </div>
+                    <div style="width: 100%; background: #111b21; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
+                        <div style="background: #00a884; width: ${Math.min(limitPct, 100)}%; height: 100%;"></div>
+                    </div>
+                    ${batteryHtml}
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #8696a0; margin-top: 4px;">
+                        <span>Estado de Espera:</span>
+                        <span style="font-weight: 600; color: ${sleepColor};">${sleepText}</span>
+                    </div>
+                    ${lastSentHtml}
+                </div>
+            `;
 
             actionHtml = `
                 <div style="font-size:12px; color:#25d366; margin-bottom: 10px; text-align: center;">📱 ${bot.wid || 'Conectado'}</div>
