@@ -221,12 +221,12 @@ class AITextGenerator {
         }
     }
 
-function getCleanBusinessName(name) {
-    if (!name) return 'tu negocio';
-    let clean = String(name).split('|')[0].split('-')[0].split('–')[0].split('/')[0].trim();
-    clean = clean.replace(/\b(SA|SRL|Inc|LLC|Sucursal|Oficial|CABA|GBA)\b/gi, '').trim();
-    return clean || name.split('|')[0].trim();
-}
+    getCleanBusinessName(name) {
+        if (!name) return 'tu negocio';
+        let clean = String(name).split('|')[0].split('-')[0].split('–')[0].split('/')[0].trim();
+        clean = clean.replace(/\b(SA|SRL|Inc|LLC|Sucursal|Oficial|CABA|GBA)\b/gi, '').trim();
+        return clean || name.split('|')[0].trim();
+    }
 
     /**
      * Mensaje 1: Saludo + Enganche ultra personalizado con datos reales de Google Maps
@@ -239,7 +239,7 @@ function getCleanBusinessName(name) {
         }
 
         const insights = this.analyzeLeadInsights(lead);
-        const cleanName = getCleanBusinessName(lead.name);
+        const cleanName = this.getCleanBusinessName(lead.name);
 
         const webAuditInfo = (lead.webAudit && lead.webAudit.insights && lead.webAudit.insights.length > 0)
             ? `- Hallazgos técnicos web (${lead.website}): ${lead.webAudit.insights.join(', ')}`
@@ -285,7 +285,7 @@ Escribe ÚNICAMENTE el texto final del mensaje 1:
             return this.messageCache.get(cacheKey);
         }
 
-        const cleanName = getCleanBusinessName(lead.name);
+        const cleanName = this.getCleanBusinessName(lead.name);
 
         const prompt = `
 Contexto: Eres Juan Cruz de Nexte Marketing enviando el segundo mensaje a ${cleanName} (${lead.category || 'su rubro'}).
@@ -332,7 +332,7 @@ Escribe ÚNICAMENTE el texto final del mensaje 2:
             return this.messageCache.get(cacheKey);
         }
 
-        const cleanName = getCleanBusinessName(lead.name);
+        const cleanName = this.getCleanBusinessName(lead.name);
         const isEcommerceCandidate = ['tienda', 'indumentaria', 'ropa', 'distribuidora', 'mayorista', 'calzado', 'local', 'comercio'].some(kw =>
             (lead.category || '').toLowerCase().includes(kw));
 
