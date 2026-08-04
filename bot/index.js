@@ -2016,6 +2016,39 @@ class WhatsAppBot {
         }
       }
 
+      // 🛡️ REGLA FUNDAMENTAL DE SEGURIDAD: VERIFICAR SI EL NÚMERO PERTENECE A UN LEAD CONTACTADO POR LA CAMPAÑA
+      const cleanIncomingPhone = cleanContactPhone;
+      let isCampaignLead = false;
+
+      // 1. Verificar si es el lead actualmente en procesamiento in-memory
+      if (this.currentlyProcessingLead) {
+        const currentPhone = this.currentlyProcessingLead.phone.replace(/\D/g, '');
+        if (cleanIncomingPhone === currentPhone || cleanIncomingPhone.endsWith(currentPhone.slice(-8)) || currentPhone.endsWith(cleanIncomingPhone.slice(-8))) {
+          isCampaignLead = true;
+        }
+      }
+
+      // 2. Si no es el lead in-memory, consultar en BD si existe como Lead y YA SE LE ENVIARON MENSAJES de la campaña
+      if (!isCampaignLead) {
+        try {
+          const checkRes = await axios.get(`${this.backendUrl}/lead/check-messages`, {
+            params: { phone: cleanIncomingPhone }
+          });
+          // Si safeToSend es false, significa que ya existen mensajes enviados o el lead ya fue contactado
+          if (checkRes.data && checkRes.data.safeToSend === false) {
+            isCampaignLead = true;
+          }
+        } catch (err) {
+          // Silenciar error de consulta
+        }
+      }
+
+      // 🛑 SI NO ES UN LEAD DE LA CAMPAÑA AL QUE SE LE ENVIÓ MENSAJES -> IGNORAR COMPLETAMENTE
+      if (!isCampaignLead) {
+        console.log(`👤 [IGNORADO REGLA DE CAMPAÑA] Mensaje de ${contactNumber} (${cleanIncomingPhone}) no pertenece a un lead contactado por la campaña. Se omite respuesta.`);
+        return;
+      }
+
       // 🛡️ FIX: Detectar respuesta del lead ACTUALMENTE en procesamiento (in-memory)
       if (this.currentlyProcessingLead && !this.currentlyProcessingLead.stopSending) {
         let resolvedNumber = contactNumber;
