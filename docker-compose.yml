@@ -23,8 +23,6 @@ services:
       - ./logs:/app/logs
       - ./sessions:/app/sessions
       - ./crm-dashboard:/app/crm-dashboard
-      - ./server:/app/server
-      - /app/server/node_modules
       - ./bot:/app/bot
       - /app/bot/node_modules
       - ./bot_2:/app/bot_2
