@@ -586,3 +586,21 @@ Se seleccionó y presentó una muestra completa representativa de la secuencia a
 
 ## Diagnóstico y Respuesta del Bot:
 Se diseñó la arquitectura de los 4 prompts dinámicos para `gpt-4o-mini` sin variables robóticas y se generó una cadena de muestra real para el negocio "Clínica Dental OdontoSalud" en Palermo, demostrando la personalización fluida del flujo de mensajes.
+
+---
+
+## Preguntas del Usuario (2026-08-15):
+> A los que estan etiquetados que no le responda, fijate de hacer un sistema utilizando la parte de chat para que se pueda manejar desde ahi. Solo le tiene que responder automaticamente a los que vienen de la base de datos y se les envio mensaje, no a todo el mundo que responde, la ia es solo para este sistema
+> Se escapan las cosas del layout
+> Sigue sin verse el navbar completo
+> Quita el de editor de mensajes variables
+
+---
+
+## Diagnóstico y Solución Aplicada:
+1. **Control de IA & Exclusión de Chats Etiquetados:** Se agregó filtro estricto para ignorar chats con etiquetas en WhatsApp Business (`chat.labels`) o en el CRM (`lead.tags`), o pausados manualmente (`botPaused`).
+2. **Gestión desde el CRM Chat:** Botón toggle interactivo `[🤖 IA: Activa / Pausada]`, gestor rápido de etiquetas (`+ Etiqueta`) y auto-pausa automática al enviar mensajes manuales desde el CRM.
+3. **Corrección de Layout & Responsive:** Ajuste de grids (`stats-grid`, `realtime-stats`, `per-bot-stats`) con columnas fluidas `minmax(180px, 1fr)`, padding optimizado y media queries para evitar cualquier desborde horizontal.
+4. **Optimización del Navbar:** Reducción de tamaño de íconos a 44px con gap de 6px y scroll invisible.
+5. **Remoción del Editor de Mensajes:** Se eliminó el botón de navegación y la sección del editor de mensajes variables (`view-messages`), ya que toda la generación se realiza 100% con ChatGPT.
+

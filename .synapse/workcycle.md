@@ -1,6 +1,41 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-08-15 (19:35 Argentina)
+## Current Session: 2026-08-15 (19:50 Argentina)
+- **Objective:** Eliminación de la sección y botón de "Editor de Mensajes Variables" del navbar y dashboard.
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** master (`6eacecf`)
+- **Deploy:** Listo para desplegar en VPS (git pull + docker-compose restart).
+
+### 43. Eliminación del Editor de Mensajes Variables
+- **Acción:** Se removió el ícono `edit_note` del menú lateral y la vista `view-messages` del dashboard, ya que las secuencias de mensajes ahora se generan 100% con IA ChatGPT y no mediante plantillas estáticas.
+
+## Current Session: 2026-08-15 (19:46 Argentina)
+- **Objective:** Ajuste del Navbar vertical (Sidebar) para que todos los íconos quepan y se vean completos en cualquier resolución/pantalla.
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** master (`3532603`)
+- **Deploy:** Listo para desplegar en VPS (git pull + docker-compose restart).
+
+### 42. Ajuste de Altura y Espaciado del Navbar Lateral
+- **Problema:** En pantallas de laptops o ventanas con barras de marcadores/herramientas, el último ícono del menú lateral ("Editar Mensajes") quedaba cortado abajo porque el navbar tenía altura total rígida, `gap: 12px` y `overflow: hidden`.
+- **Solución Realizada:**
+  1. Se compactaron los íconos de `48px` a `44px` con `gap: 6px`, reduciendo la altura total requerida a solo ~450px.
+  2. Se habilitó scroll fluido invisible (`overflow-y: auto; scrollbar-width: none;`) para garantizar que nunca se corte ningún ícono independientemente de la altura de la ventana.
+
+## Current Session: 2026-08-15 (19:43 Argentina)
+- **Objective:** Corrección del layout y responsive grid en el Dashboard para evitar desbordes visuales.
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** master (`b79365d`)
+- **Deploy:** Listo para desplegar en VPS (git pull + docker-compose restart).
+
+### 41. Corrección de Desborde de Layout en Dashboard
+- **Problema:** Las tarjetas de métricas, realtime stats y slots de bots se desbordaban por el lateral derecho de la pantalla en monitores estándar / ventanas ajustadas debido a grids con anchos mínimos rígidos (`minmax(220px, 1fr)`) y padding excesivo.
+- **Solución Realizada:**
+  1. Se ajustaron los grids principales (`.stats-grid`, `.realtime-stats`, `.per-bot-stats`) para usar columnas fluidas con `min-width: 0`, `max-width: 100%` y `box-sizing: border-box`.
+  2. Se eliminaron estilos inline que forzaban `repeat(4, 1fr)` rígidos en `index.html`.
+  3. Se añadieron media queries dinámicas para 1400px, 1100px y 768px.
+  4. Se aseguró `overflow-x: hidden` en `.view-section` y `.content-area`.
+
+## Previous Session: 2026-08-15 (19:35 Argentina)
 - **Objective:** Control de IA en Chats, Exclusión estricta de contactos etiquetados y auto-pausa por intervención manual.
 - **Status:** ✅ COMPLETED & SYNCHRONIZED
 - **Git Info:** master
