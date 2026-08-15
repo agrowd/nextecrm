@@ -832,6 +832,17 @@ function formatPhoneDisplay(phone) {
     return `+${clean}`;
 }
 
+function isOutboundMsg(msg) {
+    if (!msg) return false;
+    if (msg.fromMe === true || msg.fromMe === 'true') return true;
+    if (msg.from === 'me' || msg.sender === 'me' || msg.direction === 'outbound') return true;
+    if (msg.metadata?.manual) return true;
+    if (msg.type === 'oferta_servicio' || msg.type === 'respuesta_automatica' || msg.type === 'mensaje_manual' || msg.type === 'verificacion') return true;
+    if (msg.messageNumber && Number(msg.messageNumber) > 0) return true;
+    if (msg.botInstance && msg.type !== 'chat' && msg.type !== 'client_reply' && msg.direction !== 'inbound') return true;
+    return false;
+}
+
 // --- CHATS & BUSINESS INTELLIGENCE ---
 async function fetchConversations() {
     try {
@@ -854,20 +865,43 @@ function processConversations(messages) {
         const phone = msg.phone;
         if (!phone) return;
         
+        let lead = (msg.leadId && typeof msg.leadId === 'object') ? msg.leadId : null;
+        
+        // Si no vino leadId poblado, buscar en lista de leads por coincidencia de sufijo
+        if (!lead && currentState.leads && Array.isArray(currentState.leads)) {
+            const cleanDigits = String(phone).replace('@c.us', '').replace(/\D/g, '');
+            const suffix = cleanDigits.length >= 8 ? cleanDigits.slice(-8) : cleanDigits;
+            lead = currentState.leads.find(l => {
+                if (!l.phone) return false;
+                const lDigits = String(l.phone).replace(/\D/g, '');
+                return lDigits.endsWith(suffix) || cleanDigits.endsWith(lDigits.slice(-8));
+            }) || null;
+        }
+
+        // Nombre a mostrar (Negocio real si existe, o teléfono formateado)
+        let displayName = (lead && (lead.name || lead.businessName)) || (msg.leadName && !/^\+?\d{8,}$/.test(msg.leadName.trim()) ? msg.leadName : '');
+        if (!displayName) {
+            displayName = formatPhoneDisplay(phone);
+        }
+
+        const realPhone = (lead && lead.phone) ? lead.phone : phone;
+
         if (!newConvs[phone]) {
             newConvs[phone] = { 
-                phone, 
-                name: msg.leadName || (msg.leadId && msg.leadId.name) || phone, 
+                phone: realPhone,
+                rawPhone: phone,
+                name: displayName, 
                 messages: [], 
                 lastMessage: '', 
                 lastTime: null, 
                 instanceId: msg.instanceId || 'bot_1',
-                lead: msg.leadId || null
+                lead: lead
             };
-        } else if (!newConvs[phone].lead && msg.leadId) {
-            newConvs[phone].lead = msg.leadId;
-            if (!newConvs[phone].name || newConvs[phone].name === phone) {
-                newConvs[phone].name = msg.leadId.name || msg.leadId.businessName || phone;
+        } else {
+            if (!newConvs[phone].lead && lead) {
+                newConvs[phone].lead = lead;
+                newConvs[phone].phone = realPhone;
+                if (lead.name) newConvs[phone].name = lead.name;
             }
         }
         newConvs[phone].messages.push(msg);
@@ -1111,15 +1145,15 @@ function renderLeadProfilePanel(lead, chat) {
         `;
     }
 
-    // Customer Response Box
+    // Customer Response Box (Filtrar solo respuestas REALES del cliente)
     let responseHtml = '<div style="color: #8696a0; font-size: 12px; font-style: italic;">Sin respuesta del cliente aún.</div>';
-    if (lead?.whatsappResponse) {
+    const incomingMsgs = (chat?.messages || []).filter(m => !isOutboundMsg(m));
+
+    if (lead?.whatsappResponse && lead.whatsappResponse.trim() && !lead.whatsappResponse.includes('En Nexte nos adaptamos') && !lead.whatsappResponse.includes('OPCIÓN A') && !lead.whatsappResponse.includes('OPCIÓN B')) {
         responseHtml = `<div class="profile-quote-box">"${lead.whatsappResponse}"</div>`;
-    } else {
-        const incomingMsgs = (chat?.messages || []).filter(m => !(m.fromMe === true || m.from === 'me'));
-        if (incomingMsgs.length > 0) {
-            responseHtml = `<div class="profile-quote-box">"${incomingMsgs[incomingMsgs.length - 1].content}"</div>`;
-        }
+    } else if (incomingMsgs.length > 0) {
+        const lastInbound = incomingMsgs[incomingMsgs.length - 1];
+        responseHtml = `<div class="profile-quote-box">"${lastInbound.content}"</div>`;
     }
 
     // CRM Tags pills
@@ -1130,6 +1164,9 @@ function renderLeadProfilePanel(lead, chat) {
             <button onclick="removeTagFromActiveChat('${t}')" style="background:none; border:none; color:#ef5350; cursor:pointer; font-size:12px;" title="Quitar">&times;</button>
         </span>
     `).join('');
+
+    const cleanPhoneDigits = String(phone || '').replace(/\D/g, '');
+    const mapsLink = lead?.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(businessName + ' ' + address)}`;
 
     container.innerHTML = `
         <!-- 1. CARD: DATOS DEL NEGOCIO -->
@@ -1206,10 +1243,11 @@ function renderLeadProfilePanel(lead, chat) {
         <div class="profile-card">
             <div class="profile-card-header">
                 <h4><span class="material-icons" style="font-size: 14px;">language</span> Auditoría Técnica Web</h4>
+                <button onclick="triggerBulkWebAudit()" style="background:#202c33; border:1px solid #2f3b43; color:#53bdeb; font-size:10px; font-weight:600; padding:2px 6px; border-radius:4px; cursor:pointer;" title="Re-auditar todos los sitios web en base de datos">Re-auditar Todos</button>
             </div>
             ${webAuditHtml}
             ${lead?._id ? `
-                <button onclick="triggerManualWebAudit('${lead._id}')" class="profile-action-btn" style="margin-top: 10px;">
+                <button onclick="triggerManualWebAudit('${lead._id}')" class="profile-action-btn" id="btnAuditWebActiveChat" style="margin-top: 10px;">
                     <span class="material-icons" style="font-size: 14px;">search</span> Re-auditar Código Web
                 </button>
             ` : ''}
@@ -1228,16 +1266,14 @@ function renderLeadProfilePanel(lead, chat) {
 
         <!-- 5. ACCIONES RÁPIDAS OPERADOR -->
         <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 8px;">
-            ${phone ? `
-                <a href="https://wa.me/${phone}" target="_blank" class="profile-action-btn whatsapp">
+            ${cleanPhoneDigits ? `
+                <a href="https://web.whatsapp.com/send?phone=${cleanPhoneDigits}" target="_blank" class="profile-action-btn whatsapp">
                     <span class="material-icons" style="font-size: 16px;">chat</span> Abrir en WhatsApp Web
                 </a>
             ` : ''}
-            ${lead?.mapsUrl ? `
-                <a href="${lead.mapsUrl}" target="_blank" class="profile-action-btn">
-                    <span class="material-icons" style="font-size: 16px;">place</span> Ver en Google Maps
-                </a>
-            ` : ''}
+            <a href="${mapsLink}" target="_blank" class="profile-action-btn">
+                <span class="material-icons" style="font-size: 16px;">place</span> Ver en Google Maps
+            </a>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                 <button onclick="updateLeadStatusFromChat('interested')" class="profile-action-btn" style="color: #25d366; border-color: rgba(37, 211, 102, 0.3);">
                     👍 Interesado
@@ -1918,23 +1954,49 @@ async function triggerTestSequence() {
 }
 
 async function triggerManualWebAudit(leadId) {
+    if (!leadId) {
+        alert('No se encontró el ID del lead para auditar.');
+        return;
+    }
     try {
-        const btn = getEl(`btnAuditWeb_${leadId}`);
-        if (btn) btn.innerHTML = '⏳ Auditando...';
+        const btn = getEl('btnAuditWebActiveChat') || getEl(`btnAuditWeb_${leadId}`);
+        if (btn) btn.innerHTML = '<span class="material-icons rotating" style="font-size: 14px;">sync</span> Auditando...';
 
         const res = await fetchAPI(`/api/lead/${leadId}/audit-web`, { method: 'POST' });
         const data = await res.json();
 
-        if (data.success) {
-            ui.modal.alert('Auditoría Completa', `Inspección web finalizada para este negocio:\n\n• CMS: ${data.webAudit.cms}\n• Hallazgos:\n${data.webAudit.insights.join('\n')}`, 'success');
-            await fetchLeads();
-            openLeadModal(leadId);
+        if (data.success && data.webAudit) {
+            const phone = currentState.activeChatPhone;
+            if (phone && currentState.conversations[phone]) {
+                if (currentState.conversations[phone].lead) {
+                    currentState.conversations[phone].lead.webAudit = data.webAudit;
+                }
+                renderLeadProfilePanel(currentState.conversations[phone].lead, currentState.conversations[phone]);
+            }
+            alert(`✅ Auditoría Web Completada:\n\n• CMS: ${data.webAudit.cms}\n• Botón WhatsApp: ${data.webAudit.hasWhatsAppWidget ? 'SÍ' : 'NO'}\n• GA4: ${data.webAudit.hasGA4 ? 'SÍ' : 'NO'}\n• Meta Pixel: ${data.webAudit.hasMetaPixel ? 'SÍ' : 'NO'}\n\nObservaciones:\n${(data.webAudit.insights || []).join('\n')}`);
+            if (btn) btn.innerHTML = '<span class="material-icons" style="font-size: 14px;">search</span> Re-auditar Código Web';
         } else {
-            ui.modal.alert('Error', data.error || 'No se pudo auditar la web', 'error');
+            alert('Error al auditar web: ' + (data.error || 'Desconocido'));
+            if (btn) btn.innerHTML = '<span class="material-icons" style="font-size: 14px;">search</span> Re-auditar Código Web';
         }
     } catch (e) {
         console.error('Error auditando web:', e);
-        ui.modal.alert('Error', 'Fallo al conectar con el servidor', 'error');
+        alert('Fallo al conectar con el servidor para la auditoría web.');
+    }
+}
+
+async function triggerBulkWebAudit() {
+    if (!confirm('¿Deseas iniciar una re-auditoría automática en segundo plano para TODOS los negocios con sitio web?')) return;
+    try {
+        const res = await fetchAPI('/api/leads/re-audit-all', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            alert(`🚀 ${data.message}`);
+        } else {
+            alert('Error: ' + (data.error || 'No se pudo iniciar'));
+        }
+    } catch (e) {
+        alert('Error de conexión al iniciar re-auditoría masiva.');
     }
 }
 

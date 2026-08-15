@@ -27,10 +27,12 @@ const MessageSchema = new mongoose.Schema({
   botInstance: { type: String, default: 'main' }, // instancia del bot que envió
   instanceId: { type: String, default: '' }, // ID único de la instancia (ej: bot_abc123)
   sentFromNumber: { type: String, default: '' }, // Número de WhatsApp que envió (para multi-bot)
-  sessionId: { type: String, default: '' }, // sesión de WhatsApp
+  fromMe: { type: Boolean, default: true },
+  direction: { type: String, enum: ['inbound', 'outbound'], default: 'outbound' },
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} } // datos adicionales
 }, {
-  timestamps: true
+  timestamps: true,
+  strict: false
 });
 
 // Índices para optimizar consultas

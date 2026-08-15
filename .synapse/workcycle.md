@@ -1,6 +1,32 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-08-15 (20:40 Argentina)
+## Current Session: 2026-08-15 (20:55 Argentina)
+- **Objective:** Corregir detección de respuesta de clientes (evitar mostrar mensajes propios del bot), mejorar auditor web (detección precisa de botón WhatsApp, CMS, GA4 y Meta Pixel), resolver identificadores LID a nombres y teléfonos reales, y habilitar acciones operativas y re-auditoría masiva.
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** master (pending push)
+- **Deploy:** Listo para desplegar en VPS (`git pull` en `/srv/rascafull`).
+
+### 48. Precisión de Respuestas, Detección Web Completa y Normalización LID
+- **Problema:**
+  1. En "Última Respuesta del Cliente", se mostraba el 4to mensaje enviado por nuestro propio bot en vez de esperar una respuesta real del cliente, debido a que `fromMe` no estaba en el Schema de Mongoose y el filtro de mensajes entrantes no discriminaba mensajes de secuencia salientes.
+  2. El auditor web marcaba "Botón WA: NO" en `queenfit.com.ar` y otros sitios a pesar de contar con widgets flotantes (`wa.me`, `api.whatsapp.com`, `joinchat`, `wp-block-whatsapp`, etc.).
+  3. Los chats de contactos sin nombre de contacto (o recibidos con LID de WhatsApp Business) mostraban cadenas numéricas crudas sin formatear en vez del nombre del negocio o teléfono formateado.
+  4. Los botones de acción rápida y re-auditoría requerían comprobación funcional integral y soporte de re-auditoría masiva en background.
+- **Solución Realizada:**
+  1. **Diferenciación de Mensajes Inbound vs Outbound**:
+     - Se añadió `fromMe` y `direction` (`inbound`/`outbound`) en `server/models/Message.js`.
+     - Se creó la función helper `isOutboundMsg(msg)` en `app.js` para discriminar ofertas y mensajes generados por el bot.
+     - La caja de "Última Respuesta del Cliente" ahora solo muestra respuestas entrantes verídicas o "Sin respuesta del cliente aún".
+  2. **Auditor Web de Alta Precisión (`webScraper.js` & `websiteAuditor.js`)**:
+     - Soporte para 15+ variantes de botones y widgets de WhatsApp (`wa.me`, `wa.link`, `api.whatsapp.com`, `joinchat`, `wp-block-whatsapp`, `floating-whatsapp`, etc.).
+     - Detección de CMS (WordPress, Shopify, Tiendanube, Wix, WooCommerce, Webflow, VTEX, etc.), GA4, GTM, y Meta Pixel.
+     - Nuevo endpoint `POST /api/leads/re-audit-all` y botón "Re-auditar Todos" en el dashboard.
+  3. **Normalización y Resolución de LIDs a Leads**:
+     - `GET /lead/by-phone/:phone` ahora busca en el historial de mensajes para asociar LIDs con el lead correspondiente.
+     - `processConversations` formatea visualmente los números con `formatPhoneDisplay` si no tienen nombre.
+  4. Cache buster actualizado a `v=2.8`.
+
+## Previous Session: 2026-08-15 (20:40 Argentina)
 - **Objective:** Solucionar bloqueo de navegación en el Navbar (los botones hacían animación pero no abrían las vistas).
 - **Status:** ✅ COMPLETED & SYNCHRONIZED
 - **Git Info:** master (pending push)

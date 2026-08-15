@@ -1437,13 +1437,29 @@ app.get(['/lead/by-phone/:phone', '/api/lead/by-phone/:phone'], async (req, res)
     const cleanDigits = rawPhone.replace('@c.us', '').replace(/\D/g, '');
     const suffix = cleanDigits.length >= 8 ? cleanDigits.slice(-8) : cleanDigits;
 
-    const lead = await Lead.findOne({
+    let lead = await Lead.findOne({
       $or: [
         { phone: rawPhone },
         { phone: cleanDigits },
         { phone: new RegExp(suffix + '$') }
       ]
     });
+
+    // Si no se encontró por teléfono directo (ej. es un LID o número temporal), buscar en historial de mensajes
+    if (!lead) {
+      const msg = await Message.findOne({ phone: rawPhone, leadId: { $ne: null } }).populate('leadId');
+      if (msg && msg.leadId) {
+        lead = msg.leadId;
+      }
+    }
+
+    if (!lead) {
+      // Buscar si algún mensaje con este número tiene leadName que coincida con Leads
+      const msgWithName = await Message.findOne({ phone: rawPhone, leadName: { $exists: true, $ne: '' } });
+      if (msgWithName && msgWithName.leadName && msgWithName.leadName !== rawPhone) {
+        lead = await Lead.findOne({ name: msgWithName.leadName });
+      }
+    }
 
     if (!lead) {
       return res.status(404).json({ success: false, message: 'Lead no encontrado' });
@@ -1661,8 +1677,8 @@ app.get('/api/conversations', async (req, res) => {
   }
 });
 
-// POST /api/lead/:leadId/audit-web - Forzar auditoría técnica de web de un lead
-app.post('/api/lead/:leadId/audit-web', async (req, res) => {
+// POST /api/lead/:leadId/audit-web & POST /lead/:leadId/audit-web - Forzar auditoría técnica de web de un lead
+app.post(['/api/lead/:leadId/audit-web', '/lead/:leadId/audit-web'], async (req, res) => {
   try {
     const { leadId } = req.params;
     const lead = await Lead.findById(leadId);
@@ -1672,11 +1688,49 @@ app.post('/api/lead/:leadId/audit-web', async (req, res) => {
     console.log(`🌐 [MANUAL AUDIT] Ejecutando WebsiteAuditor para ${lead.name} (${lead.website})...`);
     const auditRes = await websiteAuditor.audit(lead.website);
     lead.webAudit = auditRes;
+    lead.markModified('webAudit');
     await lead.save();
+
+    // Notificar en tiempo real por WebSocket
+    io.emit('lead_updated', { leadId: lead._id, lead });
 
     res.json({ success: true, message: 'Auditoría web completada', webAudit: lead.webAudit });
   } catch (error) {
     console.error('Error en audit-web endpoint:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/leads/re-audit-all & POST /leads/re-audit-all - Auditar masivamente todos los leads con sitio web
+app.post(['/api/leads/re-audit-all', '/leads/re-audit-all'], async (req, res) => {
+  try {
+    const leadsWithWeb = await Lead.find({ website: { $exists: true, $ne: '' } });
+    
+    // Procesar en background
+    (async () => {
+      console.log(`🚀 [BULK AUDIT] Re-auditando ${leadsWithWeb.length} sitios web en background...`);
+      for (const lead of leadsWithWeb) {
+        try {
+          const auditRes = await websiteAuditor.audit(lead.website);
+          lead.webAudit = auditRes;
+          lead.markModified('webAudit');
+          await lead.save();
+          io.emit('lead_updated', { leadId: lead._id, lead });
+          await new Promise(r => setTimeout(r, 1000));
+        } catch (e) {
+          console.warn(`Error auditando ${lead.name}:`, e.message);
+        }
+      }
+      console.log(`✅ [BULK AUDIT] Re-auditoría masiva completada exitosamente`);
+    })();
+
+    res.json({ 
+      success: true, 
+      message: `Iniciada re-auditoría automática en segundo plano para ${leadsWithWeb.length} negocios`, 
+      total: leadsWithWeb.length 
+    });
+  } catch (error) {
+    console.error('Error en bulk re-audit:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

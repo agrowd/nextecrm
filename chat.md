@@ -621,7 +621,28 @@ Se diseñó la arquitectura de los 4 prompts dinámicos para `gpt-4o-mini` sin v
 2. **Solución:**
    - Se corrigió la sintaxis de `app.js` (validado con `node --check crm-dashboard/app.js` sin errores).
    - Se cerró correctamente `<section id="view-dashboard">` y se unificaron las secciones en `index.html`.
-   - Se actualizó el cache buster a `v=2.7`.
+---
+
+## Pregunta del Usuario (2026-08-15):
+> el ultimo mensaje no es del cliente es de nosotros. Ademas el sitio si tiene boton de whatspp, o procesa todos los negocios de nuevo para saber o verifica que es lo que pasa. Despues en una captura que te pase se ve que en vez del nombre del negoco aparecen numeros, y deberia aparecer su numero de telefono ya que lo tenemos en la base de datos para comprobarlo. Ademas proba que los botones funcionen en su funcion real, valga la redundancia
+
+---
+
+## Diagnóstico y Solución Aplicada:
+1. **Precisión en la Detección de Mensajes de Clientes (Inbound vs Outbound)**:
+   - Se corrigió la clasificación de mensajes: ahora la caja "Última Respuesta del Cliente" solo muestra mensajes reales enviados por el cliente (`!isOutboundMsg(m)`). Si el cliente no ha respondido aún, muestra claramente "Sin respuesta del cliente aún" y no muestra las propuestas de nuestro propio bot.
+2. **Auditor Web de Alta Precisión & Botón de WhatsApp**:
+   - Se actualizó el motor de auditoría (`webScraper.js` y `websiteAuditor.js`) para detectar más de 15 variantes de botones de WhatsApp (`wa.me`, `wa.link`, `api.whatsapp.com`, `joinchat`, `wp-block-whatsapp`, `floating-whatsapp`, etc.).
+   - Probado contra `queenfit.com.ar` resultando en: `WordPress`, `Botón WA: SÍ`, `GA4: SÍ`, `Meta Pixel: SÍ`.
+   - Se agregó el botón y endpoint `POST /api/leads/re-audit-all` para re-auditar todos los negocios en la base de datos en segundo plano.
+3. **Resolución de Nombres e Identificadores Numéricos/LID**:
+   - Los números crudos (LID de WhatsApp) se asocian al Lead real mediante coincidencia de sufijos e historial en `Message`.
+   - Si no hay nombre comercial registrado, se muestra el teléfono formateado (`+54 9 11 ...`) en lugar de dígitos crudos.
+4. **Comprobación de Acciones Operativas**:
+   - Enlace directo a WhatsApp Web con teléfono limpio.
+   - Enlace a Google Maps verificado.
+   - Botones "Interesado" / "No Interesado" y Etiquetas CRM con persistencia en tiempo real.
+
 
 
 
