@@ -1,5 +1,15 @@
 # 🔄 WORK CYCLE LOG
 
+## Current Session: 2026-08-15 (20:11 Argentina)
+- **Objective:** Restaurar inicio de `nexte-backend` y mantener `crm-dashboard` montado en vivo.
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** master (`0bf99bb`)
+- **Deploy:** Listo para desplegar en VPS (`git pull` + `docker-compose down && docker-compose up -d`).
+
+### 45. Ajuste de Volúmenes en Docker Compose
+- **Diagnóstico:** El montaje de `./server` interfería con los módulos internos compilados en la imagen Docker, provocando el error en `nexte-backend`.
+- **Solución:** Se mantuvo únicamente `./crm-dashboard:/app/crm-dashboard` como volumen en vivo (estático sin dependencias), restaurando la estabilidad del backend y permitiendo la actualización inmediata del frontend.
+
 ## Current Session: 2026-08-15 (20:00 Argentina)
 - **Objective:** Solución a la falta de actualización en VPS: Montaje de volúmenes de `crm-dashboard` y `server` en `docker-compose.yml` + Cache-busting `v=2.5`.
 - **Status:** ✅ COMPLETED & SYNCHRONIZED
