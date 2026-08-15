@@ -1,5 +1,17 @@
 # 🔄 WORK CYCLE LOG
 
+## Current Session: 2026-08-15 (20:00 Argentina)
+- **Objective:** Solución a la falta de actualización en VPS: Montaje de volúmenes de `crm-dashboard` y `server` en `docker-compose.yml` + Cache-busting `v=2.5`.
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** master (`9581b91`)
+- **Deploy:** Listo para desplegar en VPS (`git pull` + `docker-compose down && docker-compose up -d`).
+
+### 44. Montaje de Volúmenes en Docker & Cache Buster
+- **Causa Raíz:** `docker-compose.yml` solo tenía montadas las carpetas de `bot/`, `bot_2/`, etc. La carpeta `crm-dashboard/` y `server/` quedaban fijadas en la imagen interna de Docker. Por ende, `git pull` actualizaba los archivos en el host VPS pero el contenedor seguía sirviendo la versión vieja copiada en el build inicial.
+- **Solución:**
+  1. Se agregaron `- ./crm-dashboard:/app/crm-dashboard` y `- ./server:/app/server` a los volúmenes de `docker-compose.yml`.
+  2. Se añadió cache-busting `style.css?v=2.5` y `app.js?v=2.5` en `index.html`.
+
 ## Current Session: 2026-08-15 (19:50 Argentina)
 - **Objective:** Eliminación de la sección y botón de "Editor de Mensajes Variables" del navbar y dashboard.
 - **Status:** ✅ COMPLETED & SYNCHRONIZED
