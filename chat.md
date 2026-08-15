@@ -607,6 +607,21 @@ Se diseñó la arquitectura de los 4 prompts dinámicos para `gpt-4o-mini` sin v
      - **Gestión de Etiquetas CRM**: Tags dinámicos con agregado interactivo y borrado individual en 1 clic.
      - **Acciones Rápidas del Operador**: Botón directo a WhatsApp Web, Google Maps, y marcadores de estado (`👍 Interesado` / `👎 No Interesado`).
 2. **Sincronización en Tiempo Real**: Socket listener para `lead_updated` y `new_message` que sincroniza al instante el chat activo, la lista y la ficha de negocio.
-3. **Eliminación de Elementos Rotos y Overlaps**: Corrección de `.hidden` con `display: none !important;`, reemplazo de imágenes externas rotas por avatares de iniciales con diseño nativo y cache-busting `v=2.6`.
+---
+
+## Pregunta del Usuario (2026-08-15):
+> No abre los botones del navbar cuando los presiono, no hacen nada, solo la animacion
+
+---
+
+## Diagnóstico y Solución Aplicada:
+1. **Causa Raíz:**
+   - En `crm-dashboard/app.js`, la función `setupSettingsListeners` tenía una llave de cierre faltante en el botón de guardado, lo que generaba un `SyntaxError: Unexpected end of input` en la carga del script impidiendo registrar los event listeners de navegación.
+   - En `crm-dashboard/index.html`, la sección `<section id="view-dashboard">` carecía de tag de cierre `</section>`, provocando anidamiento de las demás vistas.
+2. **Solución:**
+   - Se corrigió la sintaxis de `app.js` (validado con `node --check crm-dashboard/app.js` sin errores).
+   - Se cerró correctamente `<section id="view-dashboard">` y se unificaron las secciones en `index.html`.
+   - Se actualizó el cache buster a `v=2.7`.
+
 
 

@@ -330,7 +330,9 @@ function setupNavigation() {
 }
 
 function switchView(viewId) {
+    if (!viewId) return;
     currentState.view = viewId;
+    
     document.querySelectorAll('.nav-item[data-view]').forEach(item => {
         item.classList.toggle('active', item.dataset.view === viewId);
     });
@@ -343,7 +345,10 @@ function switchView(viewId) {
     if (viewId === 'leads') fetchLeads();
     if (viewId === 'stats') fetchAdvancedStats();
     if (viewId === 'settings') fetchGlobalConfig();
-    if (viewId === 'messages') fetchTemplates();
+    if (viewId === 'connection') {
+        fetchBotList();
+        renderBotControls();
+    }
 }
 
 // --- DASHBOARD & SCRAPER ---
@@ -781,6 +786,8 @@ function setupSettingsListeners() {
             if (data.success) alert("🚀 Configuración guardada y enviada a toda la flota!");
         } catch (e) { alert("Error guardando settings"); }
     });
+}
+
 // --- UTILITIES FOR CHAT & PROFILES ---
 function getInitials(name) {
     if (!name) return '??';
