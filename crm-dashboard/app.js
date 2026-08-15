@@ -819,20 +819,31 @@ function renderChatList() {
         
         const lead = chat.lead;
         let aiBadge = '';
+        let tagPills = '';
         if (lead) {
             aiBadge = getAiIntentBadge(lead);
-            // Replace margin-top of the badge to align properly in the row
             aiBadge = aiBadge.replace('margin-top: 4px;', 'margin-top: 0;');
+
+            if (lead.botPaused || lead.manualIntervention) {
+                tagPills += `<span style="background: rgba(255, 152, 0, 0.2); color: #ff9800; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: 700;" title="IA Pausada / Manual">⏸️ Manual</span>`;
+            }
+            if (lead.tags && Array.isArray(lead.tags) && lead.tags.length > 0) {
+                tagPills += `<span style="background: rgba(83, 189, 235, 0.15); color: #53bdeb; font-size: 9px; padding: 1px 4px; border-radius: 3px;" title="Etiquetas: ${lead.tags.join(', ')}">🏷️ ${lead.tags[0]}</span>`;
+            }
         }
 
         list.insertAdjacentHTML('beforeend', `
             <div class="chat-item ${isActive}" data-phone="${chat.phone}">
                 <div class="chat-item-avatar"><img src="${avatar}"></div>
                 <div class="chat-item-content">
-                    <div class="chat-row-1"><span class="chat-name">${chat.name}</span><span class="chat-time">${time}</span></div>
+                    <div class="chat-row-1">
+                        <span class="chat-name">${chat.name}</span>
+                        <span class="chat-time">${time}</span>
+                    </div>
                     <div class="chat-row-2" style="display:flex; justify-content:space-between; align-items:center; margin-top: 4px;">
-                        <div style="display:flex; align-items:center; gap:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80%;">
+                        <div style="display:flex; align-items:center; gap:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:78%;">
                             ${aiBadge}
+                            ${tagPills}
                             <span class="chat-last-msg" style="margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${chat.lastMessage}</span>
                         </div>
                         <span class="bot-badge" style="background:${botColor}; font-size:10px; flex-shrink:0;">${chat.instanceId ? (chat.instanceId === 'bot' ? 'B1' : chat.instanceId.replace('bot_', 'B')) : 'B1'}</span>
@@ -843,8 +854,9 @@ function renderChatList() {
     document.querySelectorAll('.chat-item').forEach(item => item.addEventListener('click', () => openChat(item.dataset.phone)));
 }
 
-function openChat(phone) {
-    currentState.activeChatPhone = phone; renderChatList();
+async function openChat(phone) {
+    currentState.activeChatPhone = phone; 
+    renderChatList();
     const chat = currentState.conversations[phone]; if (!chat) return;
     const es = getEl('emptyState'); if (es) es.style.display = 'none';
     const acc = getEl('activeChatContainer'); if (acc) acc.classList.remove('hidden');
@@ -870,7 +882,156 @@ function openChat(phone) {
         badge.textContent = chat.instanceId ? (chat.instanceId === 'bot' ? 'BOT 1' : `BOT ${chat.instanceId.replace('bot_', '')}`) : 'BOT 1';
         badge.style.background = chat.instanceId === 'bot_2' ? '#7e57c2' : (chat.instanceId === 'bot_3' ? '#ff9800' : '#00a884');
     }
+
+    // Actualizar controles de IA y etiquetas
+    await loadAndRenderActiveChatControls(phone);
     renderMessages(phone);
+}
+
+async function loadAndRenderActiveChatControls(phone) {
+    let lead = currentState.conversations[phone]?.lead;
+    try {
+        const res = await fetchAPI(`/lead/by-phone/${encodeURIComponent(phone)}`);
+        const data = await res.json();
+        if (data.success && data.lead) {
+            lead = data.lead;
+            if (currentState.conversations[phone]) {
+                currentState.conversations[phone].lead = lead;
+            }
+        }
+    } catch (e) {
+        // Fallback al lead existente en memoria
+    }
+    renderActiveChatControls(lead);
+}
+
+function renderActiveChatControls(lead) {
+    const isPaused = lead ? (lead.botPaused === true || lead.manualIntervention === true) : false;
+    const btnToggle = getEl('btnToggleBotIA');
+    const txtToggle = getEl('toggleBotIAText');
+    const banner = getEl('chatManualNoticeBanner');
+    const tagsContainer = getEl('activeChatTagsContainer');
+
+    if (btnToggle && txtToggle) {
+        if (isPaused) {
+            btnToggle.style.background = '#ff9800';
+            btnToggle.style.color = '#111';
+            txtToggle.textContent = 'IA: PAUSADA';
+            btnToggle.title = 'Hacer clic para reactivar respuestas automáticas de IA';
+        } else {
+            btnToggle.style.background = '#00a884';
+            btnToggle.style.color = '#fff';
+            txtToggle.textContent = 'IA: ACTIVA';
+            btnToggle.title = 'Hacer clic para pausar la IA y atender manualmente';
+        }
+    }
+
+    if (banner) {
+        banner.style.display = isPaused ? 'flex' : 'none';
+    }
+
+    if (tagsContainer) {
+        tagsContainer.innerHTML = '';
+        const tags = (lead && Array.isArray(lead.tags)) ? lead.tags : [];
+        tags.forEach(tag => {
+            tagsContainer.insertAdjacentHTML('beforeend', `
+                <span style="background: rgba(83, 189, 235, 0.15); color: #53bdeb; border: 1px solid rgba(83, 189, 235, 0.3); padding: 2px 8px; border-radius: 12px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+                    🏷️ ${tag}
+                    <button onclick="removeTagFromActiveChat('${tag}')" style="background:none; border:none; color:#ff7043; cursor:pointer; font-size:12px; padding:0; line-height:1;" title="Quitar etiqueta">&times;</button>
+                </span>
+            `);
+        });
+    }
+}
+
+async function toggleActiveChatBotIA(forceEnable = false) {
+    const phone = currentState.activeChatPhone;
+    if (!phone) return;
+
+    let lead = currentState.conversations[phone]?.lead;
+    const currentlyPaused = lead ? (lead.botPaused === true || lead.manualIntervention === true) : false;
+    const newPaused = forceEnable ? false : !currentlyPaused;
+
+    try {
+        const res = await fetchAPI(`/lead/by-phone/${encodeURIComponent(phone)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                botPaused: newPaused,
+                manualIntervention: newPaused ? true : false
+            })
+        });
+        const data = await res.json();
+        if (data.success && data.lead) {
+            if (currentState.conversations[phone]) {
+                currentState.conversations[phone].lead = data.lead;
+            }
+            renderActiveChatControls(data.lead);
+            renderChatList();
+        }
+    } catch (e) {
+        console.error('Error toggling bot IA:', e);
+    }
+}
+
+async function promptAddTagToActiveChat() {
+    const phone = currentState.activeChatPhone;
+    if (!phone) return;
+
+    const tag = prompt('Ingresá una etiqueta (Ej: Cliente, En Seguimiento, No Responder, Cotizado):');
+    if (!tag || !tag.trim()) return;
+
+    const cleanTag = tag.trim();
+    let lead = currentState.conversations[phone]?.lead;
+    const currentTags = (lead && Array.isArray(lead.tags)) ? [...lead.tags] : [];
+
+    if (!currentTags.includes(cleanTag)) {
+        currentTags.push(cleanTag);
+        try {
+            const res = await fetchAPI(`/lead/by-phone/${encodeURIComponent(phone)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tags: currentTags })
+            });
+            const data = await res.json();
+            if (data.success && data.lead) {
+                if (currentState.conversations[phone]) {
+                    currentState.conversations[phone].lead = data.lead;
+                }
+                renderActiveChatControls(data.lead);
+                renderChatList();
+            }
+        } catch (e) {
+            console.error('Error adding tag:', e);
+        }
+    }
+}
+
+async function removeTagFromActiveChat(tagToRemove) {
+    const phone = currentState.activeChatPhone;
+    if (!phone) return;
+
+    let lead = currentState.conversations[phone]?.lead;
+    const currentTags = (lead && Array.isArray(lead.tags)) ? [...lead.tags] : [];
+    const updatedTags = currentTags.filter(t => t !== tagToRemove);
+
+    try {
+        const res = await fetchAPI(`/lead/by-phone/${encodeURIComponent(phone)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tags: updatedTags })
+        });
+        const data = await res.json();
+        if (data.success && data.lead) {
+            if (currentState.conversations[phone]) {
+                currentState.conversations[phone].lead = data.lead;
+            }
+            renderActiveChatControls(data.lead);
+            renderChatList();
+        }
+    } catch (e) {
+        console.error('Error removing tag:', e);
+    }
 }
 
 function renderMessages(phone) {
@@ -925,11 +1086,39 @@ function setupChatListeners() {
     const chatInput = getEl('chatInput');
     const sendBtn = getEl('sendMessageBtn');
 
-    const handleSend = () => {
+    const handleSend = async () => {
         if (!chatInput) return;
         const text = chatInput.value.trim(); if (!text || !currentState.activeChatPhone) return;
-        const chat = currentState.conversations[currentState.activeChatPhone];
-        socket.emit('command_bot', { instanceId: chat.instanceId || 'bot_1', command: 'send_whatsapp_message', payload: { phone: currentState.activeChatPhone, message: text } });
+        const phone = currentState.activeChatPhone;
+        const chat = currentState.conversations[phone];
+
+        // Emitir mensaje al bot
+        socket.emit('command_bot', { 
+            instanceId: chat?.instanceId || 'bot_1', 
+            command: 'send_whatsapp_message', 
+            payload: { phone: phone, message: text } 
+        });
+
+        // 🛡️ REGLA: Intervención manual pausa automáticamente la IA para este chat
+        try {
+            await fetchAPI(`/lead/by-phone/${encodeURIComponent(phone)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    botPaused: true,
+                    manualIntervention: true
+                })
+            });
+            if (chat && chat.lead) {
+                chat.lead.botPaused = true;
+                chat.lead.manualIntervention = true;
+                renderActiveChatControls(chat.lead);
+                renderChatList();
+            }
+        } catch (e) {
+            console.error('Error auto-pausing bot on manual message:', e);
+        }
+
         chatInput.value = '';
     };
     if (sendBtn) sendBtn.addEventListener('click', handleSend);

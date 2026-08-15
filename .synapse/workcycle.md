@@ -1,6 +1,22 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-06-11 (23:55 Argentina)
+## Current Session: 2026-08-15 (19:35 Argentina)
+- **Objective:** Control de IA en Chats, Exclusión estricta de contactos etiquetados y auto-pausa por intervención manual.
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** master
+- **Deploy:** Listo para desplegar en VPS (git pull + docker-compose up -d --build).
+
+### 40. Control de IA en Chats, Etiquetas y Pausa de Respuestas Automáticas
+- **Problema:** El bot respondía automáticamente a todo contacto entrante, interfiriendo con conversaciones personales, contactos etiquetados en WhatsApp/CRM y chats donde interviene un operador humano.
+- **Solución Realizada:**
+  1. **Filtro de Campaña Estricto:** La IA solo procesa y responde si el número pertenece a un lead existente en la base de datos al que se le envió la secuencia de prospección.
+  2. **Detección de Etiquetas (WhatsApp & CRM):** Si el chat tiene etiquetas en WhatsApp Business (`chat.labels`) o en el CRM (`lead.tags` / `lead.labels`), la IA se desactiva y el bot omite cualquier respuesta automática.
+  3. **Control Interactivo en CRM Chat:** En el header de conversación se integró el botón interactivo **`[🤖 IA: ACTIVA / PAUSADA]`**, selector dinámico de etiquetas (`🏷️ Cliente`, `🏷️ Manual`, `🏷️ En Seguimiento`, `🏷️ No Responder`), y banner visual de aviso.
+  4. **Auto-Pausa por Intervención Manual:** Al redactar y enviar un mensaje manual desde el CRM Chat (o WhatsApp), el sistema marca automáticamente `manualIntervention: true` y `botPaused: true` para que el bot nunca interrumpa al operador humano.
+  5. **Endpoints Backend:** Creados `GET/PUT /lead/by-phone/:phone` y `PUT /api/lead/:id/bot-control` con soporte de emisión Socket.io en tiempo real.
+  6. **Sincronización:** Actualizado `server/models/Lead.js`, `server/index.js`, `crm-dashboard/`, y todas las instancias de bots (`bot/`, `bot_1/` a `bot_4/`).
+
+## Previous Session: 2026-06-11 (23:55 Argentina)
 - **Objective:** Mejoras estéticas front, visualización de píxeles Meta/Google, enlaces a redes e intención IA.
 - **Status:** ✅ COMPLETED
 - **Git Info:** master

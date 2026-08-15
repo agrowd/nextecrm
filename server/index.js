@@ -1430,6 +1430,103 @@ app.get('/messages/by-phone/:phone', async (req, res) => {
   }
 });
 
+// GET /lead/by-phone/:phone & GET /api/lead/by-phone/:phone - Buscar lead por teléfono
+app.get(['/lead/by-phone/:phone', '/api/lead/by-phone/:phone'], async (req, res) => {
+  try {
+    const rawPhone = decodeURIComponent(req.params.phone);
+    const cleanDigits = rawPhone.replace('@c.us', '').replace(/\D/g, '');
+    const suffix = cleanDigits.length >= 8 ? cleanDigits.slice(-8) : cleanDigits;
+
+    const lead = await Lead.findOne({
+      $or: [
+        { phone: rawPhone },
+        { phone: cleanDigits },
+        { phone: new RegExp(suffix + '$') }
+      ]
+    });
+
+    if (!lead) {
+      return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+    }
+
+    res.json({ success: true, lead });
+  } catch (error) {
+    console.error('Error buscando lead por teléfono:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /lead/by-phone/:phone & PUT /api/lead/by-phone/:phone - Actualizar lead por teléfono
+app.put(['/lead/by-phone/:phone', '/api/lead/by-phone/:phone'], async (req, res) => {
+  try {
+    const rawPhone = decodeURIComponent(req.params.phone);
+    const cleanDigits = rawPhone.replace('@c.us', '').replace(/\D/g, '');
+    const suffix = cleanDigits.length >= 8 ? cleanDigits.slice(-8) : cleanDigits;
+
+    const updateData = req.body || {};
+    const lead = await Lead.findOneAndUpdate(
+      {
+        $or: [
+          { phone: rawPhone },
+          { phone: cleanDigits },
+          { phone: new RegExp(suffix + '$') }
+        ]
+      },
+      { $set: updateData },
+      { new: true }
+    );
+
+    if (!lead) {
+      return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+    }
+
+    if (global.io) {
+      global.io.emit('lead_updated', lead);
+    }
+
+    res.json({ success: true, lead });
+  } catch (error) {
+    console.error('Error actualizando lead por teléfono:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/lead/:id/bot-control - Manejar pausa de IA y etiquetas desde el Chat del CRM
+app.put(['/api/lead/:id/bot-control', '/lead/:id/bot-control'], async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { botPaused, tags, labels, manualIntervention } = req.body;
+
+    const updateFields = {};
+    if (botPaused !== undefined) {
+      updateFields.botPaused = botPaused;
+      if (botPaused) updateFields.botPausedAt = new Date();
+    }
+    if (tags !== undefined) updateFields.tags = tags;
+    if (labels !== undefined) updateFields.labels = labels;
+    if (manualIntervention !== undefined) updateFields.manualIntervention = manualIntervention;
+
+    const updatedLead = await Lead.findByIdAndUpdate(
+      id,
+      { $set: updateFields },
+      { new: true }
+    );
+
+    if (!updatedLead) {
+      return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+    }
+
+    if (global.io) {
+      global.io.emit('lead_updated', updatedLead);
+    }
+
+    res.json({ success: true, lead: updatedLead });
+  } catch (error) {
+    console.error('Error actualizando bot-control del lead:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // GET /lead/check-messages - DOBLE CHECK DE SEGURIDAD 🛡️
 // Verifica si ya existen mensajes enviados a este teléfono en la BD
 app.get('/lead/check-messages', async (req, res) => {

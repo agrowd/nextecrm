@@ -33,5 +33,6 @@
 | D-31 | **Expose Dynamic Website Audit Data and IA intent badges** | Exposing scraper metrics (Meta/Google pixels and Instagram/Facebook links) and IA intent classifications directly in the leads table/modal improves sales prioritization. | 🔒 LOCKED |
 | D-32 | **Atenuar/Diminish Inactive Bot Control Cards** | Applying 55% opacity and hover transformations to bots with `not_running` status visually highlights active bots while keeping inactive controls available. | 🔒 LOCKED |
 | D-33 | **100% Dynamic 4-Message Sequence with ChatGPT (No Ads, Focus Software & IA NatoH)** | All 4 messages in the prospecting sequence are generated dynamically with `gpt-4o-mini` based on real lead data (Maps rating, location, web availability), boosting Software/Systems ($650k->$350k), IA NatoH ($350k->$180k), eliminating Publicidad/Ads, and ending with a natural portfolio offer. | 🔒 LOCKED |
+| D-34 | **Chat Tagging & Auto-Pause on Manual Messages** | The AI responder is strictly disabled for any chat with WhatsApp Business labels or CRM tags, or where `botPaused` is toggled. Sending a manual message from the CRM chat automatically pauses the bot for that lead to prevent interrupting human sales interactions. | 🔒 LOCKED |
 
 

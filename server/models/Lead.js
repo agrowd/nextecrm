@@ -52,10 +52,16 @@ const LeadSchema = new mongoose.Schema({
   // 📊 A/B Testing Tracking
   templateVariantUsed: { type: Number, default: null }, // Índice de variante de propuesta
   respondedToTemplate: { type: Boolean, default: false }, // Si respondió a esta propuesta
-  // 🤖 Tracking de IA
+  // 🤖 Tracking de IA y Control de Bot
   aiIntent: { type: String, default: '' },
   aiConfidence: { type: Number, default: null },
   aiReason: { type: String, default: '' },
+  // 🏷️ Control de Etiquetas y Pausa de IA para Chats
+  tags: { type: [String], default: [] }, // Etiquetas asignadas (ej. 'cliente', 'manual', 'no_responder')
+  labels: { type: [String], default: [] }, // WhatsApp labels
+  botPaused: { type: Boolean, default: false }, // Pausar IA para este lead desde el chat
+  manualIntervention: { type: Boolean, default: false }, // Si un operador intervino manualmente
+  botPausedAt: { type: Date, default: null },
   // 🌐 Website Audit Data (Análisis automatizado de código web)
   webAudit: {
     auditedAt: { type: Date, default: null },

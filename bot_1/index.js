@@ -2049,6 +2049,66 @@ class WhatsAppBot {
         return;
       }
 
+      // 🏷️ REGLA FUNDAMENTAL: CONTROL DE ETIQUETAS, PAUSA Y OPERADOR HUMANO (CRM & WhatsApp)
+      // "A los que están etiquetados que no le responda, fijate de hacer un sistema utilizando la parte de chat para que se pueda manejar desde ahí"
+      let isLabeledOrPaused = false;
+      let labelReason = '';
+
+      // A) Comprobar etiquetas en WhatsApp Web directamente
+      try {
+        if (this.client) {
+          const waChat = await message.getChat().catch(() => null);
+          if (waChat) {
+            if (waChat.labels && Array.isArray(waChat.labels) && waChat.labels.length > 0) {
+              isLabeledOrPaused = true;
+              labelReason = `WhatsApp Label (${waChat.labels.length} etiquetas)`;
+            } else if (typeof waChat.getLabels === 'function') {
+              const waLabels = await waChat.getLabels().catch(() => []);
+              if (waLabels && waLabels.length > 0) {
+                isLabeledOrPaused = true;
+                labelReason = `WhatsApp Label (${waLabels.map(l => l.name || l.id).join(', ')})`;
+              }
+            }
+          }
+        }
+      } catch (waLabelErr) {
+        // Silenciar
+      }
+
+      // B) Comprobar estado en CRM (MongoDB)
+      try {
+        const leadDbCheck = await axios.get(`${this.backendUrl}/lead/by-phone/${encodeURIComponent(contactNumber)}`).catch(() => null);
+        if (leadDbCheck && leadDbCheck.data && leadDbCheck.data.lead) {
+          const leadData = leadDbCheck.data.lead;
+          if (leadData.botPaused === true) {
+            isLabeledOrPaused = true;
+            labelReason = 'IA pausada manualmente desde el CRM';
+          } else if (leadData.manualIntervention === true) {
+            isLabeledOrPaused = true;
+            labelReason = 'Intervención manual humana detectada';
+          } else if (leadData.tags && Array.isArray(leadData.tags) && leadData.tags.length > 0) {
+            isLabeledOrPaused = true;
+            labelReason = `Etiqueta CRM: [${leadData.tags.join(', ')}]`;
+          } else if (leadData.labels && Array.isArray(leadData.labels) && leadData.labels.length > 0) {
+            isLabeledOrPaused = true;
+            labelReason = `Etiqueta CRM: [${leadData.labels.join(', ')}]`;
+          }
+        }
+      } catch (dbLabelErr) {
+        // Silenciar
+      }
+
+      // 🛑 SI ESTÁ ETIQUETADO O PAUSADO -> NO RESPONDER CON IA
+      if (isLabeledOrPaused) {
+        console.log(`🏷️ [IGNORADO POR ETIQUETA / PAUSA] Contacto ${contactNumber} tiene regla activa: "${labelReason}". La IA NO responderá automáticamente.`);
+        // Si hay una secuencia de prospección en frío en curso, abortarla para no molestar
+        this.abortCurrentSequence = true;
+        if (this.currentlyProcessingLead) {
+          this.currentlyProcessingLead.stopSending = true;
+        }
+        return;
+      }
+
       // 🛡️ FIX: Detectar respuesta del lead ACTUALMENTE en procesamiento (in-memory)
       if (this.currentlyProcessingLead && !this.currentlyProcessingLead.stopSending) {
         let resolvedNumber = contactNumber;
