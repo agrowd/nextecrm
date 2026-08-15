@@ -589,18 +589,24 @@ Se diseñó la arquitectura de los 4 prompts dinámicos para `gpt-4o-mini` sin v
 
 ---
 
-## Preguntas del Usuario (2026-08-15):
-> A los que estan etiquetados que no le responda, fijate de hacer un sistema utilizando la parte de chat para que se pueda manejar desde ahi. Solo le tiene que responder automaticamente a los que vienen de la base de datos y se les envio mensaje, no a todo el mundo que responde, la ia es solo para este sistema
-> Se escapan las cosas del layout
-> Sigue sin verse el navbar completo
-> Quita el de editor de mensajes variables
+---
+
+## Pregunta del Usuario (2026-08-15):
+> Mejora el diseño y hace que no se rompa, que este en sincronizacion real con los mensajes, el bot, el numero que es, que se pueda ver el perfil del negocio etc etc e informacion de cuantas veces se le envio, su respuesta, si se le envio con ia etc. Mejora toda esta parte
 
 ---
 
 ## Diagnóstico y Solución Aplicada:
-1. **Control de IA & Exclusión de Chats Etiquetados:** Se agregó filtro estricto para ignorar chats con etiquetas en WhatsApp Business (`chat.labels`) o en el CRM (`lead.tags`), o pausados manualmente (`botPaused`).
-2. **Gestión desde el CRM Chat:** Botón toggle interactivo `[🤖 IA: Activa / Pausada]`, gestor rápido de etiquetas (`+ Etiqueta`) y auto-pausa automática al enviar mensajes manuales desde el CRM.
-3. **Corrección de Layout & Responsive:** Ajuste de grids (`stats-grid`, `realtime-stats`, `per-bot-stats`) con columnas fluidas `minmax(180px, 1fr)`, padding optimizado y media queries para evitar cualquier desborde horizontal.
-4. **Optimización del Navbar:** Reducción de tamaño de íconos a 44px con gap de 6px y scroll invisible.
-5. **Remoción del Editor de Mensajes:** Se eliminó el botón de navegación y la sección del editor de mensajes variables (`view-messages`), ya que toda la generación se realiza 100% con ChatGPT.
+1. **Rediseño Completo de la Vista de Chats (3 Paneles)**:
+   - Panel 1 (Izquierdo): Lista de chats con avatares de iniciales estilizados (gradientes determinísticos), badges de bot (`B1`, `B2`, etc.), preview de último mensaje, hora y badges de IA/Manual.
+   - Panel 2 (Central): Feed de conversación WhatsApp con burbujas de mensaje estilizadas (`#005c4b` / `#202c33`), soporte de saltos de línea, timestamps, ticks de entrega/lectura y barra de control de IA del chat.
+   - Panel 3 (Derecho - **Ficha del Negocio**): Panel lateral interactivo con información completa del lead:
+     - Nombre comercial, rubro, rating Google Maps ⭐ con cantidad de opiniones, dirección y teléfono formateado.
+     - **Métricas de Prospección & IA**: Bot asignado, barra de progreso de secuencia de 4 mensajes (ej. `4/4`), indicador de IA (`✨ Sí (ChatGPT 4o-mini)`), cita textual de última respuesta del cliente, e intención detectada por IA con porcentaje de certeza.
+     - **Auditoría Técnica Web**: Enlace a la web, detección de CMS, Google Analytics 4 (GA4), Meta Pixel, Widget flotante de WhatsApp y botón de re-auditoría manual.
+     - **Gestión de Etiquetas CRM**: Tags dinámicos con agregado interactivo y borrado individual en 1 clic.
+     - **Acciones Rápidas del Operador**: Botón directo a WhatsApp Web, Google Maps, y marcadores de estado (`👍 Interesado` / `👎 No Interesado`).
+2. **Sincronización en Tiempo Real**: Socket listener para `lead_updated` y `new_message` que sincroniza al instante el chat activo, la lista y la ficha de negocio.
+3. **Eliminación de Elementos Rotos y Overlaps**: Corrección de `.hidden` con `display: none !important;`, reemplazo de imágenes externas rotas por avatares de iniciales con diseño nativo y cache-busting `v=2.6`.
+
 

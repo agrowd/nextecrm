@@ -1,6 +1,28 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-08-15 (20:20 Argentina)
+## Current Session: 2026-08-15 (20:30 Argentina)
+- **Objective:** Rediseño completo y robustecimiento de la vista de Chats (3 Paneles), Ficha de Negocio en vivo, Sincronización en tiempo real, Avatares dinámicos con iniciales y métricas de envío/IA.
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** master (pending push)
+- **Deploy:** Listo para desplegar en VPS (`git pull` en `/srv/rascafull`).
+
+### 46. Rediseño de Vista de Chats & Ficha de Inteligencia de Negocios
+- **Problema:**
+  1. En la vista de chat, al no tener seleccionado ningún chat, los elementos del header y footer quedaban sobrepuestos al Empty State porque `.hidden` no tenía `display: none !important;`.
+  2. Íconos rotos (`alt="User"`, `alt="WhatsApp"`) procedentes de URLs externas o SVG faltantes.
+  3. No se podía ver el perfil completo del negocio desde el chat (rubro, dirección, rating de Google Maps, web audit con GA4/Pixel/CMS, cantidad de mensajes enviados en la secuencia, respuesta del cliente, bot asignado).
+- **Solución Realizada:**
+  1. **Arquitectura de 3 Paneles**: Panel Izquierdo (Lista de Chats con avatares de iniciales y gradientes de color HSL, filtros por bot B1-B4, búsqueda rápida), Panel Central (Feed de mensajes WhatsApp en tiempo real con burbujas temáticas `#005c4b`/`#202c33`, ticks de entrega y switch de control de IA), y Panel Derecho (**Ficha del Negocio** deslizable).
+  2. **Ficha de Inteligencia del Negocio**:
+     - Nombre comercial, rubro, rating Google Maps ⭐, teléfono limpio formateado y dirección.
+     - **Métricas de Prospección & IA**: Bot asignado, barra de progreso de secuencia (ej: `4/4`), estado de generación IA (ChatGPT 4o-mini), cita textual de última respuesta del cliente, intención detectada con certeza porcentual.
+     - **Auditoría Técnica Web**: Enlace directo, CMS detectado, GA4 (Sí/No), Meta Pixel (Sí/No), Widget WhatsApp (Sí/No) y botón de re-auditoría manual en 1 clic.
+     - **Gestor de Etiquetas CRM**: Creación interactiva de tags (`+ Agregar`) y borrado individual en vivo.
+     - **Acciones Rápidas**: Enlace a WhatsApp Web, Google Maps, y calificación de interés (`👍 Interesado`, `👎 No Interesado`).
+  3. **Sincronización en Tiempo Real**: Socket listener para `lead_updated` y `new_message` que refresca instantáneamente la lista, burbujas y ficha de negocio sin recargar la página.
+  4. Cache-busting actualizado a `v=2.6`.
+
+## Previous Session: 2026-08-15 (20:20 Argentina)
 - **Objective:** Restaurar inicio de `nexte-backend` y mantener `crm-dashboard` montado en vivo.
 - **Status:** ✅ VERIFIED & OPERATIONAL ON VPS (`6c3462d`)
 - **PM2 State:** `nexte-backend` (online, 81.5mb), `nexte-frontend` (online, 48.1mb).

@@ -7,7 +7,7 @@
     <meta http-equiv="Content-Security-Policy"
         content="default-src 'self' *; img-src 'self' data: *; style-src 'self' 'unsafe-inline' *; font-src 'self' *; script-src 'self' 'unsafe-inline' *;">
     <title>Nexte CRM</title>
-    <link rel="stylesheet" href="style.css?v=2.5">
+    <link rel="stylesheet" href="style.css?v=2.6">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600&display=swap" rel="stylesheet">
     <style>
@@ -312,74 +312,116 @@
                 </div>
 
 
-                <!-- VISTA 2: CHATS -->
-            </section>
-
+            <!-- VISTA 2: CHATS & BUSINESS INTELLIGENCE -->
             <section id="view-chats" class="view-section">
                 <div class="chat-interface-wrapper">
+                    <!-- 1. LEFT: CHAT LIST SIDEBAR -->
                     <aside class="chat-sidebar">
                         <header class="chat-sidebar-header">
                             <div class="search-container-chat">
                                 <span class="material-icons search-icon">search</span>
-                                <input type="text" id="searchInput" placeholder="Buscar chat...">
+                                <input type="text" id="searchInput" placeholder="Buscar negocio o teléfono...">
                             </div>
-                            <div class="filter-buttons-mini">
-                                <button class="filter-btn active" data-filter="all">All</button>
+                            <div class="filter-buttons-mini" id="chatBotFilters">
+                                <button class="filter-btn active" data-filter="all">Todos</button>
                                 <button class="filter-btn" data-filter="bot_1">B1</button>
                                 <button class="filter-btn" data-filter="bot_2">B2</button>
                                 <button class="filter-btn" data-filter="bot_3">B3</button>
+                                <button class="filter-btn" data-filter="bot_4">B4</button>
                             </div>
                         </header>
                         <div class="chat-list" id="chatList">
-                            <div class="loading-spinner">Cargando chats...</div>
+                            <div class="loading-spinner">Cargando conversaciones...</div>
                         </div>
                     </aside>
 
-                    <div class="chat-detail-area" id="chatArea">
+                    <!-- 2. CENTER: ACTIVE CHAT DETAIL AREA -->
+                    <main class="chat-detail-area" id="chatArea">
+                        <!-- EMPTY STATE -->
                         <div class="empty-state" id="emptyState">
                             <div class="empty-state-content">
-                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/479px-WhatsApp.svg.png"
-                                    alt="WhatsApp" width="80" style="opacity: 0.3; margin-bottom: 20px;">
-                                <h3>Selecciona un chat</h3>
+                                <div class="empty-state-icon">
+                                    <span class="material-icons">chat</span>
+                                </div>
+                                <h3>Nexte WhatsApp CRM</h3>
+                                <p>Seleccioná una conversación para ver los mensajes en vivo, controlar la IA y consultar la ficha completa del negocio.</p>
                             </div>
                         </div>
 
+                        <!-- ACTIVE CHAT CONTAINER -->
                         <div class="active-chat-container hidden" id="activeChatContainer">
-                            <header class="chat-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 10px 16px;">
-                                <div class="header-left" style="display: flex; align-items: center; gap: 12px;">
-                                    <div class="chat-avatar"><img src="" id="activeChatAvatar" alt="User"></div>
+                            <header class="chat-header">
+                                <div class="header-left">
+                                    <div class="chat-avatar" id="activeChatAvatarWrapper">
+                                        <span class="avatar-initials" id="activeChatAvatarInitials">--</span>
+                                    </div>
                                     <div class="chat-info">
-                                        <h3 id="activeChatName" style="margin: 0; font-size: 15px;">Nombre</h3>
-                                        <span class="last-seen" id="activeChatPhone" style="font-size: 12px; color: #8696a0;">...</span>
+                                        <div class="chat-title-row">
+                                            <h3 id="activeChatName">Nombre del Negocio</h3>
+                                            <span class="phone-chip" id="activeChatPhoneChip">+54 9 ...</span>
+                                        </div>
+                                        <div class="chat-subtitle-row">
+                                            <span class="bot-badge" id="activeChatBotBadge">BOT 1</span>
+                                            <span id="activeChatCategoryText" class="category-chip">Categoría</span>
+                                            <span id="activeChatStatusChip" class="status-chip">Contactado</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="header-center" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                    <div id="activeChatTagsContainer" style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;"></div>
-                                    <button onclick="promptAddTagToActiveChat()" style="background: #202c33; border: 1px solid #2f3b43; color: #8696a0; padding: 4px 8px; border-radius: 4px; font-size: 11px; display: flex; align-items: center; gap: 3px; cursor: pointer;" title="Agregar etiqueta">+</button>
-                                </div>
-                                <div class="header-right" style="display: flex; align-items: center; gap: 10px;">
-                                    <button id="btnToggleBotIA" onclick="toggleActiveChatBotIA()" style="display: flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 16px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; background: #00a884; color: white; transition: all 0.2s;">
-                                        <span class="material-icons" style="font-size: 15px;">smart_toy</span>
+
+                                <div class="header-actions">
+                                    <button id="btnToggleBotIA" onclick="toggleActiveChatBotIA()" class="ia-toggle-btn" title="Pausar o reactivar respuestas de IA">
+                                        <span class="material-icons">smart_toy</span>
                                         <span id="toggleBotIAText">IA: ACTIVA</span>
                                     </button>
-                                    <span class="bot-badge" id="activeChatBotBadge">Bot</span>
+                                    <button id="btnToggleProfilePanel" onclick="toggleLeadProfilePanel()" class="icon-action-btn active" title="Ficha del Negocio">
+                                        <span class="material-icons">badge</span>
+                                        <span class="btn-text-desktop">Ficha</span>
+                                    </button>
                                 </div>
                             </header>
-                            <div id="chatManualNoticeBanner" style="display: none; background: rgba(255, 152, 0, 0.15); border-bottom: 1px solid rgba(255, 152, 0, 0.3); color: #ff9800; padding: 6px 16px; font-size: 12px; justify-content: space-between; align-items: center;">
-                                <span><span class="material-icons" style="font-size: 14px; vertical-align: middle; margin-right: 5px;">pause_circle</span> <strong>Atención Manual:</strong> IA pausada para este chat. El bot no responderá automáticamente.</span>
-                                <button onclick="toggleActiveChatBotIA(true)" style="background: #ff9800; color: #111; border: none; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">Reactivar IA</button>
-                            </div>
-                            <div class="messages-container" id="messagesContainer"></div>
-                            <footer class="chat-input-area">
-                                <span class="material-icons">sentiment_satisfied_alt</span>
-                                <div class="input-box"><input type="text" id="chatInput"
-                                        placeholder="Escribe un mensaje...">
+
+                            <!-- BANNER MANUAL NOTICE -->
+                            <div id="chatManualNoticeBanner" class="manual-notice-banner" style="display: none;">
+                                <div class="banner-left">
+                                    <span class="material-icons">pause_circle</span>
+                                    <span><strong>Atención Manual:</strong> IA pausada para este chat. El bot no responderá automáticamente.</span>
                                 </div>
-                                <button id="sendMessageBtn" class="icon-btn"><span
-                                        class="material-icons">send</span></button>
+                                <button onclick="toggleActiveChatBotIA(true)" class="resume-ia-btn">Reactivar IA</button>
+                            </div>
+
+                            <!-- MESSAGES THREAD -->
+                            <div class="messages-container" id="messagesContainer"></div>
+
+                            <!-- CHAT INPUT -->
+                            <footer class="chat-input-area">
+                                <div class="input-box">
+                                    <input type="text" id="chatInput" placeholder="Escribe un mensaje como operador..." autocomplete="off">
+                                </div>
+                                <button id="sendMessageBtn" class="send-btn" title="Enviar Mensaje">
+                                    <span class="material-icons">send</span>
+                                </button>
                             </footer>
                         </div>
-                    </div>
+                    </main>
+
+                    <!-- 3. RIGHT: BUSINESS PROFILE & INTELLIGENCE PANEL -->
+                    <aside class="chat-profile-panel" id="chatProfilePanel">
+                        <header class="profile-panel-header">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span class="material-icons" style="color: var(--accent); font-size: 20px;">domain</span>
+                                <h3>Ficha del Negocio</h3>
+                            </div>
+                            <button class="close-profile-btn" onclick="toggleLeadProfilePanel(false)" title="Cerrar panel">
+                                <span class="material-icons">close</span>
+                            </button>
+                        </header>
+                        <div class="profile-panel-content" id="profilePanelContent">
+                            <div class="profile-placeholder">
+                                <span class="material-icons" style="font-size: 40px; color: #566a7a; margin-bottom: 10px;">storefront</span>
+                                <p>Seleccioná una conversación para ver todos los datos del lead, web audit y estadísticas de envío.</p>
+                            </div>
+                        </div>
+                    </aside>
                 </div>
             </section>
 
@@ -919,11 +961,11 @@
     </main>
     </div>
     <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
-    <script src="app.js?v=2.5"></script>
+    <script src="app.js?v=2.6"></script>
     <script>
         // Init app
         document.addEventListener('DOMContentLoaded', () => {
-            console.log("🚀 Nexte CRM v2.5 Loaded");
+            console.log("🚀 Nexte CRM v2.6 Loaded");
         });
     </script>
 </body>

@@ -170,6 +170,30 @@ function initSocket() {
     });
 
     socket.on('new_message', (data) => handleIncomingRealtimeMessage(data));
+    socket.on('lead_updated', (lead) => {
+        if (!lead || !lead.phone) return;
+        const cleanPhone = String(lead.phone).replace(/@c\.us/g, '').replace(/\D/g, '');
+        
+        // Find existing conversation matching this phone or suffix
+        let targetPhone = cleanPhone;
+        if (!currentState.conversations[cleanPhone]) {
+            const match = Object.keys(currentState.conversations).find(p => p.endsWith(cleanPhone) || cleanPhone.endsWith(p));
+            if (match) targetPhone = match;
+        }
+
+        if (currentState.conversations && currentState.conversations[targetPhone]) {
+            currentState.conversations[targetPhone].lead = lead;
+            if (lead.name && (!currentState.conversations[targetPhone].name || currentState.conversations[targetPhone].name === targetPhone)) {
+                currentState.conversations[targetPhone].name = lead.name;
+            }
+        }
+
+        if (currentState.activeChatPhone === targetPhone) {
+            renderActiveChatControls(lead);
+            renderLeadProfilePanel(lead, currentState.conversations[targetPhone]);
+        }
+        renderChatList();
+    });
     socket.on('realtime_bot_log', (data) => appendConsoleLog(data));
     socket.on('scraper_status_update', (scrapers) => {
         currentState.scrapers = scrapers;
@@ -757,9 +781,51 @@ function setupSettingsListeners() {
             if (data.success) alert("🚀 Configuración guardada y enviada a toda la flota!");
         } catch (e) { alert("Error guardando settings"); }
     });
+// --- UTILITIES FOR CHAT & PROFILES ---
+function getInitials(name) {
+    if (!name) return '??';
+    const clean = name.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+    if (!clean) return name.slice(-2).toUpperCase() || 'WA';
+    const parts = clean.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return clean.substring(0, 2).toUpperCase();
 }
 
-// --- CHATS ---
+function getAvatarGradient(str) {
+    const gradients = [
+        'linear-gradient(135deg, #00bfa5 0%, #00796b 100%)',
+        'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
+        'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+        'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+        'linear-gradient(135deg, #ec4899 0%, #be185d 100%)',
+        'linear-gradient(135deg, #10b981 0%, #047857 100%)',
+        'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+        'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)'
+    ];
+    let hash = 0;
+    const s = String(str || 'nexte');
+    for (let i = 0; i < s.length; i++) {
+        hash = s.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % gradients.length;
+    return gradients[index];
+}
+
+function formatPhoneDisplay(phone) {
+    if (!phone) return '';
+    const clean = String(phone).replace(/\D/g, '');
+    if (clean.startsWith('549') && clean.length >= 12) {
+        return `+54 9 ${clean.slice(3, 5)} ${clean.slice(5, 9)}-${clean.slice(9)}`;
+    }
+    if (clean.startsWith('54') && clean.length >= 10) {
+        return `+54 ${clean.slice(2, 4)} ${clean.slice(4, 8)}-${clean.slice(8)}`;
+    }
+    return `+${clean}`;
+}
+
+// --- CHATS & BUSINESS INTELLIGENCE ---
 async function fetchConversations() {
     try {
         const response = await fetchAPI(`/conversations?limit=500`);
@@ -767,65 +833,93 @@ async function fetchConversations() {
         if (data.success) {
             processConversations(data.data);
             renderChatList();
-            if (currentState.activeChatPhone) renderMessages(currentState.activeChatPhone);
+            if (currentState.activeChatPhone) {
+                renderMessages(currentState.activeChatPhone);
+                loadAndRenderActiveChatControls(currentState.activeChatPhone);
+            }
         }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error('Error fetching conversations:', e); }
 }
 
 function processConversations(messages) {
     const newConvs = {};
     messages.forEach(msg => {
         const phone = msg.phone;
+        if (!phone) return;
+        
         if (!newConvs[phone]) {
             newConvs[phone] = { 
                 phone, 
-                name: msg.leadName || phone, 
+                name: msg.leadName || (msg.leadId && msg.leadId.name) || phone, 
                 messages: [], 
                 lastMessage: '', 
                 lastTime: null, 
-                instanceId: msg.instanceId,
+                instanceId: msg.instanceId || 'bot_1',
                 lead: msg.leadId || null
             };
         } else if (!newConvs[phone].lead && msg.leadId) {
             newConvs[phone].lead = msg.leadId;
+            if (!newConvs[phone].name || newConvs[phone].name === phone) {
+                newConvs[phone].name = msg.leadId.name || msg.leadId.businessName || phone;
+            }
         }
         newConvs[phone].messages.push(msg);
     });
+
     Object.values(newConvs).forEach(chat => {
         chat.messages.sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt));
         const last = chat.messages[chat.messages.length - 1];
-        chat.lastMessage = last.content; chat.lastTime = last.sentAt; chat.instanceId = last.instanceId;
+        chat.lastMessage = last.content || '';
+        chat.lastTime = last.sentAt || new Date();
+        chat.instanceId = last.instanceId || chat.instanceId;
     });
+
     currentState.conversations = newConvs;
 }
 
 function renderChatList() {
     const list = getEl('chatList'); if (!list) return;
     list.innerHTML = '';
-    let chats = Object.values(currentState.conversations);
-    if (currentState.filter !== 'all') chats = chats.filter(c => c.instanceId === currentState.filter);
+    let chats = Object.values(currentState.conversations || {});
+    
+    if (currentState.filter && currentState.filter !== 'all') {
+        chats = chats.filter(c => c.instanceId === currentState.filter);
+    }
 
     const sInput = getEl('searchInput');
     if (sInput && sInput.value) {
-        const term = sInput.value.toLowerCase();
-        chats = chats.filter(c => c.name.toLowerCase().includes(term) || c.phone.includes(term));
+        const term = sInput.value.toLowerCase().trim();
+        chats = chats.filter(c => (c.name && c.name.toLowerCase().includes(term)) || (c.phone && c.phone.includes(term)));
     }
+
+    if (chats.length === 0) {
+        list.innerHTML = '<div style="padding: 30px; text-align: center; color: #8696a0; font-size: 13px;">No se encontraron conversaciones.</div>';
+        return;
+    }
+
     chats.sort((a, b) => new Date(b.lastTime) - new Date(a.lastTime));
+    
+    const botColors = { 'bot_1': '#00a884', 'bot_2': '#7e57c2', 'bot_3': '#ff9800', 'bot_4': '#2196f3' };
+
     chats.forEach(chat => {
         const isActive = currentState.activeChatPhone === chat.phone ? 'active' : '';
         const time = new Date(chat.lastTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const avatar = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(chat.name)}&backgroundColor=b6e3f4,c0aede,d1d4f9`;
-        const botColor = chat.instanceId === 'bot_2' ? '#7e57c2' : (chat.instanceId === 'bot_3' ? '#ff9800' : '#00a884');
+        const initials = getInitials(chat.name);
+        const bgGradient = getAvatarGradient(chat.name || chat.phone);
+        const botId = chat.instanceId || 'bot_1';
+        const botColor = botColors[botId] || '#00a884';
+        const shortBotName = botId.replace('bot_', 'B').toUpperCase();
         
         const lead = chat.lead;
         let aiBadge = '';
         let tagPills = '';
+        
         if (lead) {
             aiBadge = getAiIntentBadge(lead);
-            aiBadge = aiBadge.replace('margin-top: 4px;', 'margin-top: 0;');
+            if (aiBadge) aiBadge = aiBadge.replace('margin-top: 4px;', 'margin-top: 0;');
 
             if (lead.botPaused || lead.manualIntervention) {
-                tagPills += `<span style="background: rgba(255, 152, 0, 0.2); color: #ff9800; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: 700;" title="IA Pausada / Manual">⏸️ Manual</span>`;
+                tagPills += `<span style="background: rgba(255, 152, 0, 0.2); color: #ff9800; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: 700;">⏸️ Manual</span>`;
             }
             if (lead.tags && Array.isArray(lead.tags) && lead.tags.length > 0) {
                 tagPills += `<span style="background: rgba(83, 189, 235, 0.15); color: #53bdeb; font-size: 9px; padding: 1px 4px; border-radius: 3px;" title="Etiquetas: ${lead.tags.join(', ')}">🏷️ ${lead.tags[0]}</span>`;
@@ -834,58 +928,68 @@ function renderChatList() {
 
         list.insertAdjacentHTML('beforeend', `
             <div class="chat-item ${isActive}" data-phone="${chat.phone}">
-                <div class="chat-item-avatar"><img src="${avatar}"></div>
+                <div class="avatar-circle" style="background: ${bgGradient};">
+                    ${initials}
+                </div>
                 <div class="chat-item-content">
                     <div class="chat-row-1">
-                        <span class="chat-name">${chat.name}</span>
+                        <span class="chat-name" title="${chat.name}">${chat.name}</span>
                         <span class="chat-time">${time}</span>
                     </div>
-                    <div class="chat-row-2" style="display:flex; justify-content:space-between; align-items:center; margin-top: 4px;">
-                        <div style="display:flex; align-items:center; gap:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:78%;">
+                    <div class="chat-row-2">
+                        <div style="display: flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">
                             ${aiBadge}
                             ${tagPills}
-                            <span class="chat-last-msg" style="margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${chat.lastMessage}</span>
+                            <span class="chat-last-msg">${chat.lastMessage || 'Conversación iniciada'}</span>
                         </div>
-                        <span class="bot-badge" style="background:${botColor}; font-size:10px; flex-shrink:0;">${chat.instanceId ? (chat.instanceId === 'bot' ? 'B1' : chat.instanceId.replace('bot_', 'B')) : 'B1'}</span>
+                        <span class="bot-badge" style="background: ${botColor}; font-size: 9.5px; padding: 2px 6px; border-radius: 4px; flex-shrink: 0;">${shortBotName}</span>
                     </div>
                 </div>
             </div>`);
     });
-    document.querySelectorAll('.chat-item').forEach(item => item.addEventListener('click', () => openChat(item.dataset.phone)));
+
+    document.querySelectorAll('.chat-item').forEach(item => {
+        item.addEventListener('click', () => openChat(item.dataset.phone));
+    });
 }
 
 async function openChat(phone) {
     currentState.activeChatPhone = phone; 
     renderChatList();
-    const chat = currentState.conversations[phone]; if (!chat) return;
-    const es = getEl('emptyState'); if (es) es.style.display = 'none';
-    const acc = getEl('activeChatContainer'); if (acc) acc.classList.remove('hidden');
+    
+    const chat = currentState.conversations[phone];
+    if (!chat) return;
 
-    // Truncar nombre si es muy largo y agregar teléfono entre paréntesis
-    const maxNameLength = 25;
-    let displayName = chat.name || 'Sin nombre';
-    if (displayName.length > maxNameLength) {
-        displayName = displayName.substring(0, maxNameLength) + '...';
+    const es = getEl('emptyState');
+    if (es) es.classList.add('hidden');
+    
+    const acc = getEl('activeChatContainer');
+    if (acc) acc.classList.remove('hidden');
+
+    // Header Setup
+    const initialsEl = getEl('activeChatAvatarInitials');
+    if (initialsEl) {
+        initialsEl.textContent = getInitials(chat.name);
+        getEl('activeChatAvatarWrapper').style.background = getAvatarGradient(chat.name || phone);
     }
 
     const cn = getEl('activeChatName');
-    if (cn) cn.innerHTML = `${displayName} <span style="color: #8696a0; font-weight: 400; font-size: 13px;">(+${chat.phone})</span>`;
+    if (cn) cn.textContent = chat.name || 'Sin nombre';
 
-    const cp = getEl('activeChatPhone');
-    if (cp) cp.textContent = chat.instanceId ? (chat.instanceId === 'bot' ? 'Bot 1' : `Bot ${chat.instanceId.replace('bot_', '')}`) : '';
+    const cp = getEl('activeChatPhoneChip');
+    if (cp) cp.textContent = formatPhoneDisplay(chat.phone);
 
-    const ca = getEl('activeChatAvatar');
-    if (ca) ca.src = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(chat.name)}&backgroundColor=b6e3f4,c0aede,d1d4f9`;
-
+    const botId = chat.instanceId || 'bot_1';
+    const botColors = { 'bot_1': '#00a884', 'bot_2': '#7e57c2', 'bot_3': '#ff9800', 'bot_4': '#2196f3' };
     const badge = getEl('activeChatBotBadge');
     if (badge) {
-        badge.textContent = chat.instanceId ? (chat.instanceId === 'bot' ? 'BOT 1' : `BOT ${chat.instanceId.replace('bot_', '')}`) : 'BOT 1';
-        badge.style.background = chat.instanceId === 'bot_2' ? '#7e57c2' : (chat.instanceId === 'bot_3' ? '#ff9800' : '#00a884');
+        badge.textContent = botId.replace('_', ' ').toUpperCase();
+        badge.style.background = botColors[botId] || '#00a884';
     }
 
-    // Actualizar controles de IA y etiquetas
-    await loadAndRenderActiveChatControls(phone);
+    // Render messages & Controls
     renderMessages(phone);
+    await loadAndRenderActiveChatControls(phone);
 }
 
 async function loadAndRenderActiveChatControls(phone) {
@@ -897,12 +1001,18 @@ async function loadAndRenderActiveChatControls(phone) {
             lead = data.lead;
             if (currentState.conversations[phone]) {
                 currentState.conversations[phone].lead = lead;
+                if (lead.name && (!currentState.conversations[phone].name || currentState.conversations[phone].name === phone)) {
+                    currentState.conversations[phone].name = lead.name;
+                    if (getEl('activeChatName')) getEl('activeChatName').textContent = lead.name;
+                }
             }
         }
     } catch (e) {
-        // Fallback al lead existente en memoria
+        console.warn('Error fetching lead data for active chat:', e);
     }
+
     renderActiveChatControls(lead);
+    renderLeadProfilePanel(lead, currentState.conversations[phone]);
 }
 
 function renderActiveChatControls(lead) {
@@ -910,19 +1020,18 @@ function renderActiveChatControls(lead) {
     const btnToggle = getEl('btnToggleBotIA');
     const txtToggle = getEl('toggleBotIAText');
     const banner = getEl('chatManualNoticeBanner');
-    const tagsContainer = getEl('activeChatTagsContainer');
+    const catChip = getEl('activeChatCategoryText');
+    const statusChip = getEl('activeChatStatusChip');
 
     if (btnToggle && txtToggle) {
         if (isPaused) {
             btnToggle.style.background = '#ff9800';
             btnToggle.style.color = '#111';
             txtToggle.textContent = 'IA: PAUSADA';
-            btnToggle.title = 'Hacer clic para reactivar respuestas automáticas de IA';
         } else {
             btnToggle.style.background = '#00a884';
             btnToggle.style.color = '#fff';
             txtToggle.textContent = 'IA: ACTIVA';
-            btnToggle.title = 'Hacer clic para pausar la IA y atender manualmente';
         }
     }
 
@@ -930,17 +1039,249 @@ function renderActiveChatControls(lead) {
         banner.style.display = isPaused ? 'flex' : 'none';
     }
 
-    if (tagsContainer) {
-        tagsContainer.innerHTML = '';
-        const tags = (lead && Array.isArray(lead.tags)) ? lead.tags : [];
-        tags.forEach(tag => {
-            tagsContainer.insertAdjacentHTML('beforeend', `
-                <span style="background: rgba(83, 189, 235, 0.15); color: #53bdeb; border: 1px solid rgba(83, 189, 235, 0.3); padding: 2px 8px; border-radius: 12px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
-                    🏷️ ${tag}
-                    <button onclick="removeTagFromActiveChat('${tag}')" style="background:none; border:none; color:#ff7043; cursor:pointer; font-size:12px; padding:0; line-height:1;" title="Quitar etiqueta">&times;</button>
-                </span>
-            `);
+    if (catChip) {
+        catChip.textContent = (lead && (lead.category || lead.keyword)) ? (lead.category || lead.keyword) : 'Lead de Prospección';
+    }
+
+    if (statusChip && lead) {
+        const statusMap = {
+            'pending': { label: 'Pendiente', color: '#8696a0' },
+            'queued': { label: 'En Cola', color: '#ff9800' },
+            'contacted': { label: 'Contactado', color: '#00a884' },
+            'interested': { label: 'Interesado ⭐', color: '#25d366' },
+            'not_interested': { label: 'No Interesado', color: '#ef5350' }
+        };
+        const st = statusMap[lead.status] || { label: lead.status || 'Contactado', color: '#00a884' };
+        statusChip.textContent = st.label;
+        statusChip.style.color = st.color;
+        statusChip.style.background = `${st.color}20`;
+    }
+}
+
+// 🏢 RENDER BUSINESS PROFILE & CAMPAIGN STATS PANEL (RIGHT DRAWER)
+function renderLeadProfilePanel(lead, chat) {
+    const container = getEl('profilePanelContent');
+    if (!container) return;
+
+    if (!lead && !chat) {
+        container.innerHTML = '<div class="profile-placeholder">Selecciona un chat para ver los detalles.</div>';
+        return;
+    }
+
+    const businessName = lead?.name || lead?.businessName || chat?.name || 'Negocio';
+    const phone = lead?.phone || chat?.phone || '';
+    const formattedPhone = formatPhoneDisplay(phone);
+    const category = lead?.category || lead?.keyword || 'Sin rubro específico';
+    const address = lead?.address || lead?.location || 'Ubicación no especificada';
+    const rating = lead?.rating ? `⭐ <b>${lead.rating}</b> (${lead.reviewCount || 0} opiniones)` : 'Sin opiniones registradas';
+    const botId = (lead?.assignedToInstance || chat?.instanceId || 'bot_1').replace('_', ' ').toUpperCase();
+    
+    // Total messages & Sequence progress
+    const messagesCount = (chat?.messages && chat.messages.length) || lead?.messagesSent || 0;
+    const sequenceSentCount = Math.min(messagesCount, 4);
+    const sequencePct = Math.round((sequenceSentCount / 4) * 100);
+
+    // AI Generated Flag
+    const isAiGenerated = lead?.customSequencePrompt || lead?.aiMessageVariants ? '✨ Sí (ChatGPT 4o-mini)' : '✨ Sí (ChatGPT Prospección)';
+
+    // Web Audit Data
+    let webAuditHtml = '<div style="color: #8696a0; font-size: 12px;">Sin sitio web detectado</div>';
+    if (lead?.website) {
+        const url = lead.website.startsWith('http') ? lead.website : 'https://' + lead.website;
+        const audit = lead.webAudit || {};
+        webAuditHtml = `
+            <div style="margin-bottom: 8px;">
+                <a href="${url}" target="_blank" style="color: #53bdeb; font-weight: 600; text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 4px;">
+                    <span class="material-icons" style="font-size: 14px;">open_in_new</span> ${lead.website}
+                </a>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px;">
+                <span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: ${audit.cms ? '#7e57c225' : '#333'}; color: ${audit.cms ? '#b39ddb' : '#888'};">CMS: ${audit.cms || 'Desconocido'}</span>
+                <span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: ${audit.hasGA4 ? '#25d36625' : '#ef535025'}; color: ${audit.hasGA4 ? '#25d366' : '#ef5350'};">GA4: ${audit.hasGA4 ? 'SÍ' : 'NO'}</span>
+                <span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: ${audit.hasMetaPixel ? '#25d36625' : '#ef535025'}; color: ${audit.hasMetaPixel ? '#25d366' : '#ef5350'};">Meta Pixel: ${audit.hasMetaPixel ? 'SÍ' : 'NO'}</span>
+                <span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: ${audit.hasWhatsAppWidget ? '#25d36625' : '#ff980025'}; color: ${audit.hasWhatsAppWidget ? '#25d366' : '#ff9800'};">Botón WA: ${audit.hasWhatsAppWidget ? 'SÍ' : 'NO'}</span>
+            </div>
+        `;
+    }
+
+    // Customer Response Box
+    let responseHtml = '<div style="color: #8696a0; font-size: 12px; font-style: italic;">Sin respuesta del cliente aún.</div>';
+    if (lead?.whatsappResponse) {
+        responseHtml = `<div class="profile-quote-box">"${lead.whatsappResponse}"</div>`;
+    } else {
+        const incomingMsgs = (chat?.messages || []).filter(m => !(m.fromMe === true || m.from === 'me'));
+        if (incomingMsgs.length > 0) {
+            responseHtml = `<div class="profile-quote-box">"${incomingMsgs[incomingMsgs.length - 1].content}"</div>`;
+        }
+    }
+
+    // CRM Tags pills
+    const tags = (lead?.tags && Array.isArray(lead.tags)) ? lead.tags : [];
+    let tagsHtml = tags.map(t => `
+        <span style="background: rgba(83, 189, 235, 0.15); color: #53bdeb; border: 1px solid rgba(83, 189, 235, 0.3); padding: 2px 8px; border-radius: 12px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+            🏷️ ${t}
+            <button onclick="removeTagFromActiveChat('${t}')" style="background:none; border:none; color:#ef5350; cursor:pointer; font-size:12px;" title="Quitar">&times;</button>
+        </span>
+    `).join('');
+
+    container.innerHTML = `
+        <!-- 1. CARD: DATOS DEL NEGOCIO -->
+        <div class="profile-card">
+            <div class="profile-card-header">
+                <h4><span class="material-icons" style="font-size: 14px;">storefront</span> Información Comercial</h4>
+            </div>
+            <div class="profile-info-row">
+                <span class="profile-info-label">Nombre del Negocio</span>
+                <div class="profile-info-value" style="font-weight: 700; font-size: 15px; color: #fff;">${businessName}</div>
+            </div>
+            <div class="profile-info-row">
+                <span class="profile-info-label">Teléfono / WhatsApp</span>
+                <div class="profile-info-value" style="font-family: 'JetBrains Mono', monospace; color: #00bfa5;">${formattedPhone}</div>
+            </div>
+            <div class="profile-info-row">
+                <span class="profile-info-label">Rubro / Categoría</span>
+                <div class="profile-info-value">${category}</div>
+            </div>
+            <div class="profile-info-row">
+                <span class="profile-info-label">Dirección & Zona</span>
+                <div class="profile-info-value">${address}</div>
+            </div>
+            <div class="profile-info-row">
+                <span class="profile-info-label">Reputación Google Maps</span>
+                <div class="profile-info-value">${rating}</div>
+            </div>
+        </div>
+
+        <!-- 2. CARD: ESTADÍSTICAS DE ENVÍO & IA -->
+        <div class="profile-card">
+            <div class="profile-card-header">
+                <h4><span class="material-icons" style="font-size: 14px;">auto_awesome</span> Prospección & IA</h4>
+            </div>
+            <div class="profile-stat-grid">
+                <div class="profile-stat-box">
+                    <div class="profile-stat-val" style="color: #00a884;">${botId}</div>
+                    <div class="profile-stat-lbl">Bot Asignado</div>
+                </div>
+                <div class="profile-stat-box">
+                    <div class="profile-stat-val" style="color: #38bdf8;">${sequenceSentCount}/4</div>
+                    <div class="profile-stat-lbl">Msjs Secuencia</div>
+                </div>
+            </div>
+            <div style="margin-top: 10px;">
+                <div style="display:flex; justify-content:space-between; font-size:10px; color:#8696a0; margin-bottom:3px;">
+                    <span>Progreso Secuencia:</span>
+                    <span>${sequencePct}%</span>
+                </div>
+                <div style="background: #111b21; height: 6px; border-radius: 3px; overflow: hidden;">
+                    <div style="background: #00a884; width: ${sequencePct}%; height: 100%;"></div>
+                </div>
+            </div>
+            <div class="profile-info-row" style="margin-top: 10px;">
+                <span class="profile-info-label">Generación de Mensajes</span>
+                <div class="profile-info-value" style="color: #25d366; font-weight: 600;">${isAiGenerated}</div>
+            </div>
+            <div class="profile-info-row">
+                <span class="profile-info-label">Última Respuesta del Cliente</span>
+                ${responseHtml}
+            </div>
+            ${lead?.aiIntent ? `
+            <div class="profile-info-row">
+                <span class="profile-info-label">Intención Detectada por IA</span>
+                <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                    ${getAiIntentBadge(lead)}
+                    ${lead.aiConfidence ? `<span style="font-size: 11px; color: #8696a0;">(${(lead.aiConfidence*100).toFixed(0)}% certeza)</span>` : ''}
+                </div>
+            </div>
+            ` : ''}
+        </div>
+
+        <!-- 3. CARD: AUDITORÍA WEB -->
+        <div class="profile-card">
+            <div class="profile-card-header">
+                <h4><span class="material-icons" style="font-size: 14px;">language</span> Auditoría Técnica Web</h4>
+            </div>
+            ${webAuditHtml}
+            ${lead?._id ? `
+                <button onclick="triggerManualWebAudit('${lead._id}')" class="profile-action-btn" style="margin-top: 10px;">
+                    <span class="material-icons" style="font-size: 14px;">search</span> Re-auditar Código Web
+                </button>
+            ` : ''}
+        </div>
+
+        <!-- 4. CARD: ETIQUETAS & CONTROL -->
+        <div class="profile-card">
+            <div class="profile-card-header">
+                <h4><span class="material-icons" style="font-size: 14px;">label</span> Etiquetas CRM</h4>
+                <button onclick="promptAddTagToActiveChat()" style="background:#202c33; border:1px solid #2f3b43; color:#00a884; font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; cursor:pointer;">+ Agregar</button>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 5px; min-height: 24px;">
+                ${tagsHtml || '<span style="color: #666; font-size: 11px;">Sin etiquetas asignadas.</span>'}
+            </div>
+        </div>
+
+        <!-- 5. ACCIONES RÁPIDAS OPERADOR -->
+        <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 8px;">
+            ${phone ? `
+                <a href="https://wa.me/${phone}" target="_blank" class="profile-action-btn whatsapp">
+                    <span class="material-icons" style="font-size: 16px;">chat</span> Abrir en WhatsApp Web
+                </a>
+            ` : ''}
+            ${lead?.mapsUrl ? `
+                <a href="${lead.mapsUrl}" target="_blank" class="profile-action-btn">
+                    <span class="material-icons" style="font-size: 16px;">place</span> Ver en Google Maps
+                </a>
+            ` : ''}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <button onclick="updateLeadStatusFromChat('interested')" class="profile-action-btn" style="color: #25d366; border-color: rgba(37, 211, 102, 0.3);">
+                    👍 Interesado
+                </button>
+                <button onclick="updateLeadStatusFromChat('not_interested')" class="profile-action-btn" style="color: #ef5350; border-color: rgba(239, 83, 80, 0.3);">
+                    👎 No Interesado
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function toggleLeadProfilePanel(forceState) {
+    const panel = getEl('chatProfilePanel');
+    const btn = getEl('btnToggleProfilePanel');
+    if (!panel) return;
+
+    if (forceState !== undefined) {
+        if (forceState) {
+            panel.classList.remove('collapsed');
+            if (btn) btn.classList.add('active');
+        } else {
+            panel.classList.add('collapsed');
+            if (btn) btn.classList.remove('active');
+        }
+    } else {
+        panel.classList.toggle('collapsed');
+        if (btn) btn.classList.toggle('active');
+    }
+}
+
+async function updateLeadStatusFromChat(newStatus) {
+    const phone = currentState.activeChatPhone;
+    if (!phone) return;
+    try {
+        const res = await fetchAPI(`/lead/by-phone/${encodeURIComponent(phone)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
         });
+        const data = await res.json();
+        if (data.success && data.lead) {
+            if (currentState.conversations[phone]) {
+                currentState.conversations[phone].lead = data.lead;
+            }
+            renderActiveChatControls(data.lead);
+            renderLeadProfilePanel(data.lead, currentState.conversations[phone]);
+            renderChatList();
+        }
+    } catch (e) {
+        console.error('Error updating lead status:', e);
     }
 }
 
@@ -967,6 +1308,7 @@ async function toggleActiveChatBotIA(forceEnable = false) {
                 currentState.conversations[phone].lead = data.lead;
             }
             renderActiveChatControls(data.lead);
+            renderLeadProfilePanel(data.lead, currentState.conversations[phone]);
             renderChatList();
         }
     } catch (e) {
@@ -999,6 +1341,7 @@ async function promptAddTagToActiveChat() {
                     currentState.conversations[phone].lead = data.lead;
                 }
                 renderActiveChatControls(data.lead);
+                renderLeadProfilePanel(data.lead, currentState.conversations[phone]);
                 renderChatList();
             }
         } catch (e) {
@@ -1027,6 +1370,7 @@ async function removeTagFromActiveChat(tagToRemove) {
                 currentState.conversations[phone].lead = data.lead;
             }
             renderActiveChatControls(data.lead);
+            renderLeadProfilePanel(data.lead, currentState.conversations[phone]);
             renderChatList();
         }
     } catch (e) {
@@ -1040,39 +1384,28 @@ function renderMessages(phone) {
     container.innerHTML = '';
 
     chat.messages.forEach(msg => {
-        // Determinar si es mensaje saliente (enviado por el bot) o entrante (del cliente)
         const isOutbound = msg.fromMe === true || msg.from === 'me' || msg.metadata?.manual || msg.botInstance;
         const time = new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        // Determinar el estado de los ticks según el status del mensaje
         let ticksHtml = '';
         if (isOutbound) {
             const status = msg.status || 'sent';
             if (status === 'sent') {
-                ticksHtml = '<span class="material-icons" style="font-size:14px; color:#8696a0;">done</span>';
+                ticksHtml = '<span class="material-icons" style="font-size:13px; color:#8696a0;">done</span>';
             } else if (status === 'delivered') {
-                ticksHtml = '<span class="material-icons" style="font-size:14px; color:#8696a0;">done_all</span>';
+                ticksHtml = '<span class="material-icons" style="font-size:13px; color:#8696a0;">done_all</span>';
             } else if (status === 'read') {
-                ticksHtml = '<span class="material-icons" style="font-size:14px; color:#53bdeb;">done_all</span>';
+                ticksHtml = '<span class="material-icons" style="font-size:13px; color:#53bdeb;">done_all</span>';
             } else if (status === 'failed') {
-                ticksHtml = '<span class="material-icons" style="font-size:14px; color:#f44336;">error_outline</span>';
+                ticksHtml = '<span class="material-icons" style="font-size:13px; color:#ef5350;">error_outline</span>';
             }
         }
 
-        // El mensaje saliente va a la derecha (class="out"), entrante a la izquierda (class="in")
         container.insertAdjacentHTML('beforeend', `
-            <div class="message-bubble ${isOutbound ? 'out' : 'in'}" style="
-                max-width: 65%;
-                padding: 8px 12px;
-                border-radius: ${isOutbound ? '8px 8px 0 8px' : '8px 8px 8px 0'};
-                margin: 4px 0;
-                margin-${isOutbound ? 'left' : 'right'}: auto;
-                background: ${isOutbound ? '#005c4b' : '#202c33'};
-                position: relative;
-            ">
-                <span class="msg-text" style="word-wrap: break-word; white-space: pre-wrap;">${msg.content}</span>
-                <div class="msg-meta" style="display: flex; justify-content: flex-end; align-items: center; gap: 4px; margin-top: 4px;">
-                    <span class="msg-time" style="font-size: 11px; color: #8696a0;">${time}</span>
+            <div class="message-bubble ${isOutbound ? 'out' : 'in'}">
+                <span class="msg-text">${msg.content}</span>
+                <div class="msg-meta">
+                    <span class="msg-time">${time}</span>
                     ${ticksHtml}
                 </div>
             </div>
@@ -1092,14 +1425,13 @@ function setupChatListeners() {
         const phone = currentState.activeChatPhone;
         const chat = currentState.conversations[phone];
 
-        // Emitir mensaje al bot
         socket.emit('command_bot', { 
             instanceId: chat?.instanceId || 'bot_1', 
             command: 'send_whatsapp_message', 
             payload: { phone: phone, message: text } 
         });
 
-        // 🛡️ REGLA: Intervención manual pausa automáticamente la IA para este chat
+        // Auto-pause AI on manual message
         try {
             await fetchAPI(`/lead/by-phone/${encodeURIComponent(phone)}`, {
                 method: 'PUT',
@@ -1113,6 +1445,7 @@ function setupChatListeners() {
                 chat.lead.botPaused = true;
                 chat.lead.manualIntervention = true;
                 renderActiveChatControls(chat.lead);
+                renderLeadProfilePanel(chat.lead, chat);
                 renderChatList();
             }
         } catch (e) {
@@ -1121,38 +1454,35 @@ function setupChatListeners() {
 
         chatInput.value = '';
     };
+
     if (sendBtn) sendBtn.addEventListener('click', handleSend);
     if (chatInput) chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSend(); });
 
-    document.querySelectorAll('.filter-buttons-mini .filter-btn').forEach(btn => {
+    document.querySelectorAll('#chatBotFilters .filter-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.filter-buttons-mini .filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active'); currentState.filter = btn.dataset.filter; renderChatList();
+            document.querySelectorAll('#chatBotFilters .filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active'); 
+            currentState.filter = btn.dataset.filter; 
+            renderChatList();
         });
     });
 }
 
 function updateBotFilters() {
-    const container = document.querySelector('.filter-buttons-mini');
+    const container = getEl('chatBotFilters');
     if (!container) return;
 
-    // Guardar el filtro actual
-    const currentFilter = currentState.filter;
-
-    // Generar botones dinámicamente
-    let html = `<button class="filter-btn ${currentFilter === 'all' ? 'active' : ''}" data-filter="all">All</button>`;
-
-    // Obtener IDs de bots ordenados
+    const currentFilter = currentState.filter || 'all';
+    let html = `<button class="filter-btn ${currentFilter === 'all' ? 'active' : ''}" data-filter="all">Todos</button>`;
     const botIds = Array.from(currentState.bots.keys()).sort();
 
     botIds.forEach(id => {
         const shortId = id.includes('_') ? id.split('_')[1].toUpperCase() : id.toUpperCase();
-        html += `<button class="filter-btn ${currentFilter === id ? 'active' : ''}" data-filter="${id}">${shortId}</button>`;
+        html += `<button class="filter-btn ${currentFilter === id ? 'active' : ''}" data-filter="${id}">B${shortId}</button>`;
     });
 
     container.innerHTML = html;
 
-    // Re-vincular eventos
     container.querySelectorAll('.filter-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             container.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -1165,12 +1495,9 @@ function updateBotFilters() {
 
 function handleIncomingRealtimeMessage(data) {
     const { from, to, body, content, sentAt, timestamp, instanceId, fromMe, leadName } = data;
-
-    // El servidor puede enviar body o content, y sentAt o timestamp
     const msgContent = body || content || '';
     const msgTime = sentAt || timestamp || new Date();
 
-    // Normalizar teléfono
     let phone;
     if (fromMe === true || from === 'me') {
         phone = (to || '').split('@')[0].replace(/\D/g, '');
@@ -1181,14 +1508,11 @@ function handleIncomingRealtimeMessage(data) {
     if (!phone) return;
 
     if (!currentState.conversations[phone]) {
-        // Si es un chat nuevo, refrescar lista
         fetchConversations();
         return;
     }
 
     const chat = currentState.conversations[phone];
-
-    // Evitar duplicados visuales si el mensaje ya llegó por polling o evento previo
     const isDuplicate = chat.messages.some(m =>
         m.content === msgContent &&
         Math.abs(new Date(m.sentAt) - new Date(msgTime)) < 2000
@@ -1201,15 +1525,17 @@ function handleIncomingRealtimeMessage(data) {
         content: msgContent,
         sentAt: msgTime,
         fromMe: fromMe === true || from === 'me',
-        instanceId,
+        instanceId: instanceId || chat.instanceId,
         leadName: leadName || chat.name
     });
 
     chat.lastMessage = msgContent;
     chat.lastTime = msgTime;
+    if (instanceId) chat.instanceId = instanceId;
 
     if (currentState.activeChatPhone === phone) {
         renderMessages(phone);
+        loadAndRenderActiveChatControls(phone);
     }
     renderChatList();
 }
