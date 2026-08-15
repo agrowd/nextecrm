@@ -94,9 +94,6 @@
                 <li class="nav-item" data-view="connection" title="Conexión de Bots">
                     <span class="material-icons">qr_code_2</span>
                 </li>
-                <li class="nav-item" data-view="messages" title="Editar Mensajes">
-                    <span class="material-icons">edit_note</span>
-                </li>
             </ul>
         </nav>
 
@@ -777,44 +774,10 @@
                                 style="width:100%; padding:12px; background:#202c33; border:1px solid #2f3b43; color:white; border-radius:8px; margin-top:5px; outline: none;">
                         </div>
                         <div style="margin-top: 15px;">
-                            <label style="color: #8696a0; font-size: 13px; display: block;">Enfriamiento
-                                (min)</label>
+                            <label style="color: #8696a0; font-size: 13px; display: block;">Enfriamiento (min)</label>
                             <input type="number" id="cfgCoolOff"
                                 style="width:100%; padding:12px; background:#202c33; border:1px solid #2f3b43; color:white; border-radius:8px; margin-top:5px; outline: none;">
                         </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- VISTA 8: EDITAR MENSAJES -->
-            <section id="view-messages" class="view-section">
-                <header class="section-header">
-                    <h1>Editor de Variantes de Mensajes</h1>
-                    <div class="header-actions">
-                        <span id="templatesStatus" style="font-size: 13px; color: #8696a0; margin-right: 15px;"></span>
-                        <div style="display:flex; gap:10px;">
-                            <input type="file" id="jsonUploadInput" style="display: none;" accept=".json">
-                            <button class="action-btn" onclick="document.getElementById('jsonUploadInput').click()"
-                                style="padding: 6px 12px; font-size: 13px; background: #202c33; border: 1px solid #2f3b43;">
-                                <span class="material-icons"
-                                    style="font-size: 16px; vertical-align: bottom;">upload_file</span> Cargar JSON
-                            </button>
-                            <button class="action-btn" onclick="exportTemplatesJSON()"
-                                style="padding: 6px 12px; font-size: 13px; background: #202c33; border: 1px solid #2f3b43;">
-                                <span class="material-icons"
-                                    style="font-size: 16px; vertical-align: bottom;">download</span> Bajar JSON
-                            </button>
-                            <button class="refresh-btn" id="refreshTemplates"><span
-                                    class="material-icons">refresh</span></button>
-                        </div>
-                    </div>
-                </header>
-                <div class="messages-editor-container" id="messagesAccordion"
-                    style="max-width: 1000px; margin: 0 auto; padding-bottom: 50px;">
-                    <div style="text-align: center; padding: 50px; color: #8696a0;">
-                        <span class="material-icons"
-                            style="font-size: 48px; margin-bottom: 10px;">hourglass_empty</span>
-                        <p>Cargando variantes...</p>
                     </div>
                 </div>
             </section>
