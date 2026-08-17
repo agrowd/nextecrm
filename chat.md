@@ -643,6 +643,24 @@ Se diseñó la arquitectura de los 4 prompts dinámicos para `gpt-4o-mini` sin v
    - Enlace a Google Maps verificado.
    - Botones "Interesado" / "No Interesado" y Etiquetas CRM con persistencia en tiempo real.
 
+---
+
+## Pregunta del Usuario (2026-08-17):
+> No me carga el qr
+
+---
+
+## Diagnóstico y Solución Aplicada:
+1. **Causa Raíz:**
+   - En `bot/index.js`, el flag `this.isStarted` bloqueaba la generación de QR si el bot ya había intentado un inicio previo sin emitir el evento `qr`.
+   - Puppeteer en Linux Slim (Debian) requería flags específicos (`headless: true` y path a `/usr/bin/chromium`) para no fallar con Chromium.
+   - En el dashboard, la imagen del QR dependía exclusivamente del servicio externo `api.qrserver.com` que puede fallar o bloquearse por red/CSP.
+2. **Solución Realizada:**
+   - **Bot (`bot/index.js`)**: El comando `start_bot` / `generate_qr` ahora re-emite el QR disponible de inmediato o reinicia Puppeteer limpiando bloqueos de sesión anteriores.
+   - **Backend (`server/index.js`)**: Nuevos endpoints REST `POST /api/bot/:instanceId/generate-qr` y `POST /bot/:instanceId/generate-qr` como vía redundante a los sockets.
+   - **Dashboard (`crm-dashboard`)**: Se integró `qrcode.min.js` para renderizar el QR localmente en Canvas/SVG en el navegador sin depender de APIs externas, más botón de **Regenerar QR**. Cache buster actualizado a `v=2.9`.
+
+
 
 
 

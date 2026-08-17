@@ -118,14 +118,13 @@ class WhatsAppBot {
     this.lastNoLeadsLog = null; // Para controlar logs de "no hay leads"
 
     // 🔑 MULTI-BOT: Identificador único de esta instancia
-    console.log(`🔍 [INIT] Checking Identity... ENV_ID: '${process.env.BOT_INSTANCE_ID}'`);
-    if (!process.env.BOT_INSTANCE_ID) {
-      console.warn('⚠️ BOT_INSTANCE_ID missing from environment. Generating random ID...');
-    }
-    this.instanceId = process.env.BOT_INSTANCE_ID || `bot_${Date.now().toString(36)}`;
+    const currentDir = path.basename(__dirname);
+    const defaultInstanceId = (currentDir === 'bot' || currentDir === 'bot_1') ? 'bot_1' : currentDir;
+    this.instanceId = process.env.BOT_INSTANCE_ID || defaultInstanceId;
+    this.lastQr = null; // Almacena el último QR generado
     this.connectedNumber = null; // Se llena cuando WhatsApp conecta
     this.lastMessageTimestamps = new Map(); // ⏱️ Tiempos de envío para detectar auto-replies
-    console.log(`🤖 Instancia de bot INICIADA: ${this.instanceId}`);
+    console.log(`🤖 Instancia de bot INICIADA: ${this.instanceId} (Directorio: ${currentDir})`);
 
     // Sistema para detectar leads atascados
     this.stuckLeads = new Map(); // Almacena leads que se están procesando repetidamente
@@ -326,16 +325,39 @@ class WhatsAppBot {
 
     this.socket.on('bot_command', async (data) => {
       const { command, payload } = data;
-      this.log(`📥 Comando recibido: ${command}`);
+      this.log(`📥 [${this.instanceId}] Comando recibido: ${command}`);
 
-      if (command === 'start_bot') {
-        if (this.isStarted) {
-          this.log('⚠️ El bot ya está iniciado.', 'warn');
+      if (command === 'start_bot' || command === 'generate_qr') {
+        this.log(`🚀 [${this.instanceId}] Solicitud para generar QR / conectar sesión...`);
+        
+        if (this.isReady && this.connectedNumber) {
+          this.log(`✅ [${this.instanceId}] Ya conectado como +${this.connectedNumber}`);
+          this.socket.emit('bot_ready', { instanceId: this.instanceId, wid: this.connectedNumber });
           return;
         }
-        await this.initializeWhatsApp();
+
+        if (this.lastQr) {
+          this.log(`📱 [${this.instanceId}] Re-emitiendo QR disponible...`);
+          this.socket.emit('bot_qr', { instanceId: this.instanceId, qr: this.lastQr });
+        }
+
+        if (!this.client || !this.isStarted) {
+          await this.initializeWhatsApp();
+        } else {
+          try {
+            this.log(`🔄 [${this.instanceId}] Re-intentando inicialización de cliente...`);
+            await this.client.initialize();
+          } catch (initErr) {
+            console.warn(`⚠️ Error re-inicializando: ${initErr.message}. Creando nuevo cliente...`);
+            this.isStarted = false;
+            await this.initializeWhatsApp();
+          }
+        }
       } else if (command === 'stop_bot') {
         this.log('🛑 Deteniendo bot por comando remoto...', 'warn');
+        if (this.client) {
+          try { await this.client.destroy(); } catch (e) {}
+        }
         process.exit(0);
       } else if (command === 'send_whatsapp_message') {
         await this.handleManualReply(payload);
@@ -416,8 +438,8 @@ class WhatsAppBot {
     // ✅ CONFIGURACIÓN PUPPETEER ESTABILIZADA
     // Se han eliminado flags experimentales que causaban crashes
     const stealthPuppeteerConfig = {
-      headless: process.env.HEADLESS === 'true' ? 'shell' : (process.env.HEADLESS === 'shell' ? 'shell' : false),
-      executablePath: process.env.CHROME_PATH || undefined,
+      headless: process.env.HEADLESS === 'false' ? false : true,
+      executablePath: process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH || (fs.existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined),
       bypassCSP: true, // 🛡️ FIX CRÍTICO: Evita "Execution context was destroyed"
       ignoreHTTPSErrors: true,
       args: [

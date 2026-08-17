@@ -1,6 +1,25 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-08-15 (20:55 Argentina)
+## Current Session: 2026-08-17 (11:55 Argentina)
+- **Objective:** Solucionar generación y carga del Código QR en "Conexión de Bots" (Bot 1 "Listo sin sesión" no generaba/cargaba QR).
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** master (pending push)
+- **Deploy:** Listo para desplegar en VPS (`git pull` en `/srv/rascafull`).
+
+### 49. Reparación Integral de Generación de QR y Puppeteer
+- **Causa Raíz:**
+  1. En `bot/index.js`, `this.isStarted` bloqueaba la generación de QR si el bot ya había intentado un inicio previo sin emitir el evento `qr`.
+  2. Puppeteer en Debian/Docker usaba `headless: 'shell'`, lo cual crasheaba con `/usr/bin/chromium` estándar en Linux Slim.
+  3. En el frontend, el QR dependía exclusivamente de un servicio de imágenes externo (`api.qrserver.com`) sin renderizado local.
+  4. Faltaba un endpoint REST HTTP como vía redundante a los sockets para forzar el inicio del bot y la generación del QR.
+- **Solución Realizada:**
+  1. Se reescribió el handler `start_bot` / `generate_qr` en `bot/index.js` para re-emitir el QR si ya existe o reintentar la inicialización limpia de Puppeteer.
+  2. Se configuró `headless: process.env.HEADLESS === 'false' ? false : true` y `executablePath` seguro para `/usr/bin/chromium`.
+  3. Se integró `qrcode.min.js` (generación local vía Canvas/SVG) con fallback visual y botón de "Regenerar QR".
+  4. Se añadieron los endpoints REST `POST /api/bot/:instanceId/generate-qr` y `POST /bot/:instanceId/generate-qr` en `server/index.js`.
+  5. Se actualizó el cache buster a `v=2.9`.
+
+## Previous Session: 2026-08-15 (20:55 Argentina)
 - **Objective:** Corregir detección de respuesta de clientes (evitar mostrar mensajes propios del bot), mejorar auditor web (detección precisa de botón WhatsApp, CMS, GA4 y Meta Pixel), resolver identificadores LID a nombres y teléfonos reales, y habilitar acciones operativas y re-auditoría masiva.
 - **Status:** ✅ COMPLETED & SYNCHRONIZED
 - **Git Info:** master (pending push)

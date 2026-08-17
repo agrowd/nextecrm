@@ -1018,6 +1018,55 @@ app.post('/api/bot/:instanceId/start', async (req, res) => {
   }
 });
 
+// POST /api/bot/:instanceId/generate-qr & POST /bot/:instanceId/generate-qr - Solicitar generación de QR
+app.post(['/api/bot/:instanceId/generate-qr', '/bot/:instanceId/generate-qr'], async (req, res) => {
+  try {
+    const { instanceId } = req.params;
+    console.log(`📱 [QR REQUEST] Solicitud de QR para ${instanceId}`);
+
+    const botSocketId = connectedBots.get(instanceId);
+    if (botSocketId) {
+      io.to(botSocketId).emit('bot_command', { command: 'start_bot', payload: {} });
+      return res.json({ success: true, message: `Comando de generación de QR enviado a ${instanceId}` });
+    }
+
+    // Si el bot no está conectado al socket, iniciarlo
+    const botDir = instanceId === 'bot_1' ? 'bot' : instanceId;
+    const botPath = path.join(__dirname, '..', botDir);
+    const botScript = path.join(botPath, 'index.js');
+    console.log(`⚠️ Bot ${instanceId} no conectado a socket. Iniciando proceso desde ${botScript}...`);
+
+    const envVars = {
+      ...process.env,
+      BOT_INSTANCE_ID: instanceId,
+      AUTO_START: 'true',
+      BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8484'
+    };
+
+    exec(`pm2 start "${botScript}" --name nexte-${instanceId} --watch=false --update-env`, {
+      cwd: botPath,
+      env: envVars
+    }, (err) => {
+      if (err) {
+        spawn('node', [botScript], {
+          cwd: botPath,
+          env: envVars,
+          detached: true,
+          stdio: 'ignore'
+        }).unref();
+      }
+    });
+
+    botStatuses.set(instanceId, { status: 'starting', startedAt: new Date() });
+    io.emit('bot_status_update', { instanceId, status: 'starting' });
+
+    res.json({ success: true, message: `Iniciando proceso del bot ${instanceId} para generar QR...` });
+  } catch (error) {
+    console.error('Error en generate-qr endpoint:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // POST /api/bot/test-send-message - Enviar un mensaje de prueba desde el bot activo
 app.post('/api/bot/test-send-message', async (req, res) => {
   try {

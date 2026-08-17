@@ -1654,7 +1654,7 @@ function renderBotControls() {
             statusColor = '#ff9800';
             statusHtml = `<span class="status-dot" style="background:${statusColor}"></span> Listo (Sin sesión)`;
             actionHtml = `
-                <button class="action-btn start-btn" onclick="this.innerHTML='<span class=\'material-icons rotating\'>sync</span> Generando QR...'; sendCommand('${id}', 'start_bot')" style="background: ${color}; color: white; border: none; width: 100%; padding: 10px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <button id="btn_gen_qr_${id}" class="action-btn start-btn" onclick="requestBotQR('${id}')" style="background: ${color}; color: white; border: none; width: 100%; padding: 10px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600;">
                     <span class="material-icons">qr_code_scanner</span> GENERAR CÓDIGO QR
                 </button>
                 <button class="action-btn stop-btn" style="margin-top: 8px; width: 100%;" onclick="stopBotProcess('${id}')">DETENER</button>
@@ -1663,11 +1663,43 @@ function renderBotControls() {
             statusColor = '#ff9800';
             statusHtml = `<span class="status-dot" style="background:${statusColor}"></span> Escanea el QR`;
             actionHtml = `
-                <div class="qr-display" style="background: white; padding: 10px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: center;">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(bot.qr || '')}" style="width: 150px; height: 150px;">
+                <div class="qr-display-card" style="background: #ffffff; padding: 15px; border-radius: 12px; margin-bottom: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <div id="qr_canvas_${id}" style="display: flex; justify-content: center; margin-bottom: 8px;"></div>
+                    <img id="qr_img_${id}" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(bot.qr || '')}" style="width: 180px; height: 180px; display: none;" alt="Código QR WhatsApp">
+                    <p style="color: #202c33; font-size: 11px; font-weight: 600; margin-top: 6px; text-align: center;">Escaneá desde WhatsApp > Dispositivos vinculados</p>
                 </div>
-                <button class="action-btn stop-btn" onclick="sendCommand('${id}', 'stop_bot')">CANCELAR QR</button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="action-btn" onclick="requestBotQR('${id}')" style="background: #202c33; border: 1px solid #2f3b43; color: #53bdeb; font-size: 11px; padding: 8px; flex: 1; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                        <span class="material-icons" style="font-size: 14px;">sync</span> Regenerar
+                    </button>
+                    <button class="action-btn stop-btn" onclick="sendCommand('${id}', 'stop_bot')" style="flex: 1; padding: 8px; font-size: 11px;">
+                        CANCELAR
+                    </button>
+                </div>
             `;
+            setTimeout(() => {
+                const canvasEl = document.getElementById(`qr_canvas_${id}`);
+                const imgEl = document.getElementById(`qr_img_${id}`);
+                if (canvasEl && bot.qr) {
+                    canvasEl.innerHTML = '';
+                    if (typeof QRCode !== 'undefined') {
+                        try {
+                            new QRCode(canvasEl, {
+                                text: bot.qr,
+                                width: 180,
+                                height: 180,
+                                colorDark: '#000000',
+                                colorLight: '#ffffff',
+                                correctLevel: QRCode.CorrectLevel.M
+                            });
+                        } catch (e) {
+                            if (imgEl) imgEl.style.display = 'block';
+                        }
+                    } else if (imgEl) {
+                        imgEl.style.display = 'block';
+                    }
+                }
+            }, 60);
         } else if (bot.status === 'ready') {
             statusColor = '#25d366';
             statusHtml = `<span class="status-dot" style="background:${statusColor}; box-shadow: 0 0 8px ${statusColor};"></span> Operativo`;
@@ -1925,7 +1957,28 @@ async function generateNewBot() {
     }
 }
 
-function sendCommand(instanceId, command, payload = {}) { socket.emit('command_bot', { instanceId, command, payload }); }
+function sendCommand(instanceId, command, payload = {}) { 
+    socket.emit('command_bot', { instanceId, command, payload }); 
+}
+
+async function requestBotQR(instanceId) {
+    const btn = getEl(`btn_gen_qr_${instanceId}`);
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-icons rotating" style="font-size: 16px;">sync</span> Generando QR...';
+    }
+
+    // 1. Emitir comando Socket
+    sendCommand(instanceId, 'start_bot');
+
+    // 2. Solicitar vía REST API fallback
+    try {
+        await fetchAPI(`/api/bot/${instanceId}/generate-qr`, { method: 'POST' });
+    } catch (e) {
+        console.warn('Fallback HTTP request QR:', e);
+    }
+}
+window.requestBotQR = requestBotQR;
 
 async function triggerTestSequence() {
     const confirmed = await ui.modal.confirm(
