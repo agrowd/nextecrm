@@ -1,6 +1,34 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-08-17 (11:55 Argentina)
+## Current Session: 2026-08-19 (20:25 Argentina)
+- **Objective:** Rediseñar el motor de secuencias de prospección (`advancedTemplateGenerator.js`) con hiper-personalización por datos scrapeados de Maps (rating, opiniones, auditoría web, ubicación), segmentación inteligente por rubros (Salud, Gastro, Fitness/Estética, Comercio, Servicios) y múltiples combinaciones anti-spam para cada mensaje.
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** master (pending push)
+- **Deploy:** Listo para desplegar en VPS (`git pull` en `/srv/rascafull`).
+
+### 50. Segmentación de Mensajes por Rubro, Variables Scrapeadas y Variantes Anti-Spam
+- **Problema:**
+  1. Los mensajes posteriores al 2do eran idénticos y genéricos para todos los negocios (un menú completo de opciones que no encajaba con el dolor específico del rubro).
+  2. El mensaje 1 no aprovechaba la riqueza de datos scrapeados de Google Maps (calificación de estrellas, cantidad de reseñas, presencia o ausencia de sitio web, falta de botón de WhatsApp).
+  3. Riesgo de detección de spam por enviar exactamente la misma estructura de texto a todos los prospectos.
+- **Solución Realizada:**
+  1. **Mensaje 1 (Hiper-Personalizado con Scraped Data)**:
+     - 30 saludos iniciales aleatorios.
+     - Detección y mención dinámica de rating y cantidad de opiniones de Maps (ej. *"con 4.9 estrellas y más de 120 opiniones"*).
+     - Detección técnica web (sin web en Maps, con web pero sin botón flotante de WhatsApp, o presencia online consolidada).
+  2. **Mensaje 2 (Dolor y Valor Específico por Categoría)**:
+     - **Salud/Odontología**: Turnero médico online, agendas, reducción de ausentismo con confirmación automática y fichas de pacientes.
+     - **Gastronomía**: Carta digital QR, bot de pedidos a WhatsApp sin comisiones de apps (PedidosYa/Rappi) y reservas.
+     - **Estética/Fitness**: Asistente virtual 24/7 para consultas de precios y planes, validación de señas/pagos y software de turnos/socios.
+     - **Comercio/Indumentaria**: Tienda E-Commerce con Mercado Pago, catálogo online y bot de stock/talles 24/7.
+     - **Servicios/Profesionales**: Web de alta conversión, posicionamiento #1 en Google Maps en la zona y cotizador automático.
+  3. **Mensaje 3 (Propuesta Comercial Adaptada)**:
+     - Tarifarios específicos por rubro con precios vigentes en promoción (Software $350k, IA NatoH $180k, Web $250k / E-Commerce $500k, Maps $150k, Combos $690k).
+  4. **Mensaje 4 (Call to Action con Demos del Rubro)**:
+     - Ofrece ejemplos reales y demos de sistemas/webs del rubro correspondiente.
+  5. Sincronizado en todas las carpetas de bots (`bot/`, `bot_1/`, `bot_2/`, `bot_3/`, `bot_4/`).
+
+## Previous Session: 2026-08-17 (11:55 Argentina)
 - **Objective:** Solucionar generación y carga del Código QR en "Conexión de Bots" (Bot 1 "Listo sin sesión" no generaba/cargaba QR).
 - **Status:** ✅ COMPLETED & SYNCHRONIZED
 - **Git Info:** master (pending push)

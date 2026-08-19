@@ -3,378 +3,471 @@ const axios = require('axios');
 class AdvancedTemplateGenerator {
     constructor() {
         this.backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
-        // ============ PARTES COMBINABLES ============
 
-        // SALUDOS (30 variantes) - Consistentes con identidad
-        this.saludos = [
-            "¡Hola {nombre}! Soy Juan Cruz de Nexte Marketing.",
-            "¡Buen día {nombre}! Te saluda Juan Cruz de Nexte Marketing.",
-            "¡Buenas tardes {nombre}! Soy Juan Cruz, de Nexte Marketing.",
-            "Hola {nombre}, ¿cómo estás? Soy Juan Cruz de Nexte Marketing.",
-            "¡Hola! Te habla Juan Cruz, de Nexte Marketing.",
-            "¡Qué tal {nombre}! Soy Juan Cruz de Nexte Marketing.",
-            "¡Hola {nombre}! Juan Cruz de Nexte Marketing por acá.",
-            "Buenas {nombre}! Te escribe Juan Cruz de Nexte Marketing.",
-            "¡Hola {nombre}! Te contacta Juan Cruz desde Nexte Marketing.",
-            "¡Hola! Soy Juan Cruz de Nexte Marketing, vi tu negocio.",
-            "¡Buen día! Soy Juan Cruz, director de Nexte Marketing.",
-            "Hey {nombre}! Soy Juan Cruz de Nexte Marketing.",
-            "Hola {nombre}! Te saluda Juan Cruz de Nexte Marketing.",
-            "¡Hola! Soy Juan Cruz de Nexte Marketing.",
-            "¡Hola {nombre}! Soy Juan Cruz de Nexte Marketing, te molesto un segundo.",
-            "Buen día {nombre}, soy Juan Cruz de Nexte Marketing.",
-            "¡Hola! Soy Juan Cruz de Nexte Marketing, ¿me das un minuto?",
-            "¡Hola {nombre}! Soy Juan Cruz de Nexte Marketing.",
-            "Hola, ¿hablo con {nombre}? Soy Juan Cruz de Nexte Marketing.",
-            "¡Buenas! Te escribe Juan Cruz de Nexte Marketing.",
-            "¡Hola {nombre}! Juan Cruz de Nexte Marketing saludando.",
-            "Buen día! Soy Juan Cruz de Nexte Marketing.",
-            "¡Hola! ¿Sos {nombre}? Soy Juan Cruz de Nexte Marketing.",
-            "¡Hola {nombre}! Soy Juan Cruz de Nexte Marketing.",
-            "Buenas tardes {nombre}! Te habla Juan Cruz de Nexte Marketing.",
-            "¡Hola! Soy Juan Cruz de Nexte Marketing.",
-            "¡Holaa {nombre}! Soy Juan Cruz de Nexte Marketing.",
-            "¡Hola {nombre}! Un gusto, soy Juan Cruz de Nexte Marketing.",
-            "¡Hola! Soy Juan Cruz de Nexte Marketing.",
-            "Buen día {nombre}! Soy Juan Cruz de Nexte Marketing."
-        ];
-
-        // INTROS DE NEGOCIO (30 variantes)
-        this.introsNegocio = [
-            "Vi {negocio} en Google Maps y me llamó la atención.",
-            "Encontré {negocio} buscando negocios en {ubicacion}.",
-            "Estaba viendo {negocio} en Maps y quise contactarte.",
-            "Me topé con {negocio} en internet y me pareció interesante.",
-            "Vi que {negocio} tiene buenas reseñas en Google.",
-            "Noté que {negocio} aparece en Maps pero sin web.",
-            "Encontré {negocio} y vi que tienen muy buena puntuación.",
-            "Vi tu perfil de {negocio} en Google Maps.",
-            "Me crucé con {negocio} buscando en {ubicacion}.",
-            "Vi {negocio} destacado en Google Maps.",
-            "Estuve revisando negocios en {ubicacion} y vi {negocio}.",
-            "Tu negocio {negocio} me llamó la atención.",
-            "Vi que {negocio} tiene buenas reviews pero pocas.",
-            "Encontré {negocio} y noté que no tienen presencia web.",
-            "Me interesó {negocio} por las buenas reseñas.",
-            "Vi tu ficha de {negocio} en Google.",
-            "Me crucé con {negocio} investigando el rubro.",
-            "Vi que {negocio} está bien posicionado en Maps.",
-            "Tu negocio salió en mi búsqueda de {ubicacion}.",
-            "Vi {negocio} y pensé que podrían necesitar algo.",
-            "Encontré {negocio} y me pareció que tenían potencial.",
-            "Noté que {negocio} tiene varias reseñas positivas.",
-            "Vi tu local {negocio} en internet.",
-            "Me apareció {negocio} buscando en la zona.",
-            "Vi el perfil de {negocio} y quise contactarte.",
-            "Encontré {negocio} online y me interesó.",
-            "Vi que tenés {negocio} y me pareció que podíamos hablar.",
-            "Tu negocio apareció en mi investigación de mercado.",
-            "Vi {negocio} en Maps con muy buena puntuación.",
-            "Estuve viendo el rubro y me topé con {negocio}."
-        ];
-
-        // HOOKS GENERALES Y SEGUROS (30 variantes) - Libres de asunciones del scraper
-        this.hooksGenerales = [
-            "Vi su ficha y veo mucho potencial para aumentar el volumen de clientes que les escriben directo.",
-            "Noté que tienen excelentes reseñas. Con algunas mejoras, podrían captar el doble de consultas desde internet.",
-            "Estaba buscando negocios de su rubro en {ubicacion} y me pareció que se le puede sacar mucho más provecho a su presencia digital.",
-            "Vi su negocio destacado en Maps. Hay detalles técnicos simples que los ayudarían a aparecer primeros en las búsquedas locales.",
-            "Noté que tienen muy buena reputación online, lo cual es la base ideal para automatizar el ingreso de nuevos clientes.",
-            "Revisando perfiles de la zona, veo oportunidades claras para optimizar sus canales de contacto y cerrar más ventas.",
-            "¿Han pensado en implementar un sistema que responda consultas automáticas por WhatsApp las 24 horas?",
-            "Vi su perfil de Maps. Hoy en día, una estrategia digital bien pulida puede triplicar los contactos diarios que reciben.",
-            "Tienen muy buena presencia en Maps, pero veo que la competencia en su rubro se está posicionando fuerte.",
-            "¿Sabían que con un sistema automatizado de turnos o reservas pueden reducir a cero las consultas perdidas?",
-            "Me llamó la atención su negocio. Con un par de integraciones simples podrían liberar tiempo de chat y agendar en automático.",
-            "Estaba viendo su ficha de Google. Optimizando la conversión digital pueden multiplicar sus resultados actuales.",
-            "Noté que tienen buena reputación en {ubicacion}, lo cual es la base ideal para lanzar un embudo de ventas que funcione solo.",
-            "Vi su negocio en internet. Creo que con una landing enfocada a ventas y automatización de chat podrían escalar rápido.",
-            "Estaba analizando el mercado local y noté que su ficha tiene todo para liderar las búsquedas del rubro en la zona.",
-            "¿Cómo manejan actualmente las consultas fuera de horario? Un asistente digital podría estar atendiendo y agendando por ustedes.",
-            "Vi su perfil y me pareció interesante. Sumarle un sitio profesional con SEO local los pondría muy por encima de la competencia.",
-            "Revisando su ficha en Google Maps, noté que se le pueden aplicar un par de mejoras para duplicar las llamadas directas.",
-            "Tienen un perfil muy sólido, pero veo que podrían aprovechar mucho más la demanda que hoy ya busca sus servicios en Google.",
-            "¿Están conformes con la cantidad de clientes que les llegan a través de internet hoy en día?",
-            "Vi su negocio online. Quería comentarte una forma sencilla de automatizar las preguntas frecuentes para no perder ninguna venta.",
-            "Estaba analizando negocios del rubro y veo que su marca tiene el perfil perfecto para automatizar el agendamiento.",
-            "Con unas optimizaciones en su canal de WhatsApp y Google, podrían convertir muchas más visitas en clientes reales.",
-            "Vi su negocio destacado en Maps y quise escribirte. Hay formas sencillas de digitalizar el negocio para ahorrar horas de trabajo.",
-            "¿Tienen algún sistema automático para recordarle turnos a sus clientes? Reduce un 40% las ausencias.",
-            "Noté su buen posicionamiento local. Es el momento perfecto para consolidar su presencia con herramientas digitales profesionales.",
-            "Vi su perfil y pensé que podríamos charlar sobre cómo captar más consultas directas sin depender del boca a boca.",
-            "Tienen excelentes valoraciones. Sumarles automatización y un embudo web haría que el negocio crezca de forma predecible.",
-            "Estaba revisando su rubro en {ubicacion} y noté oportunidades clave de optimización que hoy sus competidores están ignorando.",
-            "Vi su ficha comercial y quería presentarte una propuesta simple para digitalizar procesos y aumentar la facturación."
-        ];
-
-        // HOOKS GENÉRICOS (Fallback)
-        this.hooks = this.hooksGenerales;
-
-        // PRESENTACIONES NEXTE (30 variantes)
-        // PRESENTACIONES DE NEXTE - DATOS REALES (Based on nextemarketing.com)
-        this.presentaciones = [
-            "Desde 2015, en Nexte nos enfocamos en el crecimiento real: +300% en conversiones promedio para nuestros clientes.",
-            "En Nexte no somos una fábrica de clientes. Trabajamos 1 a 1 para entender tu negocio y mejorarlo.",
-            "Nos especializamos en CRO (Optimización de Conversiones). No solo traemos visitas, hacemos que compren.",
-            "Nexte tiene más de 10 años de trayectoria (2015-2026) ayudando a negocios a digitalizarse de verdad.",
-            "Somos tu socio estratégico. Analizamos tu competencia y audiencia para darte un plan único, no recetas genéricas.",
-            "En Nexte combinamos tecnología y estrategia para crear sistemas de venta que funcionan 24/7.",
-            "No hacemos solo webs bonitas. Creamos herramientas de venta enfocadas en resultados rápidos y medibles.",
-            "Nuestro enfoque 1 a 1 garantiza que tu negocio tenga la atención personalizada que necesita para crecer.",
-            "Auditamos, implementamos y optimizamos. En Nexte nos obsesiona que recuperes tu inversión con ventas.",
-            "Somos expertos en transformar negocios locales en referentes digitales con estrategias de alto impacto.",
-            "Nexte Marketing es sinónimo de crecimiento medible. Te mostramos los números claros, sin vueltas.",
-            "Con un stack técnico completo, resolvemos desde el diseño web hasta la automatización de tus ventas.",
-            "Ayudamos a emprendedores y PYMEs a competir con los grandes usando las mismas herramientas.",
-            "En Nexte nos enfocamos en resultados visibles desde la primera semana de implementación.",
-            "Somos especialistas en captar la demanda real que hoy ya busca tus servicios en Google.",
-            "Más que una agencia, somos tu departamento de marketing externo. Nos ocupamos de todo.",
-            "En Nexte usamos datos, no intuición. Cada decisión se basa en mejorar tus conversiones.",
-            "Llevamos una década perfeccionando el método para que negocios como el tuyo vendan más online.",
-            "Hacemos que tu marca transmita confianza y profesionalismo desde el primer clic.",
-            "En Nexte no atamos clientes con contratos, los fidelizamos con resultados constantes.",
-            "Somos expertos en Google Ads y Meta Ads, certificados para maximizar cada peso de tu inversión.",
-            "Nexte transforma tu presencia digital en un canal de ventas predecible y escalable.",
-            "Analizamos tu negocio a fondo para detectar dónde estás perdiendo ventas y corregirlo.",
-            "En Nexte creemos en el trato humano. Vas a hablar con expertos, no con máquinas.",
-            "Somos la agencia que eligen quienes quieren dejar de depender del 'boca a boca'.",
-            "Nexte te ofrece soluciones de calidad internacional adaptadas al mercado local.",
-            "Optimizamos cada punto de contacto digital para que tus clientes tengan una experiencia 10 puntos.",
-            "En Nexte marketing es inversión, no gasto. Todo está orientado a tu retorno (ROI).",
-            "Llevamos tu negocio al siguiente nivel con auditorías profundas y ejecución impecable.",
-            "Nexte es transparencia y resultados reales. Trabajamos 1 a 1 para hacer crecer tu facturación."
-        ];
-
-        this.propuestas = [
-            "🏢 *SOLUCIONES DIGITALES NEXTE 2026*\n\n🏢 *¿CÓMO PODEMOS IMPULSAR TU NEGOCIO?*\n\nTe lo explico simple, sin palabras raras:\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n⚙️ *OPCIÓN A: SISTEMAS & SOFTWARE A MEDIDA*\nPrecio de lista: *$650.000* → 🔥 *$350.000 en 2 pagos antes del próximo sábado*\n\n¿Qué es?\nSoftware personalizado para tu negocio: gestión de turnos/reservas, control de clientes, agendas médicas o comerciales y fichas digitales.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🤖 *OPCIÓN B: ASISTENTE VIRTUAL CON IA NATOH (WHATSAPP 24/7)*\nPrecio de lista: *$350.000* → 🔥 *$180.000 antes del próximo sábado*\n\n¿Qué es?\nEmpleado virtual en WhatsApp entrenado con la información exacta de tu empresa. Atiende clientes las 24 horas, toma turnos y valida comprobantes de pago automáticamente.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🌐 *OPCIÓN C: PÁGINA WEB PROFESIONAL*\nPrecio de lista: *$500.000* → 🔥 *$250.000 en 2 pagos antes del próximo sábado*\n\n¿Qué es?\nTu sitio web institucional hecho a medida con dominio propio (.com / .ar), hosting por 1 año, certificado SSL y diseño para celulares.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🛒 *OPCIÓN D: TIENDA ONLINE / E-COMMERCE*\nPrecio de lista: *$800.000* → 🔥 *$500.000 antes del próximo sábado*\n\n¿Qué es?\nPlataforma propia con catálogo de productos, carrito de compras, Mercado Pago o transferencia y control de stock.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📸 *OPCIÓN E: GENERACIÓN DE CONTENIDO EDITORIAL*\nPrecio de lista: *$250.000/mes* → 🔥 *$140.000/mes antes del próximo sábado*\n\n¿Qué es?\nProducción multimedia, placas gráficas profesionales e identidad visual para tus canales oficiales.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n📍 *OPCIÓN F: GOOGLE MAPS & SEO LOCAL*\nPrecio de lista: *$300.000* → 🔥 *$150.000 antes del próximo sábado*\n\n¿Qué es?\nOptimización técnica para liderar las búsquedas locales en tu zona cuando busquen tus servicios.\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎁 *COMBO INTEGRAL NEXTE*\nPrecio de lista: *$1.800.000* → 🔥 *$690.000 antes del próximo sábado*\n*Ahorro gigante de $1.110.000 sobre precio de lista.* Llevate Sistema a medida + IA NatoH + Web + SEO Maps.\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n💬 *¡Escribime y te paso ejemplos de sistemas y sitios web reales que ya diseñamos para que los veas!*"
-        ];
-
-        // RESPUESTA PARA BOT AUTOMÁTICO (Venta de Bot)
-        this.respuestasBotAutomatico = [
-            "Veo que tenés una respuesta automática activada. Nosotros podemos transformar eso en un bot inteligente que agende pacientes y explique tus servicios. ¿Te interesa?",
-            "Noté tu mensaje automático. En Nexte configuramos bots con IA que cierran ventas y agendan solos, mucho más que una respuesta fija. ¿Te cuento más?",
-            "Esa respuesta automática es útil, pero un bot real podría estar agendando clientes en tu calendario ahora mismo. ¿Te gustaría ver cómo funciona?",
-            "Vi que usás mensajes automáticos. Podríamos mejorarlo con un bot que responda preguntas específicas y filtre leads las 24hs.",
-            "¿Sabías que podemos convertir esa respuesta automática en un asistente virtual que venda por vos? Te ahorraría mucho tiempo de chat."
-        ];
-
-        // MSG 4: TODOS LOS SERVICIOS (Variantes con nuevos servicios solicitados)
-        // MSG 4: TODOS LOS SERVICIOS (DESHABILITADO - Ya incluido en Msg 3)
-        this.serviciosCompletos = [];
-
-        // MSG 5: CTAs SUAVES - Con mención ABRIL + Llamada/Explicación
-        // MSG 5: CTAs SUAVES - Con mención ABRIL + Llamada/Explicación + Adaptabilidad
-        this.ctasReunion = [
-            "Cualquier cosa, organizamos una charla telefónica o nos juntamos.\n\n📌 *Dato:* En nuestro sitio web tenemos más servicios y nos adaptamos a lo que necesites.\n\n⏰ La promo especial es válida hasta el próximo sábado a las 21 hrs. Guardamos tu lugar si te interesa.",
-            "Si tenés dudas, lo charlamos por teléfono o videollamada sin compromiso.\n\n📌 *Importante:* Tenemos más opciones en la web y podemos adaptar cualquier plan a tu medida.\n\n⏰ La promo abril es válida hasta el próximo sábado a las 21 hrs. Avisame para guardarte el cupo.",
-            "¿Te interesa algún servicio? Podemos agendar una llamada para ver qué te sirve más.\n\n📌 *Ojo:* En nuestra web hay más servicios disponibles y nos adaptamos 100% a tu negocio.\n\n⏰ Recordá que los precios rebajados aplican hasta el próximo sábado a las 21 hrs. Podemos reservarte el cupo.",
-            "Estoy disponible para una reunión o videollamada si querés conocer más.\n\n📌 *Nota:* Si buscás algo puntual, en la web hay más info y nos ajustamos a tus necesidades.\n\n⏰ Importante: el descuento por abril es válido hasta el próximo sábado a las 21 hrs. Te guardamos lugar.",
-            "Si alguna opción te convence, armamos una charla para darte todos los detalles.\n\n📌 *A saber:* En nuestro sitio tenemos un catálogo más amplio y flexibilidad para armar algo a medida.\n\n⏰ Los precios de abril están disponibles hasta el próximo sábado a las 21 hrs. Se puede asegurar el cupo ahora.",
-            "Para lo que necesites, podemos hacer una llamada y lo charlamos tranquilos.\n\n📌 *Plus:* En la web vas a ver más servicios. Nos adaptamos a lo que tu empresa necesite.\n\n⏰ Atención: la oferta especial es válida hasta el próximo sábado a las 21 hrs. Si querés aprovecharla, avisame y te reservo.",
-            "¿Querés más info? Coordinamos una reunión o llamada cuando te venga bien.\n\n📌 *Info:* Tenemos más soluciones en nuestro sitio y podemos personalizar todo a tu gusto.\n\n⏰ Tené en cuenta: descuentos disponibles hasta el próximo sábado a las 21 hrs. Puedo guardar tu cupo si te decidís.",
-            "Si te copa, programamos una videollamada o nos encontramos.\n\n📌 *Tip:* Si necesitás algo específico, mirá nuestra web o chiflame, nos adaptamos a vos.\n\n⏰ Ojo que la promo de abril es válida hasta el próximo sábado a las 21 hrs. Avisame si querés asegurar el precio.",
-            "Cualquier duda, hablamos por teléfono o agendamos algo presencial.\n\n📌 *Recordá:* En la web hay más servicios y somos super flexibles para adaptarnos a tu proyecto.\n\n⏰ Recordatorio: los valores promocionales son válidos hasta el próximo sábado a las 21 hrs. Te guardo lugar si confirmás.",
-            "Estoy a disposición para lo que necesites. Podemos tener una charla o llamada.\n\n📌 *Aclaración:* En el sitio web tenemos más alternativas y nos ajustamos a tu requerimiento.\n\n⏰ Dato importante: precios de abril válidos hasta el próximo sábado a las 21 hrs. Puedo reservar tu cupo."
-        ];
-
-        // ============ TEMPLATES POR CATEGORÍA ============
-
+        // ============ CATEGORY DETECTION KEYWORDS ============
         this.categoryKeywords = {
-            salud: ['doctor', 'médico', 'clínica', 'hospital', 'dentista', 'odontólogo',
-                'kinesiólogo', 'kinesiología', 'kinesiologo', 'kinesiologia', 'kinesio',
-                'osteópata', 'osteopata', 'fisioterapia', 'fisioterapeuta', 'psicólogo', 'nutricionista',
-                'veterinario', 'farmacia', 'laboratorio', 'traumatólogo', 'dermatólogo',
-                'pediatra', 'ginecólogo', 'oftalmólogo', 'consultorio', 'salud', 'medicina'],
-            gastronomia: ['restaurant', 'restaurante', 'bar', 'café', 'cafetería', 'pizzería',
-                'parrilla', 'sushi', 'delivery', 'comida', 'cocina', 'catering', 'heladería',
-                'pastelería', 'panadería', 'food', 'burger', 'hamburguesería', 'cervecería'],
-            belleza: ['peluquería', 'barbería', 'spa', 'estética', 'manicura', 'depilación',
-                'maquillaje', 'beauty', 'salón', 'uñas', 'cejas', 'pestañas', 'masajes',
-                'cosmetología', 'belleza', 'tratamiento facial'],
-            fitness: ['gym', 'gimnasio', 'crossfit', 'pilates', 'yoga', 'fitness',
-                'entrenamiento', 'personal trainer', 'deportes', 'natación', 'box'],
-            comercio: ['tienda', 'shop', 'store', 'venta', 'comercio', 'local', 'boutique',
-                'ropa', 'calzado', 'accesorios', 'joyería', 'relojería', 'óptica', 'librería',
-                'juguetería', 'ferretería', 'bazar', 'kiosco'],
-            servicios: ['abogado', 'contador', 'estudio', 'consultora', 'inmobiliaria', 'seguros',
-                'automotriz', 'taller', 'mecánico', 'electricista', 'plomero', 'cerrajería',
-                'mudanza', 'limpieza', 'fumigación', 'arquitecto'],
-            educacion: ['escuela', 'colegio', 'universidad', 'instituto', 'academia', 'curso',
-                'clases', 'idiomas', 'inglés', 'capacitación', 'jardín', 'maternal', 'profesor'],
-            tecnologia: ['software', 'sistemas', 'informática', 'computación', 'reparación',
-                'celulares', 'electrónica', 'tech', 'digital', 'desarrollo', 'programación']
+            salud: [
+                'doctor', 'médico', 'medico', 'clínica', 'clinica', 'hospital', 'dentista', 'odontólogo', 'odontologo',
+                'odontología', 'odontologia', 'kinesiólogo', 'kinesiologia', 'kinesiologo', 'fisioterapia', 'fisioterapeuta',
+                'psicólogo', 'psicologo', 'psicología', 'nutricionista', 'veterinario', 'veterinaria', 'farmacia',
+                'laboratorio', 'traumatólogo', 'dermatólogo', 'dermatologo', 'pediatra', 'ginecólogo', 'oftalmólogo',
+                'consultorio', 'salud', 'medicina', 'sanatorio', 'óptica', 'optica'
+            ],
+            gastronomia: [
+                'restaurant', 'restaurante', 'bar', 'café', 'cafe', 'cafetería', 'cafeteria', 'pizzería', 'pizzeria',
+                'parrilla', 'sushi', 'delivery', 'comida', 'cocina', 'catering', 'heladería', 'heladeria',
+                'pastelería', 'pasteleria', 'panadería', 'panaderia', 'food', 'burger', 'hamburguesería', 'hamburgueseria',
+                'cervecería', 'cerveceria', 'bodegón', 'bodegon', 'resto', 'trattoria', 'empanadas'
+            ],
+            belleza_fitness: [
+                'gym', 'gimnasio', 'crossfit', 'pilates', 'yoga', 'fitness', 'entrenamiento', 'personal trainer',
+                'peluquería', 'peluqueria', 'barbería', 'barberia', 'barber', 'spa', 'estética', 'estetica',
+                'manicura', 'depilación', 'depilacion', 'maquillaje', 'beauty', 'salón', 'salon', 'uñas', 'cejas',
+                'pestañas', 'masajes', 'cosmetología', 'cosmetologia', 'box', 'natación', 'centro de estética'
+            ],
+            comercio: [
+                'tienda', 'shop', 'store', 'venta', 'comercio', 'local', 'boutique', 'ropa', 'indumentaria',
+                'calzado', 'zapatos', 'accesorios', 'joyería', 'joyeria', 'relojería', 'librería', 'libreria',
+                'juguetería', 'jugueteria', 'ferretería', 'ferreteria', 'bazar', 'mueblería', 'muebles',
+                'colchonería', 'electrodomésticos', 'cotillón', 'distribuidora', 'mayorista', 'minorista'
+            ],
+            servicios: [
+                'abogado', 'abogados', 'estudio jurídico', 'estudio contable', 'contador', 'inmobiliaria', 'propiedades',
+                'seguros', 'productor de seguros', 'taller', 'mecánico', 'mecanico', 'chapa y pintura', 'gomería',
+                'electricista', 'plomero', 'cerrajería', 'cerrajeria', 'mudanzas', 'limpieza', 'fumigación',
+                'arquitecto', 'constructora', 'imprenta', 'diseño', 'gestoría', 'concesionaria'
+            ]
         };
 
-        // Frases específicas por categoría - PROMO 2026
-        this.categoryPhrases = {
-            salud: {
-                hooks: [
-                    "8 de cada 10 pacientes buscan turnos online.",
-                    "Los consultorios con web captan 3x más pacientes.",
-                    "¿Tienen sistema de turnos online? El 70% lo prefiere.",
-                    "Sin web, perdés pacientes que buscan profesionales online.",
-                    "Una web te permite mostrar especialidades y equipo."
-                ],
-                propuestas: [
-                    "🏥 PROMO SALUD 2026: Web + turnos online + WhatsApp por $150k.",
-                    "🎉 Oferta otoño para consultorios: web con sistema de turnos por $150.000.",
-                    "💪 Arrancá 2026 digitalizado: web médica + formulario de turnos.",
-                    "✨ Promo especial salud: digitalizamos tu consultorio completo por $150k."
-                ]
-            },
-            gastronomia: {
-                hooks: [
-                    "¿Tienen carta digital con QR? Hoy es casi obligatorio.",
-                    "Con web propia + delivery ahorrás comisiones de apps.",
-                    "El 60% busca el menú online antes de ir.",
-                    "Una carta digital mejora la experiencia del cliente.",
-                    "Con pedidos online propios no pagás comisiones."
-                ],
-                propuestas: [
-                    "🍕 PROMO GASTRO 2026: Web + carta QR + pedidos online por $150k.",
-                    "🎉 Oferta otoño: tu sistema de delivery sin pagar a Rappi/PedidosYa.",
-                    "🔥 Arrancá 2026 digital: web + carta + reservas por $150.000.",
-                    "✨ Promo especial gastro: delivery propio sin comisiones."
-                ]
-            },
-            belleza: {
-                hooks: [
-                    "Los salones con turnos online tienen 40% menos cancelaciones.",
-                    "Una galería de trabajos online atrae más clientes.",
-                    "El 80% prefiere reservar turno por web o WhatsApp.",
-                    "Mostrar tu portfolio online genera confianza.",
-                    "Con recordatorios automáticos reducís ausencias."
-                ],
-                propuestas: [
-                    "💅 PROMO BELLEZA 2026: Web + galería + turnos por $150k.",
-                    "🎉 Oferta otoño: web estética con portfolio y reservas.",
-                    "✨ Arrancá 2026: mostrá tus trabajos + tomá turnos automáticamente.",
-                    "🔥 Promo especial: web para salón con fotos y reservas online."
-                ]
-            }
+        // ============ MENSAJE 1: COMPONENTES MODULARES (ANTI-SPAM) ============
+
+        // 1. Saludos iniciales (30 variantes)
+        this.saludos = [
+            "¡Hola! Te escribe Juan Cruz de Nexte Marketing.",
+            "¡Buen día! Soy Juan Cruz de Nexte Marketing.",
+            "¡Buenas tardes! Te saluda Juan Cruz de Nexte Marketing.",
+            "¡Hola! ¿Cómo estás? Soy Juan Cruz de Nexte Marketing.",
+            "¡Qué tal! Te habla Juan Cruz de Nexte Marketing.",
+            "¡Hola! Juan Cruz de Nexte Marketing por acá.",
+            "¡Buenas! Te escribe Juan Cruz desde Nexte Marketing.",
+            "¡Hola! Te contacta Juan Cruz de Nexte Marketing.",
+            "¡Buen día! Juan Cruz de Nexte Marketing saludando.",
+            "¡Buenas tardes! Soy Juan Cruz de Nexte Marketing.",
+            "¡Hola! Soy Juan Cruz de Nexte Marketing, te robo un segundito.",
+            "¡Qué tal! Soy Juan Cruz de Nexte Marketing.",
+            "¡Hola! Un gusto saludarte, soy Juan Cruz de Nexte Marketing.",
+            "¡Hola! Te escribe Juan Cruz de Nexte.",
+            "¡Buen día! Soy Juan Cruz de la agencia Nexte Marketing.",
+            "¡Buenas! Soy Juan Cruz de Nexte Marketing.",
+            "¡Hola! Juan Cruz de Nexte por acá.",
+            "¡Qué tal! Te saluda Juan Cruz de Nexte Marketing.",
+            "¡Hola! Te contacto desde Nexte Marketing, soy Juan Cruz.",
+            "¡Buen día! Te escribe Juan Cruz de Nexte Marketing.",
+            "¡Hola! Soy Juan Cruz, director en Nexte Marketing.",
+            "¡Buenas tardes! Juan Cruz de Nexte Marketing por acá.",
+            "¡Hola! Un saludo, soy Juan Cruz de Nexte Marketing.",
+            "¡Qué tal! Soy Juan Cruz del equipo de Nexte Marketing.",
+            "¡Hola! Te escribe Juan Cruz de Nexte Marketing.",
+            "¡Buen día! Soy Juan Cruz de Nexte Marketing.",
+            "¡Hola! Por acá Juan Cruz de Nexte Marketing.",
+            "¡Buenas! Te saluda Juan Cruz de Nexte Marketing.",
+            "¡Hola! Soy Juan Cruz de Nexte.",
+            "¡Qué tal! Juan Cruz de Nexte Marketing por acá."
+        ];
+
+        // 2. Reconocimiento del Negocio y Datos Scrapeados (Maps / Reviews / Ubicación)
+        this.introsConRating = [
+            "Vi su ficha de *{negocio}* en Google Maps y me llamó mucho la atención su excelente calificación de {rating} estrellas con más de {reviewCount} opiniones.",
+            "Estaba buscando negocios destacados en {ubicacion} y me encontré con *{negocio}*, con {rating} puntos en Google Maps y muy buenas reseñas de sus clientes.",
+            "Me crucé con *{negocio}* en Maps y noté que tienen una sólida reputación de {rating} estrellas con {reviewCount} opiniones en la zona.",
+            "Vi su perfil de *{negocio}* en Google Maps con {rating} estrellas y se nota el gran trabajo que hacen en {ubicacion}.",
+            "Estuve revisando perfiles de {rubro} en {ubicacion} y vi que *{negocio}* tiene {rating} estrellas y muy buenos comentarios en Maps."
+        ];
+
+        this.introsSinRating = [
+            "Vi su perfil comercial de *{negocio}* en Google Maps buscando negocios en {ubicacion}.",
+            "Estaba buscando opciones destacadas de {rubro} en {ubicacion} y me llamó la atención la ficha de *{negocio}*.",
+            "Me crucé con *{negocio}* en Google Maps y me pareció muy interesante lo que ofrecen en {ubicacion}.",
+            "Encontré la ficha de *{negocio}* en internet y quise escribirles directo.",
+            "Estuve viendo negocios de su rubro en la zona de {ubicacion} y vi el perfil de *{negocio}* en Maps."
+        ];
+
+        // 3. Observaciones Técnicas Web (Scraper / Web Audit)
+        this.observacionesSinWeb = [
+            "Noté en su perfil de Maps que aún no tienen una página web oficial cargada para que la gente vea sus servicios y consulte directo.",
+            "Vi que en Maps todavía no tienen un sitio web vinculado para canalizar las búsquedas que reciben en Google.",
+            "Noté que no tienen una web propia agregada en su ficha de Maps para presentar sus especialidades y precios."
+        ];
+
+        this.observacionesConWebSinWA = [
+            "Estuve viendo su web ({website}) y noté que no cuentan con un botón flotante de WhatsApp directo para captar consultas al instante.",
+            "Entré a su sitio ({website}) y vi que les falta una integración de WhatsApp visible para que los visitantes les escriban en 1 clic.",
+            "Revisé su página web ({website}) y noté que no tienen botón de WhatsApp directo para no perder clientes que navegan desde el celular."
+        ];
+
+        this.observacionesConWebGeneral = [
+            "Estuve navegando su web ({website}) y veo que tienen una base muy interesante para captar más consultas.",
+            "Vi que ya cuentan con presencia online en su web ({website}) y se le pueden sumar herramientas clave de automatización.",
+            "Revisé su sitio web ({website}) y noté varias oportunidades para multiplicar las conversiones de quienes entran."
+        ];
+
+        this.observacionesGenerales = [
+            "Veo que tienen una muy buena base en la zona para captar muchas más consultas directas.",
+            "Noté que tienen un gran potencial para automatizar la atención y conseguir más clientes desde internet.",
+            "Veo una oportunidad clara para optimizar sus canales digitales y facilitar que la gente los contacte rápido."
+        ];
+
+        // ============ MENSAJE 2: PRESENTACIÓN Y VALOR POR CATEGORÍA ============
+
+        this.presentacionesPorCategoria = {
+            salud: [
+                "En Nexte llevamos más de 10 años desarrollando software a medida, sistemas de turnos médicos online y asistentes inteligentes de WhatsApp para consultorios y clínicas. Ayudamos a reducir un 40% el ausentismo de pacientes con confirmaciones automáticas y liberamos a recepción de responder las mismas consultas todo el día.",
+                "En Nexte nos especializamos en digitalizar centros de salud y consultorios. Implementamos agendas online, recordatorios automáticos de turnos por WhatsApp y fichas de pacientes para que no pierdan tiempo con llamadas ni mensajes manuales.",
+                "En Nexte ayudamos a profesionales de la salud a ordenar su atención. Con nuestro asistente virtual de WhatsApp y sistema de turnos, los pacientes pueden agendar 24/7 y recibir recordatorios automáticos sin sobrecargar al personal.",
+                "Desde Nexte Marketing trabajamos con clínicas y consultorios creando sistemas de agendamiento inteligente y asistentes de WhatsApp con IA que responden preguntas frecuentes, dan indicaciones de turnos y validan órdenes en automático."
+            ],
+            gastronomia: [
+                "En Nexte llevamos más de 10 años desarrollando cartas digitales interactivas con QR, sistemas de pedidos directos a WhatsApp y posicionamiento en Google Maps para locales gastronómicos. El objetivo es que aumenten sus pedidos directos ahorrando las altas comisiones de apps como PedidosYa o Rappi.",
+                "En Nexte ayudamos a restaurantes, bares y cafeterías a automatizar su atención. Creamos menúes digitales QR, asistentes de WhatsApp que toman pedidos en automático 24/7 y optimizamos su ficha de Maps para que sean la primera opción en la zona.",
+                "Desde Nexte creamos soluciones gastronómicas a medida: catálogo online, bot de toma de pedidos por WhatsApp que calcula totales y reservas de mesas automáticas para no perder clientes en horas pico.",
+                "En Nexte nos enfocamos en que tu local gastronómico facture más: carta digital sin comisiones, bot inteligente en WhatsApp para delivery y campañas locales en Maps para llenar mesas todos los días."
+            ],
+            belleza_fitness: [
+                "En Nexte llevamos más de 10 años creando software de gestión de socios/turnos y asistentes virtuales de WhatsApp con IA para gimnasios, centros de estética y salones. Ayudamos a automatizar la respuesta de precios, planes y turnos las 24hs, incluso cuando el local está cerrado.",
+                "En Nexte ayudamos a centros de estética y fitness a no perder ventas por demoras en responder. Nuestro asistente de WhatsApp con IA atiende al instante, explica tratamientos o planes, agenda citas y valida comprobantes de pago automáticamente.",
+                "Desde Nexte implementamos sistemas de turnos online y bots inteligentes de WhatsApp que desahogan la recepción de tu gimnasio o estética, enviando recordatorios automáticos para que no falten a las sesiones.",
+                "En Nexte nos especializamos en hacer crecer negocios de belleza y bienestar: web profesional de alta conversión, asistente de WhatsApp 24/7 para consultas de precios y control de turnos en automático."
+            ],
+            comercio: [
+                "En Nexte llevamos más de 10 años diseñando tiendas online (E-Commerce) a medida, catálogos interactivos y asistentes de WhatsApp con IA para comercios. Permitimos que tu negocio venda las 24 horas con Mercado Pago y responda consultas de stock, talles y envíos en segundos.",
+                "En Nexte ayudamos a comercios y marcas a profesionalizar sus ventas digitales. Creamos tiendas e-commerce rápidas y bots de WhatsApp que responden preguntas frecuentes y mandan links de compra en automático.",
+                "Desde Nexte desarrollamos plataformas de venta online y sistemas de stock integrados, para que no dependas solo del local a la calle y puedas vender en todo el país sin esfuerzo operativo.",
+                "En Nexte nos enfocamos en aumentar las ventas de tu comercio: tienda online profesional con pagos integrados y asistente de WhatsApp para atender clientes que escriben fuera de horario."
+            ],
+            servicios: [
+                "En Nexte llevamos más de 10 años creando páginas web de alta conversión, posicionamiento #1 en Google Maps (SEO Local) y asistentes de WhatsApp con IA para empresas de servicios y profesionales. Te ayudamos a liderar las búsquedas en tu zona y captar clientes que ya buscan tus servicios.",
+                "En Nexte ayudamos a estudios, inmobiliarias, talleres y empresas de servicios a captar prospectos calificados todos los días, con webs profesionales y cotizadores automáticos por WhatsApp.",
+                "Desde Nexte implementamos sistemas de gestión a medida y optimización en Google Maps para que tu negocio aparezca primero cuando los vecinos busquen tus servicios en {ubicacion}.",
+                "En Nexte combinamos tecnología y estrategia comercial: sitios web rápidos, posicionamiento en Maps y asistentes de WhatsApp que filtran y califican consultas de clientes en tiempo real."
+            ],
+            general: [
+                "En Nexte Marketing tenemos más de 10 años de trayectoria (2015-2026) ayudando a negocios a crecer con tecnología: desarrollo de software a medida, asistentes de WhatsApp con Inteligencia Artificial (NatoH 24/7) y páginas web de alta conversión.",
+                "En Nexte no hacemos soluciones genéricas. Desarrollamos herramientas digitales a medida de cada negocio: sistemas de gestión, asistentes virtuales en WhatsApp para desahogar la atención y presencia web profesional.",
+                "Desde Nexte ayudamos a empresas a automatizar procesos, mejorar su reputación online y captar clientes de forma predecible con sistemas propios y asistentes inteligentes de WhatsApp 24/7.",
+                "En Nexte combinamos desarrollo de software, automatizaciones con IA y marketing digital para que tu negocio ahorre horas de trabajo manual y multiplique sus contactos diarios."
+            ]
+        };
+
+        // ============ MENSAJE 3: PROPUESTAS COMERCIALES ADAPTADAS POR RUBRO ============
+
+        this.propuestasPorCategoria = {
+            salud: [
+                `🏥 *SOLUCIONES DIGITALES NEXTE PARA SALUD & CONSULTORIOS*
+
+Te comparto nuestras soluciones más elegidas con precios en promo por esta semana:
+
+⚙️ *SISTEMA DE GESTIÓN & TURNOS MÉDICOS ONLINE*
+Precio de lista: $650.000 → 🔥 *Promo: $350.000* (en 2 pagos).
+(Gestión de agendas, turnos online, fichas digitales de pacientes y recordatorios automáticos).
+
+🤖 *ASISTENTE VIRTUAL IA NATOH (WHATSAPP 24/7)*
+Precio de lista: $350.000 → 🔥 *Promo: $180.000*.
+(Atiende consultas 24/7, responde indicaciones de tratamientos, agenda citas y valida turnos).
+
+🌐 *PÁGINA WEB INSTITUCIONAL MÉDICA*
+Precio de lista: $500.000 → 🔥 *Promo: $250.000* (en 2 pagos).
+(Web profesional con staff médico, especialidades, dominio, hosting y SSL incluido).
+
+📍 *OPTIMIZACIÓN GOOGLE MAPS & REPUTACIÓN LOCAL*
+Precio de lista: $300.000 → 🔥 *Promo: $150.000*.
+(Para liderar las búsquedas de consultorios y clínicas en tu zona).
+
+🎁 *COMBO SALUD INTEGRAL*
+Precio de lista: $1.800.000 → 🔥 *Promo Final: $690.000* (Ahorro de $1.110.000).
+(Incluye Sistema de Turnos + Asistente IA WhatsApp + Web Médica + Optimización Google Maps).`
+            ],
+            gastronomia: [
+                `🍕 *SOLUCIONES DIGITALES NEXTE PARA GASTRONOMÍA*
+
+Te comparto nuestras opciones para aumentar pedidos directos y ahorrar comisiones:
+
+🍕 *SISTEMA DE PEDIDOS & CARTA DIGITAL QR*
+Precio de lista: $650.000 → 🔥 *Promo: $350.000* (en 2 pagos).
+(Tu propio sistema de delivery sin comisiones a terceros, menú digital interactivo QR y reservas).
+
+🤖 *ASISTENTE VIRTUAL IA NATOH (PEDIDOS WHATSAPP 24/7)*
+Precio de lista: $350.000 → 🔥 *Promo: $180.000*.
+(Envía la carta, toma pedidos automáticos, calcula montos y responde horarios al instante).
+
+🌐 *SITIO WEB GASTRONÓMICO PROFESIONAL*
+Precio de lista: $500.000 → 🔥 *Promo: $250.000* (en 2 pagos).
+(Web institucional con fotos de platos, ubicación, botón de pedidos y reservas).
+
+📍 *GOOGLE MAPS SEO LOCAL (APARECER 1ROS EN LA ZONA)*
+Precio de lista: $300.000 → 🔥 *Promo: $150.000*.
+(Para atraer a quienes buscan dónde comer o pedir delivery cerca en Maps).
+
+🎁 *COMBO GASTRO INTEGRAL*
+Precio de lista: $1.800.000 → 🔥 *Promo Final: $690.000* (Ahorro de $1.110.000).
+(Incluye Sistema de Pedidos QR + Asistente IA WhatsApp + Web + Google Maps SEO).`
+            ],
+            belleza_fitness: [
+                `💅 *SOLUCIONES DIGITALES NEXTE PARA ESTÉTICA & FITNESS*
+
+Te paso las herramientas clave para automatizar turnos y captar más clientes:
+
+🤖 *ASISTENTE VIRTUAL IA NATOH (WHATSAPP 24/7)*
+Precio de lista: $350.000 → 🔥 *Promo: $180.000*.
+(Informa precios y servicios, toma turnos las 24hs y valida comprobantes de seña/pago).
+
+⚙️ *SOFTWARE DE GESTIÓN, SOCIOS & TURNERO ONLINE*
+Precio de lista: $650.000 → 🔥 *Promo: $350.000* (en 2 pagos).
+(Control de membresías/cuotas, agenda de turnos por profesional y ficha de clientes).
+
+🌐 *PÁGINA WEB PROFESIONAL / LANDING DE TURNOS*
+Precio de lista: $500.000 → 🔥 *Promo: $250.000* (en 2 pagos).
+(Muestra tus servicios, galería de resultados antes/después y botón de reserva).
+
+📸 *CONTENIDO MULTIMEDIA & PLACAS EDITORIALES*
+Precio de lista: $250.000/mes → 🔥 *Promo: $140.000/mes*.
+(Diseño gráfico profesional y contenido visual para tus redes y estados).
+
+🎁 *COMBO ESTÉTICA / FITNESS INTEGRAL*
+Precio de lista: $1.800.000 → 🔥 *Promo Final: $690.000* (Ahorro de $1.110.000).
+(Incluye Software de Turnos + Asistente IA WhatsApp + Web Profesional + Maps).`
+            ],
+            comercio: [
+                `🛒 *SOLUCIONES DIGITALES NEXTE PARA COMERCIO & INDUMENTARIA*
+
+Te comparto nuestras propuestas para vender online de forma automatizada:
+
+🛒 *TIENDA ONLINE / E-COMMERCE PROFESIONAL*
+Precio de lista: $800.000 → 🔥 *Promo: $500.000* (en 2 pagos).
+(Catálogo completo de productos, carrito de compras, Mercado Pago, envíos y control de stock).
+
+🤖 *ASISTENTE VIRTUAL IA NATOH (WHATSAPP 24/7)*
+Precio de lista: $350.000 → 🔥 *Promo: $180.000*.
+(Responde preguntas frecuentes de stock, talles, precios y envía links de pago al instante).
+
+⚙️ *SISTEMA DE GESTIÓN, STOCK & FACTURACIÓN*
+Precio de lista: $650.000 → 🔥 *Promo: $350.000* (en 2 pagos).
+(Control de inventario, ventas y clientes en un software a medida).
+
+📍 *POSICIONAMIENTO GOOGLE MAPS & SEO LOCAL*
+Precio de lista: $300.000 → 🔥 *Promo: $150.000*.
+(Para que tu local aparezca primero cuando busquen tus productos en la zona).
+
+🎁 *COMBO COMERCIO DIGITAL*
+Precio de lista: $1.800.000 → 🔥 *Promo Final: $690.000* (Ahorro de $1.110.000).
+(Incluye Tienda E-Commerce + Asistente IA WhatsApp + Software + Google Maps).`
+            ],
+            servicios: [
+                `🏢 *SOLUCIONES DIGITALES NEXTE PARA SERVICIOS & EMPRESAS*
+
+Te comparto las opciones más efectivas para captar clientes calificados:
+
+🌐 *PÁGINA WEB PROFESIONAL DE ALTA CONVERSIÓN*
+Precio de lista: $500.000 → 🔥 *Promo: $250.000* (en 2 pagos).
+(Diseño moderno para celulares, dominio, hosting, SSL y botón de contacto optimizado).
+
+📍 *POSICIONAMIENTO GOOGLE MAPS & SEO LOCAL*
+Precio de lista: $300.000 → 🔥 *Promo: $150.000*.
+(Para liderar las búsquedas en tu zona cuando la gente busque tus servicios en Google).
+
+🤖 *ASISTENTE VIRTUAL IA NATOH (WHATSAPP 24/7)*
+Precio de lista: $350.000 → 🔥 *Promo: $180.000*.
+(Filtra consultas de clientes, cotiza servicios y agenda reuniones las 24 horas).
+
+⚙️ *SISTEMA DE GESTIÓN & CRM A MEDIDA*
+Precio de lista: $650.000 → 🔥 *Promo: $350.000* (en 2 pagos).
+(Seguimiento de presupuestos, base de datos de clientes y control operativo).
+
+🎁 *COMBO SERVICIOS PROFESIONAL*
+Precio de lista: $1.800.000 → 🔥 *Promo Final: $690.000* (Ahorro de $1.110.000).
+(Incluye Web Profesional + Posicionamiento Google Maps + Asistente IA + CRM).`
+            ],
+            general: [
+                `🏢 *SOLUCIONES DIGITALES NEXTE 2026*
+
+Te comparto nuestras principales herramientas con precios promocionales:
+
+⚙️ *SOFTWARE A MEDIDA & SISTEMAS DE GESTIÓN*
+Precio de lista: $650.000 → 🔥 *Promo: $350.000* (en 2 pagos).
+(Gestión de turnos/reservas, control de clientes, agendas y fichas digitales).
+
+🤖 *ASISTENTE VIRTUAL IA NATOH (WHATSAPP 24/7)*
+Precio de lista: $350.000 → 🔥 *Promo: $180.000*.
+(Atiende clientes 24/7, responde dudas, toma pedidos/turnos y valida pagos).
+
+🌐 *PÁGINA WEB PROFESIONAL o E-COMMERCE*
+Web Profesional *$250.000* (o Tienda Online *$500.000*). Incluye dominio, hosting y SSL.
+
+📸 *CONTENIDO MULTIMEDIA & PLACAS GRÁFICAS*
+Precio de lista: $250.000/mes → 🔥 *Promo: $140.000/mes*.
+
+📍 *OPTIMIZACIÓN GOOGLE MAPS & SEO LOCAL*
+Precio de lista: $300.000 → 🔥 *Promo: $150.000*.
+
+🎁 *COMBO INTEGRAL NEXTE*
+Precio de lista: $1.800.000 → 🔥 *Promo Final: $690.000* (Ahorro de $1.110.000).`
+            ]
+        };
+
+        // ============ MENSAJE 4: LLAMADOS A LA ACCIÓN (CTA) POR CATEGORÍA ============
+
+        this.ctasPorCategoria = {
+            salud: [
+                "Nos adaptamos 100% a la escala y flujo de pacientes de *{negocio}*. ¿Querés que te pase 2 o 3 ejemplos de sistemas de turnos y webs médicas reales que armamos para que veas cómo funciona? ¡Quedo a tu disposición!",
+                "Si te interesa ver cómo se ve el turnero online y cómo responde el bot de WhatsApp para consultorios, avisame y te paso algunos ejemplos reales. ¡Saludos y que tengas excelente semana!",
+                "Podemos coordinar una breve llamada o te paso demos interactivas de sistemas de salud para que los pruebes desde tu celular. ¿Te gustaría verlos? ¡Saludos!"
+            ],
+            gastronomia: [
+                "Nos adaptamos al ritmo y volumen de *{negocio}*. ¿Querés que te mande una demo interactiva de carta digital QR y bot de pedidos por WhatsApp para que lo pruebes desde tu celu? ¡Quedo a disposición!",
+                "Si te interesa ver cómo funciona el sistema de delivery propio sin pagar comisiones, avisame y te paso un par de ejemplos reales de locales gastronómicos. ¡Saludos!",
+                "Podemos armarte una demo personalizada sin compromiso para que veas cómo recibirías los pedidos en WhatsApp. ¿Te gustaría chusmearla? ¡Saludos y buenas ventas!"
+            ],
+            belleza_fitness: [
+                "Nos adaptamos 100% a la dinámica de *{negocio}*. ¿Querés que te muestre cómo responde el asistente de WhatsApp para consultas de precios y turnos en otros centros? ¡Quedo a tu disposición!",
+                "Si te gustaría ver ejemplos de páginas web y turneros automáticos que desarrollamos para estética y fitness, avisame y te paso los links. ¡Saludos!",
+                "Podemos coordinar una breve charla o te mando demos directas a tu WhatsApp para que veas cómo funciona. ¿Te gustaría verlas? ¡Saludos!"
+            ],
+            comercio: [
+                "Nos adaptamos 100% a los productos y catálogo de *{negocio}*. ¿Querés que te pase links de tiendas online y catálogos interactivos que desarrollamos para que veas el diseño y la velocidad de compra? ¡Quedo a disposición!",
+                "Si te interesa explorar cómo funcionaría tu tienda e-commerce con Mercado Pago y el bot de WhatsApp, avisame y te muestro un par de ejemplos reales. ¡Saludos!",
+                "Podemos coordinar para mostrarte una tienda demo funcionando en vivo con carrito y pagos. ¿Te gustaría verla? ¡Saludos y buenas ventas!"
+            ],
+            servicios: [
+                "Nos adaptamos 100% a los servicios de *{negocio}*. ¿Querés que te comparta algunos ejemplos de webs profesionales y cómo posicionamos en Google Maps a otros negocios de la zona? ¡Quedo a tu disposición!",
+                "Si te gustaría ver casos reales de captación de clientes y cómo funciona el asistente de WhatsApp para cotizaciones, avisame y te paso la info. ¡Saludos!",
+                "Podemos charlar 5 minutos por teléfono o te paso ejemplos directos para que veas la calidad de nuestros desarrollos. ¿Te gustaría verlos? ¡Saludos!"
+            ],
+            general: [
+                "En Nexte nos adaptamos 100% a lo que necesite *{negocio}*. ¿Querés que te comparta algunos ejemplos de sistemas y sitios web reales que ya diseñamos para que los veas? ¡Quedo a disposición!",
+                "Si alguna de las opciones te interesa o querés ver cómo funcionaría en tu negocio, avisame y te paso ejemplos reales o coordinamos una breve charla. ¡Saludos!",
+                "Cualquier consulta estoy a disposición. Si querés te muestro demos reales de sistemas funcionando para que evalúes si te sirve. ¡Que tengas excelente día!"
+            ]
         };
 
         this.stats = { generated: 0 };
-
-        // Cargar desde DB (Asincrónico, se llenará gradualmente)
-        // this.fetchTemplates(); // DESHABILITADO TEMPORALMENTE: Usar hardcoded Feb 2026
     }
 
-    async fetchTemplates() {
-        try {
-            console.log('🔄 [ADVANCED] Cargando plantillas desde la base de datos...');
-            const res = await axios.get(`${this.backendUrl}/api/templates`);
-            if (res.data.success && res.data.templates) {
-                this.updateLocalVariants(res.data.templates);
-                console.log('✅ [ADVANCED] Plantillas cargadas correctamente desde DB');
-            }
-        } catch (error) {
-            console.error('❌ [ADVANCED] Error cargando plantillas desde DB, usando hardcoded:', error.message);
-        }
-    }
-
-    updateLocalVariants(templates) {
-        templates.forEach(t => {
-            const activeVariants = t.variants.filter(v => v.isActive).map(v => v.content);
-            if (activeVariants.length > 0) {
-                if (this[t.category]) {
-                    this[t.category] = activeVariants;
-                }
-            }
-        });
-    }
-
-    // Detectar categoría
+    /**
+     * Detectar categoría del lead basada en keywords y nombre
+     */
     detectCategory(lead) {
-        const text = `${lead.name} ${lead.businessName || ''} ${lead.keyword || ''}`.toLowerCase();
+        const text = `${lead.name || ''} ${lead.category || ''} ${lead.keyword || ''} ${lead.businessName || ''}`.toLowerCase();
         for (const [cat, keys] of Object.entries(this.categoryKeywords)) {
             if (keys.some(k => text.includes(k))) return cat;
         }
         return 'general';
     }
 
-    // Selección aleatoria
     random(arr) {
+        if (!arr || arr.length === 0) return '';
         return arr[Math.floor(Math.random() * arr.length)];
     }
 
-    // Extraer nombre
-    extractName(lead) {
-        const full = lead.name || lead.businessName || 'amigo/a';
-        if (full.includes(' - ')) {
-            const parts = full.split(' - ');
-            return parts[parts.length - 1].split(' ')[0];
+    extractCleanName(lead) {
+        let name = lead.name || lead.businessName || 'su negocio';
+        // Limpiar sufijos típicos de Maps como "| Fitness", "- Lanús", "(Sucursal 2)"
+        name = name.split('|')[0].split(' - ')[0].replace(/\(.*?\)/g, '').trim();
+        return name || 'su negocio';
+    }
+
+    extractLocation(lead) {
+        if (lead.location && lead.location.trim().length > 2) return lead.location.trim();
+        if (lead.city && lead.city.trim().length > 2) return lead.city.trim();
+        if (lead.address) {
+            const parts = lead.address.split(',');
+            if (parts.length > 1) return parts[parts.length - 2].trim();
         }
-        const first = full.split(' ')[0];
-        return (first.length > 2 && first.length < 15) ? first : 'amigo/a';
+        return 'la zona';
     }
 
-    // Reemplazar variables
-    fill(text, lead) {
-        const nombre = this.extractName(lead);
-        const negocio = lead.businessName || lead.name || 'tu negocio';
-        const ubicacion = lead.location || 'tu zona';
+    extractRubroName(cat) {
+        const map = {
+            salud: 'salud y atención médica',
+            gastronomia: 'gastronomía',
+            belleza_fitness: 'estética y fitness',
+            comercio: 'comercio',
+            servicios: 'servicios profesionales'
+        };
+        return map[cat] || 'su rubro';
+    }
+
+    fill(text, lead, cat) {
+        const cleanName = this.extractCleanName(lead);
+        const ubicacion = this.extractLocation(lead);
+        const rubro = this.extractRubroName(cat);
+        const rating = lead.rating ? lead.rating.toString() : '4.8';
+        const reviewCount = lead.reviewCount || lead.reviewsCount || 'varias';
+        const website = lead.website ? lead.website.replace(/^https?:\/\//, '').replace(/\/$/, '') : 'su sitio';
+
         return text
-            .replace(/{nombre}/g, nombre)
-            .replace(/{negocio}/g, negocio)
-            .replace(/{ubicacion}/g, ubicacion);
+            .replace(/{negocio}/g, cleanName)
+            .replace(/{ubicacion}/g, ubicacion)
+            .replace(/{rubro}/g, rubro)
+            .replace(/{rating}/g, rating)
+            .replace(/{reviewCount}/g, reviewCount)
+            .replace(/{website}/g, website);
     }
 
-    // Generar 5 mensajes únicos - NUEVA ESTRUCTURA
+    /**
+     * Generar secuencia de 4 mensajes hiper-personalizada por rubro con datos scrapeados
+     */
     generatePersonalizedSequence(lead) {
         const cat = this.detectCategory(lead);
-        const catPhrases = this.categoryPhrases[cat] || {};
 
-        // MSG 1: SALUDO + INTRO + HOOK (Mensaje General y Seguro)
+        // 1. CONSTRUCCIÓN MENSAJE 1 (Saludo + Reconocimiento Scrapeado + Detalle Web/Técnico)
         const saludo = this.random(this.saludos);
-        const intro = this.random(this.introsNegocio);
-        const hook = this.random(this.hooksGenerales);
+        
+        let introMaps = '';
+        if (lead.rating && lead.rating >= 4.0) {
+            introMaps = this.random(this.introsConRating);
+        } else {
+            introMaps = this.random(this.introsSinRating);
+        }
 
-        const msg1 = this.fill(`${saludo} ${intro} ${hook}`, lead);
+        let observacionWeb = '';
+        if (!lead.website || lead.hasWebsite === false) {
+            observacionWeb = this.random(this.observacionesSinWeb);
+        } else if (lead.webAudit && lead.webAudit.hasWhatsAppWidget === false) {
+            observacionWeb = this.random(this.observacionesConWebSinWA);
+        } else if (lead.website) {
+            observacionWeb = this.random(this.observacionesConWebGeneral);
+        } else {
+            observacionWeb = this.random(this.observacionesGenerales);
+        }
 
-        // MSG 2: EXPLICACIÓN NEXTE
-        const presentacion = this.random(this.presentaciones);
-        const msg2 = this.fill(presentacion, lead);
+        const rawMsg1 = `${saludo} ${introMaps} ${observacionWeb}`;
+        const msg1 = this.fill(rawMsg1, lead, cat);
 
-        // MSG 3: PROMOCIONES 2026 (Forzar uso de las nuevas promos con precios actualizados)
-        // Ignoramos las específicas de categoría por ahora porque tienen precios desactualizados
-        const propuesta = this.random(this.propuestas);
-        const msg3 = this.fill(propuesta, lead);
+        // 2. CONSTRUCCIÓN MENSAJE 2 (Presentación + Dolor específico de la categoría)
+        const presList = this.presentacionesPorCategoria[cat] || this.presentacionesPorCategoria.general;
+        const rawMsg2 = this.random(presList);
+        const msg2 = this.fill(rawMsg2, lead, cat);
 
-        // MSG 4: TODOS LOS SERVICIOS (DESHABILITADO - Msg 3 ya tiene todo)
-        // const servicios = this.random(this.serviciosCompletos);
-        // const msg4 = servicios;
+        // 3. CONSTRUCCIÓN MENSAJE 3 (Propuesta Comercial adaptada a la categoría con precios)
+        const propList = this.propuestasPorCategoria[cat] || this.propuestasPorCategoria.general;
+        const rawMsg3 = this.random(propList);
+        const msg3 = this.fill(rawMsg3, lead, cat);
 
-        // MSG 5: CTA LLAMADA/REUNIÓN (Ahora es el 4to mensaje)
-        const ctaReunion = this.random(this.ctasReunion);
-        const msg5 = ctaReunion;
+        // 4. CONSTRUCCIÓN MENSAJE 4 (Llamado a la acción específico por categoría)
+        const ctaList = this.ctasPorCategoria[cat] || this.ctasPorCategoria.general;
+        const rawMsg4 = this.random(ctaList);
+        const msg4 = this.fill(rawMsg4, lead, cat);
 
         this.stats.generated += 4;
-        console.log(`🎯 [ADVANCED] Cat: ${cat} | Generados: ${this.stats.generated}`);
+        console.log(`🎯 [ADVANCED] Categoría detectada: '${cat}' para '${lead.name}'`);
         console.log(`📝 Mensajes generados:`);
-        console.log(`   1️⃣ Saludo: "${msg1.substring(0, 60)}..."`);
-        console.log(`   2️⃣ Nexte: "${msg2.substring(0, 60)}..."`);
-        console.log(`   3️⃣ Promo: "${msg3.substring(0, 60)}..."`);
-        console.log(`   4️⃣ CTA: "${msg5.substring(0, 60)}..."`);
+        console.log(`   1️⃣ Msg 1 (Personalizado): "${msg1.substring(0, 70)}..."`);
+        console.log(`   2️⃣ Msg 2 (Dolor ${cat}): "${msg2.substring(0, 70)}..."`);
+        console.log(`   3️⃣ Msg 3 (Propuesta ${cat}): "${msg3.substring(0, 70)}..."`);
+        console.log(`   4️⃣ Msg 4 (CTA): "${msg4.substring(0, 70)}..."`);
 
-        const templateMessages = [msg1, msg2, msg3, msg5];
-        templateMessages.templateVariantUsed = this.propuestas.indexOf(propuesta);
+        const templateMessages = [msg1, msg2, msg3, msg4];
+        templateMessages.templateVariantUsed = (propList.indexOf(rawMsg3) >= 0 ? propList.indexOf(rawMsg3) : 0);
         return templateMessages;
-    }
-
-    getStats() {
-        const combos = this.saludos.length * this.introsNegocio.length * this.hooks.length;
-        return {
-            saludos: this.saludos.length,
-            intros: this.introsNegocio.length,
-            hooks: this.hooks.length,
-            presentaciones: this.presentaciones.length,
-            propuestas: this.propuestas.length,
-            servicios: this.serviciosCompletos.length,
-            ctasReunion: this.ctasReunion.length,
-            combinacionesPosibles: combos,
-            mensajesGenerados: this.stats.generated
-        };
     }
 }
 

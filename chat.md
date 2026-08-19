@@ -660,6 +660,31 @@ Se diseñó la arquitectura de los 4 prompts dinámicos para `gpt-4o-mini` sin v
    - **Backend (`server/index.js`)**: Nuevos endpoints REST `POST /api/bot/:instanceId/generate-qr` y `POST /bot/:instanceId/generate-qr` como vía redundante a los sockets.
    - **Dashboard (`crm-dashboard`)**: Se integró `qrcode.min.js` para renderizar el QR localmente en Canvas/SVG en el navegador sin depender de APIs externas, más botón de **Regenerar QR**. Cache buster actualizado a `v=2.9`.
 
+---
+
+## Pregunta del Usuario (2026-08-19):
+> Si, ademas que haya variantes de cada mensaje asi no detecta spam y mejora el mensaje 1 para que diga mas cosas de la info que scrappeamos del negocio
+
+---
+
+## Diagnóstico y Solución Aplicada:
+1. **Mensaje 1 (Hiper-Personalizado con Datos de Google Maps y Auditoría Web)**:
+   - 30 saludos iniciales variados.
+   - Reconocimiento dinámico del negocio con **calificación de estrellas** y **cantidad de opiniones de Google Maps** (`lead.rating` y `lead.reviewCount`).
+   - Mención contextual de la web: si no tienen web oficial en Maps, si tienen web pero sin botón flotante de WhatsApp, o si tienen web consolidada.
+2. **Mensaje 2 (Dolor y Valor Específico Segmentado por Rubro)**:
+   - **Salud/Odontología**: Turnero médico online, agendas y confirmación de turnos para reducir ausentismo.
+   - **Gastronomía**: Carta digital QR interactiva, bot de pedidos a WhatsApp sin comisiones a terceros y reservas.
+   - **Estética/Fitness**: Asistente virtual de WhatsApp 24/7 para consultas de precios y turnos, validación de pagos y control de socios.
+   - **Comercio/Indumentaria**: Tienda E-Commerce con Mercado Pago, catálogo online y bot de stock/talles.
+   - **Servicios/Profesionales**: Web de alta conversión, posicionamiento #1 en Google Maps en la zona y cotizador automático.
+3. **Mensaje 3 (Propuesta Comercial Adaptada al Rubro)**:
+   - Catálogos de soluciones enfocados por rubro con precios vigentes en promoción ($350k Software, $180k Asistente IA, $250k Web / $500k E-Commerce, $150k Maps, $690k Combo).
+4. **Mensaje 4 (Llamados a la Acción con Demos Reales del Rubro)**:
+   - Variantes para ofrecer ejemplos y demos específicas de la actividad del cliente.
+5. **Anti-Spam**: Decenas de combinaciones dinámicas en cada mensaje de la secuencia.
+
+
 
 
 
