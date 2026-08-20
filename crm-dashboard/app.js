@@ -941,6 +941,17 @@ function renderChatList() {
         chats = chats.filter(c => c.instanceId === currentState.filter);
     }
 
+    if (currentState.statusFilter && currentState.statusFilter !== 'all') {
+        const sf = currentState.statusFilter;
+        if (sf === 'interested') {
+            chats = chats.filter(c => c.lead?.status === 'interested' || c.lead?.aiIntent === 'interest' || c.lead?.aiIntent === 'question');
+        } else if (sf === 'replied') {
+            chats = chats.filter(c => c.messages.some(m => !isOutboundMsg(m)));
+        } else if (sf === 'manual') {
+            chats = chats.filter(c => c.lead?.botPaused === true || c.lead?.manualIntervention === true);
+        }
+    }
+
     const sInput = getEl('searchInput');
     if (sInput && sInput.value) {
         const term = sInput.value.toLowerCase().trim();
@@ -1526,6 +1537,65 @@ function setupChatListeners() {
             renderChatList();
         });
     });
+
+    document.querySelectorAll('#chatStatusFilters .filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#chatStatusFilters .filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentState.statusFilter = btn.dataset.statusFilter;
+            renderChatList();
+        });
+    });
+}
+
+function insertChatSnippet(snippetType) {
+    const input = getEl('chatInput');
+    if (!input) return;
+
+    const snippets = {
+        demo_web: "Te comparto 2 o 3 ejemplos de sitios web profesionales y landings de alta conversión que desarrollamos en Nexte Marketing: https://nextemarketing.com. ¿Querés que armemos un modelo para tu marca?",
+        demo_bot: "Nuestro Asistente Virtual con IA NatoH atiende 24/7 en WhatsApp, responde preguntas frecuentes, toma turnos y valida comprobantes de pago automáticamente. El valor en promo es de $180.000 (precio regular $350.000). ¿Te gustaría probar una demo en vivo?",
+        tarifario: "Te resumo nuestras soluciones en promo 2026:\n🤖 Asistente IA NatoH 24/7 $180.000\n⚙️ Sistema a Medida / Turnero $350.000\n🌐 Web Profesional $250.000\n📍 SEO Google Maps $150.000\n🎁 Combo Integral $690.000 (Ahorro $1.110.000).\n¿Cuál se adapta mejor a lo que buscás?",
+        llamada: "¿Te parece que coordinemos una breve llamada de 5 minutos o nos encontramos por videollamada para charlar los detalles sin compromiso? Decime qué día y horario te queda cómodo.",
+        turnero: "El Sistema de Gestión & Turnos Online permite administrar agendas por profesional, enviar recordatorios automáticos por WhatsApp y reducir un 40% el ausentismo de pacientes. Está en promo a $350.000 en 2 pagos. ¿Querés ver cómo funciona?",
+        gastro: "Para gastronomía implementamos Carta Digital QR + Sistema de Pedidos directos a WhatsApp sin comisiones a terceros. Permite recibir pedidos calculando montos y reservas. Está en promo a $350.000. ¿Te muestro una demo interactiva?"
+    };
+
+    const text = snippets[snippetType];
+    if (text) {
+        input.value = text;
+        input.focus();
+    }
+}
+
+function playInterestedLeadSound() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+    } catch (e) {}
+}
+
+function showInterestedLeadNotification(leadName, messageText) {
+    if ("Notification" in window) {
+        if (Notification.permission === "granted") {
+            new Notification(`⭐ LEAD INTERESADO: ${leadName}`, {
+                body: messageText || "Un cliente ha mostrado interés en la propuesta.",
+                icon: "favicon.ico"
+            });
+        } else if (Notification.permission !== "denied") {
+            Notification.requestPermission();
+        }
+    }
 }
 
 function updateBotFilters() {
@@ -1592,6 +1662,15 @@ function handleIncomingRealtimeMessage(data) {
     chat.lastMessage = msgContent;
     chat.lastTime = msgTime;
     if (instanceId) chat.instanceId = instanceId;
+
+    // Alerta sonora y push si es mensaje entrante del cliente con interés
+    if (fromMe !== true && from !== 'me') {
+        const isInterest = chat.lead?.status === 'interested' || data.aiIntent === 'interest' || data.aiIntent === 'question';
+        if (isInterest) {
+            playInterestedLeadSound();
+            showInterestedLeadNotification(chat.name || leadName || 'Cliente', msgContent);
+        }
+    }
 
     if (currentState.activeChatPhone === phone) {
         renderMessages(phone);

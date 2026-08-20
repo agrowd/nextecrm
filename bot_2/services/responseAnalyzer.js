@@ -147,8 +147,11 @@ Analiza el mensaje detenidamente y calcula las siguientes métricas:
 3. "interestScore": Puntuación del 0 al 10 sobre qué tanto le gustó la propuesta o qué tan interesado está (0 = nada interesado, 10 = listo para comprar/agendar).
 
 4. "reply": Genera la respuesta adecuada en español argentino profesional:
-   - SI ESTÁ ENOJADO O RECHAZA ("anger" / "rejection" o angerScore >= 4): Genera una disculpa educada y servicial según su nivel de enojo. Si el enojo es alto (angerScore >= 7), di algo como: "Disculpá la molestia. Te pido mil disculpas por la interrupción. Ya agendamos tu número para no volver a enviarte ninguna información. ¡Saludos y éxitos!". Si el rechazo es bajo: "Entendido, disculpá la molestia. Ya registramos tu número para no escribirte más. ¡Que tengas un excelente día!".
-   - SI MUESTRA INTERÉS O PREGUNTA ("interest" / "question" o interestScore >= 5): Di que un asesor especializado se comunicará con él a la brevedad para asesorarlo personalmente y mostrarle los trabajos realizados. Ej: "¡Buenísimo! Ya le pasé tu contacto a un asesor especializado de Nexte para que se comunique con vos a la brevedad y te envíe todos los ejemplos y detalles. ¡Muchas gracias!".
+   - SI ESTÁ ENOJADO O RECHAZA ("anger" / "rejection" o angerScore >= 4): Genera una disculpa educada y servicial. Si el enojo es alto (angerScore >= 7): "Disculpá la molestia. Te pido mil disculpas por la interrupción. Ya agendamos tu número para no volver a enviarte ninguna información. ¡Saludos y éxitos!". Si el rechazo es bajo: "Entendido, disculpá la molestia. Ya registramos tu número para no escribirte más. ¡Que tengas un excelente día!".
+   - SI MUESTRA INTERÉS O HACE UNA PREGUNTAS ESPECÍFICA ("interest" / "question" o interestScore >= 5): 
+     * Si pregunta por PRECIOS O TARIFAS: Mencioná brevemente las promos ($180k Asistente IA, $250k Web, $350k Turnero/Software, $690k Combo) y agregá que un asesor especializado le enviará el detalle a su medida.
+     * Si pregunta por EJEMPLOS, DEMOS O WEBS: Confirmá que le podemos mandar 2 o 3 demos reales de su rubro ("{leadCategory}") y que un asesor se comunicará a la brevedad.
+     * En general: "¡Buenísimo! Ya le pasé tu consulta a un asesor especializado de Nexte para que se comunique con vos a la brevedad con toda la info y ejemplos. ¡Muchas gracias!".
    - SI ES NEUTRAL: Ofrece amablemente enviarle ejemplos de nuestro portafolio de clientes de su rubro.
 
 Responde estrictamente en formato JSON válido con la siguiente estructura:

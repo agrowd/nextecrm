@@ -1,60 +1,35 @@
 const fs = require('fs');
 const path = require('path');
 
-const sourceDir = 'bot';
-const targetDirs = ['bot_1', 'bot_2', 'bot_3', 'bot_4'];
-const basePath = path.join(__dirname, '..');
+const rootDir = path.join(__dirname, '..');
+const sourceFolder = path.join(rootDir, 'bot');
+const targetFolders = ['bot_1', 'bot_2', 'bot_3', 'bot_4'];
 
-// Sync index.js and package.json (root of bot)
-const rootFilesToSync = ['index.js', 'package.json'];
+console.log('🔄 [DEVOPS SYNC] Sincronizando código desde bot/ hacia la flota de bots...');
 
-// Entire services directory to sync (ISSUE-06 Resolve)
-const servicesDir = 'services';
+const filesToSync = [
+    'index.js',
+    'services/advancedTemplateGenerator.js',
+    'services/aiTextGenerator.js',
+    'services/responseAnalyzer.js',
+    'services/phoneValidator.js',
+    'services/whatsappChecker.js'
+];
 
-for (const targetDir of targetDirs) {
-    const targetPath = path.join(basePath, targetDir);
-    if (!fs.existsSync(targetPath)) {
-        console.log(`Skipping ${targetDir} (not found)`);
-        continue;
-    }
+targetFolders.forEach(target => {
+    const targetPath = path.join(rootDir, target);
+    if (!fs.existsSync(targetPath)) return;
 
-    console.log(`Syncing ${sourceDir} -> ${targetDir}...`);
-
-    // 1. Sync Root Files
-    for (const file of rootFilesToSync) {
-        const srcFile = path.join(basePath, sourceDir, file);
-        const dstFile = path.join(basePath, targetDir, file);
+    filesToSync.forEach(relFile => {
+        const srcFile = path.join(sourceFolder, relFile);
+        const destFile = path.join(targetPath, relFile);
         if (fs.existsSync(srcFile)) {
-            // Check if directory exists
-            const dstDir = path.dirname(dstFile);
-            if (!fs.existsSync(dstDir)) {
-                fs.mkdirSync(dstDir, { recursive: true });
-            }
-            fs.copyFileSync(srcFile, dstFile);
-            console.log(`  Copied ${file}`);
+            const destDir = path.dirname(destFile);
+            if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+            fs.copyFileSync(srcFile, destFile);
         }
-    }
+    });
+    console.log(`   ✅ Sincronizado: bot/ -> ${target}/`);
+});
 
-    // 2. Sync Entire Services Directory
-    const srcServicesPath = path.join(basePath, sourceDir, servicesDir);
-    const dstServicesPath = path.join(basePath, targetDir, servicesDir);
-
-    if (fs.existsSync(srcServicesPath)) {
-        if (!fs.existsSync(dstServicesPath)) {
-            fs.mkdirSync(dstServicesPath, { recursive: true });
-        }
-        
-        const files = fs.readdirSync(srcServicesPath);
-        for (const file of files) {
-            const srcFile = path.join(srcServicesPath, file);
-            const dstFile = path.join(dstServicesPath, file);
-            
-            if (fs.lstatSync(srcFile).isFile()) {
-                fs.copyFileSync(srcFile, dstFile);
-                console.log(`  Copied services/${file}`);
-            }
-        }
-    }
-}
-
-console.log('✨ Global Bot Sync Completed.');
+console.log('✨ [DEVOPS SYNC] Flota de bots sincronizada correctamente.');
