@@ -1,6 +1,51 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-08-19 (20:25 Argentina)
+## Current Session: 2026-08-20 (04:58 Argentina)
+- **Objective:** Solucionar la dirección/burbujas invertidas de los mensajes en la vista de chats del CRM y mejorar los controles para pausar/reactivar la IA directamente desde la sección de Chats.
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** master (pending push)
+- **Deploy:** Listo para desplegar en VPS (`git pull` en `/srv/rascafull`).
+
+### 52. Dirección Correcta de Mensajes (Emisor/Receptor) y Control de Pausa desde Chats
+- **Problema:**
+  1. En los mensajes salientes de prospección (mensajes 1-4 de la secuencia), `fromMe: true` no se incluía explícitamente en el payload de `axios.post('/messages')` en `bot/index.js`.
+  2. En el backend, esto guardaba `fromMe: false` en MongoDB e incrementaba erróneamente `unreadCount`.
+  3. En `crm-dashboard/app.js`, `renderMessages` usaba una verificación simplificada en vez de la función robusta `isOutboundMsg(msg)`, haciendo que los mensajes de prospección enviados por el bot se mostraran en la izquierda (estilo cliente) como si los hubiese enviado el prospecto.
+- **Solución Realizada:**
+  1. **Backend (`server/index.js`)**:
+     - En `POST /messages`, se evalúa automáticamente `type === 'oferta_servicio' || messageNumber > 0 || type === 'respuesta_automatica' || type === 'mensaje_manual'`, forzando `fromMe: true`.
+     - Nuevo endpoint `POST /api/fix-message-directions` que corrige en lote todos los mensajes en MongoDB existentes a `fromMe: true`.
+  2. **Bot (`bot/index.js`)**:
+     - Añadido `fromMe: true` explícito en todos los envíos de `sendMessageSequence` y respuestas automáticas.
+     - Sincronizado en `bot_1/`, `bot_2/`, `bot_3/`, `bot_4/`.
+  3. **CRM Dashboard (`crm-dashboard`)**:
+     - Se actualizó `isOutboundMsg(msg)` en `app.js` para detectar correctamente `oferta_servicio`, `messageNumber > 0`, `mensaje_manual` y metadata.
+     - Se vinculó `renderMessages` para invocar `isOutboundMsg(msg)` siempre, garantizando que los mensajes del bot aparezcan en la derecha en verde con tildes de envío.
+     - **Control de Pausa en Chats**:
+       - Botón directo en la cabecera del chat (`btnToggleBotIA`).
+       - Botón destacado en el panel lateral derecho (Ficha del Negocio).
+       - Banner de aviso `Atención Manual` al abrir chats pausados.
+       - Distintivo visual `⏸️ Manual` en la lista de chats de la izquierda.
+       - Auto-pausa instantánea si el operador responde manualmente desde el input del chat.
+     - Cache buster actualizado a `v=3.0`.
+
+## Previous Session: 2026-08-20 (04:53 Argentina)
+- **Objective:** Verificar y re-confirmar el filtro estricto de seguridad de campaña en la recepción de mensajes de WhatsApp (`handleIncomingMessage` en `bot/index.js` y `/lead/check-messages` en `server/index.js`), asegurando que la IA y las respuestas automáticas SOLO respondan a prospectos que recibieron mensajes de la cola de Rascafull CRM y NUNCA a contactos personales o no pertenecientes a la campaña.
+- **Status:** ✅ VERIFIED & AUDITED
+- **Git Info:** master
+- **Deploy:** Actualizado en master.
+
+### 51. Auditoría de Filtro Estricto de Seguridad por Lead de Campaña
+- **Comprobación Realizada:**
+  1. `handleIncomingMessage(message)` descarta automáticamente chats propios (`fromMe`), grupos (`@g.us`) y estados (`status@broadcast`).
+  2. Ejecuta la **Regla Fundamental de Seguridad de Campaña**:
+     - Verifica si el remitente es el lead actualmente en memoria (`currentlyProcessingLead`).
+     - Si no lo es, consulta `/lead/check-messages` en el servidor backend.
+     - `server/index.js` busca en MongoDB (colecciones `messages` y `leads`) por coincidencia exacta o por sufijo de los últimos 8 dígitos.
+  3. **Resultado:** Si el remitente NO es un lead de la campaña al que Rascafull CRM le envió mensajes (`isCampaignLead === false`), el bot registra `👤 [IGNORADO REGLA DE CAMPAÑA]` y **RETORNA INMEDIATAMENTE SIN RESPONDER**.
+  4. Si el remitente SÍ es un lead pero está pausado o etiquetado en WhatsApp/CRM (`isLabeledOrPaused === true`), tampoco responde y cede el control al operador humano.
+
+## Previous Session: 2026-08-19 (20:25 Argentina)
 - **Objective:** Rediseñar el motor de secuencias de prospección (`advancedTemplateGenerator.js`) con hiper-personalización por datos scrapeados de Maps (rating, opiniones, auditoría web, ubicación), segmentación inteligente por rubros (Salud, Gastro, Fitness/Estética, Comercio, Servicios) y múltiples combinaciones anti-spam para cada mensaje.
 - **Status:** ✅ COMPLETED & SYNCHRONIZED
 - **Git Info:** master (pending push)

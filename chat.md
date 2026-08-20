@@ -684,6 +684,25 @@ Se diseñó la arquitectura de los 4 prompts dinámicos para `gpt-4o-mini` sin v
    - Variantes para ofrecer ejemplos y demos específicas de la actividad del cliente.
 5. **Anti-Spam**: Decenas de combinaciones dinámicas en cada mensaje de la secuencia.
 
+---
+
+## Pregunta del Usuario (2026-08-20):
+> Si lo activo solo le responde a los que les envio mensaje en la cadena de la cola no? No a ningun otro, verifica eso. Que solo responda a los que le envio mensaje con este sistema llamado rascafull
+
+---
+
+## Diagnóstico y Verificación Aplicada:
+1. **Comprobación del Código de Recepción (`bot/index.js` y `server/index.js`)**:
+   - `handleIncomingMessage(message)` implementa la **Regla Fundamental de Seguridad de Campaña**.
+   - Al recibir cualquier mensaje en WhatsApp, se extrae el número del remitente y se verifica:
+     1. ¿Es el lead que se está procesando actualmente en memoria (`currentlyProcessingLead`)?
+     2. Si no es el lead in-memory, realiza una consulta al backend `/lead/check-messages`.
+     3. El backend busca en la base de datos MongoDB (colecciones `Message` y `Lead`) haciendo coincidencia por los últimos 8 dígitos del número.
+   - **Filtro Estricto**: Si el número **NO tiene mensajes enviados previamente por Rascafull CRM** (`isCampaignLead === false`), el sistema imprime `👤 [IGNORADO REGLA DE CAMPAÑA]` y **ABORTA INMEDIATAMENTE SIN RESPONDER NADA**.
+   - **Sin Interferencia**: No responderá jamás a contactos personales, amigos, familiares, grupos o mensajes de desconocidos fuera de la campaña de Rascafull.
+   - **Control Humano Extra**: Si un lead de la campaña responde y está pausado o etiquetado en WhatsApp Web o CRM, la IA tampoco responde para permitir la intervención de un operador humano.
+
+
 
 
 

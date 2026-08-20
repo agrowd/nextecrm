@@ -834,9 +834,10 @@ function formatPhoneDisplay(phone) {
 
 function isOutboundMsg(msg) {
     if (!msg) return false;
+    if (msg.direction === 'inbound' || msg.type === 'client_reply') return false;
     if (msg.fromMe === true || msg.fromMe === 'true') return true;
     if (msg.from === 'me' || msg.sender === 'me' || msg.direction === 'outbound') return true;
-    if (msg.metadata?.manual) return true;
+    if (msg.metadata?.manual || msg.metadata?.fromMe === true) return true;
     if (msg.type === 'oferta_servicio' || msg.type === 'respuesta_automatica' || msg.type === 'mensaje_manual' || msg.type === 'verificacion') return true;
     if (msg.messageNumber && Number(msg.messageNumber) > 0) return true;
     if (msg.botInstance && msg.type !== 'chat' && msg.type !== 'client_reply' && msg.direction !== 'inbound') return true;
@@ -846,6 +847,9 @@ function isOutboundMsg(msg) {
 // --- CHATS & BUSINESS INTELLIGENCE ---
 async function fetchConversations() {
     try {
+        // Corregir mensajes existentes con sentido invertido de forma silenciosa
+        fetchAPI('/fix-message-directions', { method: 'POST' }).catch(() => {});
+
         const response = await fetchAPI(`/conversations?limit=500`);
         const data = await response.json();
         if (data.success) {
@@ -1266,6 +1270,9 @@ function renderLeadProfilePanel(lead, chat) {
 
         <!-- 5. ACCIONES RÁPIDAS OPERADOR -->
         <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 8px;">
+            <button onclick="toggleActiveChatBotIA()" class="profile-action-btn" style="${(lead?.botPaused || lead?.manualIntervention) ? 'background: rgba(255, 152, 0, 0.15); color: #ff9800; border-color: rgba(255, 152, 0, 0.4); font-weight: 700;' : 'background: rgba(0, 168, 132, 0.15); color: #00a884; border-color: rgba(0, 168, 132, 0.4); font-weight: 700;'}">
+                <span class="material-icons" style="font-size: 16px;">${(lead?.botPaused || lead?.manualIntervention) ? 'play_circle' : 'pause_circle'}</span> ${(lead?.botPaused || lead?.manualIntervention) ? 'Reactivar IA para este Chat' : 'Pausar IA para este Chat'}
+            </button>
             ${cleanPhoneDigits ? `
                 <a href="https://web.whatsapp.com/send?phone=${cleanPhoneDigits}" target="_blank" class="profile-action-btn whatsapp">
                     <span class="material-icons" style="font-size: 16px;">chat</span> Abrir en WhatsApp Web
@@ -1427,8 +1434,8 @@ function renderMessages(phone) {
     container.innerHTML = '';
 
     chat.messages.forEach(msg => {
-        const isOutbound = msg.fromMe === true || msg.from === 'me' || msg.metadata?.manual || msg.botInstance;
-        const time = new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const isOutbound = isOutboundMsg(msg);
+        const time = new Date(msg.sentAt || msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         let ticksHtml = '';
         if (isOutbound) {

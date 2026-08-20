@@ -1489,6 +1489,7 @@ class WhatsAppBot {
               phone: lead.phone,
               messageNumber: i + 1,
               content: message,
+              fromMe: true,
               type: 'oferta_servicio',
               status: 'sent',
               sentAt: new Date(),
@@ -1497,6 +1498,7 @@ class WhatsAppBot {
               sentFromNumber: this.connectedNumber,
               instanceId: this.instanceId,
               metadata: {
+                fromMe: true,
                 generatedByAI: true,
                 model: 'gemini-1.5-flash',
                 promoType: i === 2 ? 'promo_2025' : 'engagement',
@@ -1618,6 +1620,7 @@ class WhatsAppBot {
           phone: lead.phone,
           messageNumber: i + 1,
           content: message,
+          fromMe: true,
           variation: message,
           type: 'oferta_servicio',
           status: 'sent',
@@ -1628,6 +1631,7 @@ class WhatsAppBot {
           botInstance: 'main',
           sessionId: this.client.info?.wid?.user || '',
           metadata: {
+            fromMe: true,
             messageIndex: i,
             totalMessages: this.messageSequences.length,
             whatsappVerified: true,
@@ -1782,6 +1786,7 @@ class WhatsAppBot {
             phone: lead.phone,
             messageNumber: messageNumber,
             content: message,
+            fromMe: true,
             variation: message,
             type: 'oferta_servicio',
             status: 'sent',
@@ -1792,6 +1797,7 @@ class WhatsAppBot {
             botInstance: 'main',
             sessionId: this.client.info?.wid?.user || '',
             metadata: {
+              fromMe: true,
               messageIndex: index,
               totalMessages: this.messageSequences.length,
               whatsappVerified: true,

@@ -456,10 +456,13 @@ app.post('/messages', async (req, res) => {
     }
 
     // 3. Crear Mensaje
+    const isOutboundType = type === 'oferta_servicio' || type === 'respuesta_automatica' || type === 'mensaje_manual' || (req.body.messageNumber && Number(req.body.messageNumber) > 0);
+    const resolvedFromMe = (fromMe === true || fromMe === 'true') ? true : (isOutboundType ? true : false);
+
     const newMessage = new Message({
       phone: cleanPhone,
       content,
-      fromMe: fromMe === true || fromMe === 'true',
+      fromMe: resolvedFromMe,
       type: type || 'text',
       timestamp: timestamp || new Date(),
       instanceId,
@@ -467,7 +470,10 @@ app.post('/messages', async (req, res) => {
       leadName: lead ? lead.name : (senderName || cleanPhone),
       senderName,
       whatsappMessageId,
-      metadata
+      metadata: {
+        ...(metadata || {}),
+        fromMe: resolvedFromMe
+      }
     });
 
     await newMessage.save();
@@ -1722,6 +1728,28 @@ app.get('/api/conversations', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching conversations:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/fix-message-directions - Corregir fromMe en mensajes de prospección en MongoDB
+app.post(['/api/fix-message-directions', '/fix-message-directions'], async (req, res) => {
+  try {
+    const result = await Message.updateMany(
+      {
+        $or: [
+          { type: { $in: ['oferta_servicio', 'respuesta_automatica', 'mensaje_manual'] } },
+          { messageNumber: { $gt: 0 } },
+          { 'metadata.generatedByAI': true },
+          { 'metadata.envioAutomatico': true }
+        ]
+      },
+      { $set: { fromMe: true, 'metadata.fromMe': true } }
+    );
+    console.log(`🔧 [FIX DIRECTIONS] ${result.modifiedCount} mensajes corregidos a fromMe: true.`);
+    res.json({ success: true, modifiedCount: result.modifiedCount });
+  } catch (error) {
+    console.error('Error en fix-message-directions:', error);
     res.status(500).json({ error: error.message });
   }
 });
