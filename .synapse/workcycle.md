@@ -1,6 +1,28 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-08-20 (09:25 Argentina)
+## Current Session: 2026-08-20 (09:41 Argentina)
+- **Objective:** Resolver el fallo de generación de código QR al presionar "Generar Código QR" en la vista de Conexión de Bots del CRM Dashboard.
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** master (pending push)
+- **Deploy:** Listo para desplegar en VPS (`git pull` en `/srv/rascafull`).
+
+### 55. Fix de Generación y Renderizado de Código QR para Conexión de WhatsApp
+- **Causa Raíz:**
+  1. Al presionar "Generar Código QR", el bot recibía el comando `start_bot` via Socket.io. Si el bot ya tenía una instancia de Puppeteer instanciada (`isStarted === true`), intentaba re-ejecutar `await this.client.initialize()` sobre el cliente existente en vez de re-crear la sesión, lo que no volvía a emitir el evento `qr`.
+  2. En `bot/index.js`, el evento `this.client.on('qr')` no guardaba la variable `this.lastQr = qr`, haciendo que la respuesta a consultas posteriores fuera `undefined`.
+  3. En `server/index.js`, el endpoint `/api/bot/:instanceId/generate-qr` no comprobaba ni enviaba inmediatamente el `existingQr` guardado en memoria (`botQRS`).
+  4. En `crm-dashboard/app.js`, `requestBotQR` no cambiaba el estado a `starting` de forma síncrona en la UI para dar feedback visual al usuario.
+- **Solución Realizada:**
+  1. **Bot (`bot/index.js`)**:
+     - `this.lastQr = qr` se almacena al recibir el evento `qr` de Puppeteer y se limpia al estar `ready`.
+     - Si se recibe el comando `start_bot` o `generate_qr` y el cliente estaba en estado no-autenticado, se destruye y re-inicializa el navegador Puppeteer para forzar la emisión de un nuevo QR de WhatsApp Web.
+     - Sincronizado en toda la flota (`bot_1/`, `bot_2/`, `bot_3/`, `bot_4/`).
+  2. **Backend (`server/index.js`)**:
+     - `/api/bot/:instanceId/generate-qr` verifica si ya existe un QR activo en `botQRS`, actualiza `botStatuses` y lo emite inmediatamente a todos los clientes Socket.io.
+  3. **Dashboard (`crm-dashboard/app.js`)**:
+     - `requestBotQR` actualiza inmediatamente la tarjeta del bot a estado de carga `starting` ("Generando QR...") y renderiza el QR tan pronto como se recibe en la API o el socket.
+
+## Previous Session: 2026-08-20 (09:25 Argentina)
 - **Objective:** Implementación completa de los 5 Módulos de Mejora aprobados para Rascafull CRM: IA Comercial Enriquecida, Snippets 1-Click para Vendedores, Alertas Sonoras y Push para Leads Interesados, Filtros Rápidos en Chats y Script DevOps de Sincronización de Bots.
 - **Status:** ✅ COMPLETED & SYNCHRONIZED
 - **Git Info:** master (pending push)

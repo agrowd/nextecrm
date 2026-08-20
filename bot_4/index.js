@@ -339,20 +339,19 @@ class WhatsAppBot {
         if (this.lastQr) {
           this.log(`📱 [${this.instanceId}] Re-emitiendo QR disponible...`);
           this.socket.emit('bot_qr', { instanceId: this.instanceId, qr: this.lastQr });
+          axios.post(`${this.backendUrl}/bot/qr`, { instanceId: this.instanceId, qr: this.lastQr }).catch(() => {});
+          return;
         }
 
-        if (!this.client || !this.isStarted) {
-          await this.initializeWhatsApp();
-        } else {
-          try {
-            this.log(`🔄 [${this.instanceId}] Re-intentando inicialización de cliente...`);
-            await this.client.initialize();
-          } catch (initErr) {
-            console.warn(`⚠️ Error re-inicializando: ${initErr.message}. Creando nuevo cliente...`);
-            this.isStarted = false;
-            await this.initializeWhatsApp();
-          }
+        // Si el cliente ya existe pero no se ha autenticado ni generado QR, reiniciar cliente para forzar carga del QR en WhatsApp Web
+        if (this.client) {
+          this.log(`🔄 [${this.instanceId}] Re-creando cliente Puppeteer para forzar generación de nuevo QR...`);
+          try { await this.client.destroy(); } catch (e) {}
+          this.client = null;
+          this.isStarted = false;
         }
+
+        await this.initializeWhatsApp();
       } else if (command === 'stop_bot') {
         this.log('🛑 Deteniendo bot por comando remoto...', 'warn');
         if (this.client) {
@@ -496,6 +495,9 @@ class WhatsAppBot {
       console.log('📱 Escanea este código QR con WhatsApp:');
       qrcode.generate(qr, { small: true });
 
+      // Guardar último QR recibido
+      this.lastQr = qr;
+
       // Enviar QR al servidor central (para VPS Dashboard)
       this.socket.emit('bot_qr', { instanceId: this.instanceId, qr });
 
@@ -517,6 +519,7 @@ class WhatsAppBot {
 
     this.client.on('authenticated', () => {
       console.log(`🔐 [${this.instanceId}] Authenticated event fired!`);
+      this.lastQr = null;
       // Intentar capturar logs del navegador si es posible
       if (this.client.pupPage) {
         console.log('🔧 [DEBUG] Attaching to browser console...');
@@ -528,6 +531,7 @@ class WhatsAppBot {
     this.client.on('ready', async () => {
       console.log(`✅ [${this.instanceId}] WhatsApp Bot listo!`);
       console.log(`🔍 [DEBUG] ready event FIRED at ${new Date().toISOString()}`);
+      this.lastQr = null;
 
       // 🛡️ GUARD: Prevenir inicializaciones duplicadas por re-auth
       if (this._leadProcessingStarted) {

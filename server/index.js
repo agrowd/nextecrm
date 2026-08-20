@@ -1030,10 +1030,20 @@ app.post(['/api/bot/:instanceId/generate-qr', '/bot/:instanceId/generate-qr'], a
     const { instanceId } = req.params;
     console.log(`📱 [QR REQUEST] Solicitud de QR para ${instanceId}`);
 
+    const existingQr = botQRS.get(instanceId);
+    if (existingQr) {
+      const status = botStatuses.get(instanceId) || {};
+      status.status = 'qr_required';
+      status.qr = existingQr;
+      status.lastSeen = Date.now();
+      botStatuses.set(instanceId, status);
+      io.emit('bot_status_update', { instanceId, status: 'qr_required', qr: existingQr });
+    }
+
     const botSocketId = connectedBots.get(instanceId);
     if (botSocketId) {
       io.to(botSocketId).emit('bot_command', { command: 'start_bot', payload: {} });
-      return res.json({ success: true, message: `Comando de generación de QR enviado a ${instanceId}` });
+      return res.json({ success: true, message: `Comando de generación de QR enviado a ${instanceId}`, qr: existingQr || null });
     }
 
     // Si el bot no está conectado al socket, iniciarlo
@@ -1063,10 +1073,11 @@ app.post(['/api/bot/:instanceId/generate-qr', '/bot/:instanceId/generate-qr'], a
       }
     });
 
-    botStatuses.set(instanceId, { status: 'starting', startedAt: new Date() });
-    io.emit('bot_status_update', { instanceId, status: 'starting' });
+    const currentStatus = existingQr ? 'qr_required' : 'starting';
+    botStatuses.set(instanceId, { status: currentStatus, qr: existingQr || null, startedAt: new Date() });
+    io.emit('bot_status_update', { instanceId, status: currentStatus, qr: existingQr || null });
 
-    res.json({ success: true, message: `Iniciando proceso del bot ${instanceId} para generar QR...` });
+    res.json({ success: true, message: `Iniciando proceso del bot ${instanceId} para generar QR...`, qr: existingQr || null });
   } catch (error) {
     console.error('Error en generate-qr endpoint:', error);
     res.status(500).json({ success: false, error: error.message });

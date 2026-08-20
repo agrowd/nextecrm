@@ -2064,12 +2064,27 @@ async function requestBotQR(instanceId) {
         btn.innerHTML = '<span class="material-icons rotating" style="font-size: 16px;">sync</span> Generando QR...';
     }
 
+    // Actualizar estado local a 'starting' para que la UI responda de inmediato
+    if (currentState.bots.has(instanceId)) {
+        const bot = currentState.bots.get(instanceId);
+        bot.status = 'starting';
+        renderBotControls();
+    }
+
     // 1. Emitir comando Socket
     sendCommand(instanceId, 'start_bot');
 
     // 2. Solicitar vía REST API fallback
     try {
-        await fetchAPI(`/api/bot/${instanceId}/generate-qr`, { method: 'POST' });
+        const res = await fetchAPI(`/api/bot/${instanceId}/generate-qr`, { method: 'POST' });
+        const data = await res.json();
+        if (data && data.qr) {
+            const bot = currentState.bots.get(instanceId) || { id: instanceId };
+            bot.status = 'qr_required';
+            bot.qr = data.qr;
+            currentState.bots.set(instanceId, bot);
+            renderBotControls();
+        }
     } catch (e) {
         console.warn('Fallback HTTP request QR:', e);
     }
