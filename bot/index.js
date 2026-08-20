@@ -660,6 +660,11 @@ class WhatsAppBot {
       }
     });
 
+    console.log(`🚀 [${this.instanceId}] Lanzando navegador Puppeteer Chromium e inicializando WhatsApp Web...`);
+    this.client.initialize().catch(err => {
+      console.error(`❌ [${this.instanceId}] Error al inicializar cliente de WhatsApp:`, err.message);
+    });
+
     // Manejar mensajes entrantes
     this.client.on('message', async (message) => {
       // Notificar al dashboard en tiempo real

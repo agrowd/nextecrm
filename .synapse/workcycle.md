@@ -1,6 +1,22 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-08-20 (09:41 Argentina)
+## Current Session: 2026-08-20 (09:48 Argentina)
+- **Objective:** Diagnosticar y resolver la causa raíz por la cual Puppeteer Chromium no iniciaba al ejecutar `start_bot`, provocando que el bot quedara en estado `Listo (Sin sesión)` sin generar ni emitir el código QR de WhatsApp Web.
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** master (pending push)
+- **Deploy:** Listo para desplegar en VPS (`git pull` en `/srv/rascafull`).
+
+### 56. Fix Crítico: Invocación de `this.client.initialize()` en la Construcción de Instancias del Bot
+- **Causa Raíz:**
+  1. En `bot/index.js`, la función `initializeWhatsApp()` creaba el objeto `Client` de `whatsapp-web.js` y configuraba sus listeners de eventos (`qr`, `ready`, `authenticated`), **pero omitía llamar a `this.client.initialize()` al finalizar la configuración**.
+  2. Como resultado, Puppeteer Chromium nunca se ejecutaba en segundo plano, la página de WhatsApp Web no se cargaba y por ende el evento `qr` jamás se emitía, manteniendo la tarjeta estancada en `Listo (Sin sesión)`.
+- **Solución Realizada:**
+  1. **Bot (`bot/index.js`)**:
+     - Se añadió la invocación explícita `this.client.initialize()` tras adjuntar todos los listeners dentro de `initializeWhatsApp()`.
+     - Se reforzó el manejador del comando `start_bot` para reiniciar suavemente la instancia si no se encuentra en estado `ready`.
+     - Sincronizado en toda la flota de bots (`bot_1/`, `bot_2/`, `bot_3/`, `bot_4/`).
+
+## Previous Session: 2026-08-20 (09:41 Argentina)
 - **Objective:** Resolver el fallo de generación de código QR al presionar "Generar Código QR" en la vista de Conexión de Bots del CRM Dashboard.
 - **Status:** ✅ COMPLETED & SYNCHRONIZED
 - **Git Info:** master (pending push)
