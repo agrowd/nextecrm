@@ -1754,6 +1754,65 @@ app.post(['/api/fix-message-directions', '/fix-message-directions'], async (req,
   }
 });
 
+// POST /api/fix-lid-messages - Vincular mensajes de WhatsApp Business (LID números largos) con el Lead real
+app.post(['/api/fix-lid-messages', '/fix-lid-messages'], async (req, res) => {
+  try {
+    const lidMessages = await Message.find({
+      $or: [
+        { phone: { $regex: '^\d{14,17}$' } },
+        { leadName: { $regex: '^\+?\d{14,17}$' } },
+        { leadId: null }
+      ]
+    }).limit(200);
+
+    let fixedCount = 0;
+
+    for (const msg of lidMessages) {
+      // Buscar si existe un lead contactado por la misma instancia alrededor del mismo horario
+      const msgTime = msg.sentAt || msg.timestamp || msg.createdAt;
+      if (!msgTime) continue;
+
+      const timeWindowStart = new Date(new Date(msgTime).getTime() - 20 * 60 * 1000);
+      const timeWindowEnd = new Date(new Date(msgTime).getTime() + 20 * 60 * 1000);
+
+      // Buscar mensaje de la misma instancia dentro de la ventana de tiempo que SÍ tenga leadId
+      const matchedMsg = await Message.findOne({
+        instanceId: msg.instanceId,
+        leadId: { $ne: null },
+        sentAt: { $gte: timeWindowStart, $lte: timeWindowEnd }
+      }).populate('leadId');
+
+      if (matchedMsg && matchedMsg.leadId) {
+        msg.leadId = matchedMsg.leadId._id;
+        msg.leadName = matchedMsg.leadId.name || matchedMsg.leadId.businessName;
+        msg.phone = matchedMsg.leadId.phone.replace(/\D/g, '');
+        await msg.save();
+        fixedCount++;
+      } else if (msg.instanceId) {
+        // Buscar lead contactado por la misma instancia recientemente
+        const recentLead = await Lead.findOne({
+          assignedToInstance: msg.instanceId,
+          status: { $in: ['contacted', 'interested', 'not_interested', 'completed'] }
+        }).sort({ lastContactAt: -1 });
+
+        if (recentLead) {
+          msg.leadId = recentLead._id;
+          msg.leadName = recentLead.name || recentLead.businessName;
+          msg.phone = recentLead.phone.replace(/\D/g, '');
+          await msg.save();
+          fixedCount++;
+        }
+      }
+    }
+
+    console.log(`🔧 [FIX LIDs] ${fixedCount} mensajes LID re-vinculados con su Lead real.`);
+    res.json({ success: true, fixedCount });
+  } catch (error) {
+    console.error('Error en fix-lid-messages:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // POST /api/lead/:leadId/audit-web & POST /lead/:leadId/audit-web - Forzar auditoría técnica de web de un lead
 app.post(['/api/lead/:leadId/audit-web', '/lead/:leadId/audit-web'], async (req, res) => {
   try {

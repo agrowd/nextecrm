@@ -847,8 +847,9 @@ function isOutboundMsg(msg) {
 // --- CHATS & BUSINESS INTELLIGENCE ---
 async function fetchConversations() {
     try {
-        // Corregir mensajes existentes con sentido invertido de forma silenciosa
+        // Corregir mensajes existentes con sentido invertido y LIDs de forma silenciosa
         fetchAPI('/fix-message-directions', { method: 'POST' }).catch(() => {});
+        fetchAPI('/fix-lid-messages', { method: 'POST' }).catch(() => {});
 
         const response = await fetchAPI(`/conversations?limit=500`);
         const data = await response.json();
@@ -866,34 +867,40 @@ async function fetchConversations() {
 function processConversations(messages) {
     const newConvs = {};
     messages.forEach(msg => {
-        const phone = msg.phone;
-        if (!phone) return;
-        
         let lead = (msg.leadId && typeof msg.leadId === 'object') ? msg.leadId : null;
         
+        let rawPhone = String(msg.phone || '').replace('@c.us', '').replace(/\D/g, '');
+        if (!rawPhone) return;
+
         // Si no vino leadId poblado, buscar en lista de leads por coincidencia de sufijo
         if (!lead && currentState.leads && Array.isArray(currentState.leads)) {
-            const cleanDigits = String(phone).replace('@c.us', '').replace(/\D/g, '');
-            const suffix = cleanDigits.length >= 8 ? cleanDigits.slice(-8) : cleanDigits;
+            const suffix = rawPhone.length >= 8 ? rawPhone.slice(-8) : rawPhone;
             lead = currentState.leads.find(l => {
                 if (!l.phone) return false;
                 const lDigits = String(l.phone).replace(/\D/g, '');
-                return lDigits.endsWith(suffix) || cleanDigits.endsWith(lDigits.slice(-8));
+                return lDigits.endsWith(suffix) || rawPhone.endsWith(lDigits.slice(-8));
             }) || null;
         }
 
-        // Nombre a mostrar (Negocio real si existe, o teléfono formateado)
-        let displayName = (lead && (lead.name || lead.businessName)) || (msg.leadName && !/^\+?\d{8,}$/.test(msg.leadName.trim()) ? msg.leadName : '');
-        if (!displayName) {
-            displayName = formatPhoneDisplay(phone);
+        // Teléfono canónico (preferir el del lead si está disponible)
+        const canonicalPhone = (lead && lead.phone) ? String(lead.phone).replace(/\D/g, '') : rawPhone;
+
+        // Nombre a mostrar (Negocio real si existe, o leadName válido no-numérico)
+        let displayName = (lead && (lead.name || lead.businessName)) || (msg.leadName && !/^\+?\d{10,}$/.test(msg.leadName.trim()) ? msg.leadName : '');
+        
+        // Si no hay nombre y es un número largo LID, formatear o buscar por instancia
+        if (!displayName || /^\+?\d{10,}$/.test(displayName.trim())) {
+            if (lead && (lead.name || lead.businessName)) {
+                displayName = lead.name || lead.businessName;
+            } else {
+                displayName = formatPhoneDisplay(canonicalPhone);
+            }
         }
 
-        const realPhone = (lead && lead.phone) ? lead.phone : phone;
-
-        if (!newConvs[phone]) {
-            newConvs[phone] = { 
-                phone: realPhone,
-                rawPhone: phone,
+        if (!newConvs[canonicalPhone]) {
+            newConvs[canonicalPhone] = { 
+                phone: canonicalPhone,
+                rawPhone: msg.phone,
                 name: displayName, 
                 messages: [], 
                 lastMessage: '', 
@@ -902,20 +909,23 @@ function processConversations(messages) {
                 lead: lead
             };
         } else {
-            if (!newConvs[phone].lead && lead) {
-                newConvs[phone].lead = lead;
-                newConvs[phone].phone = realPhone;
-                if (lead.name) newConvs[phone].name = lead.name;
+            if (!newConvs[canonicalPhone].lead && lead) {
+                newConvs[canonicalPhone].lead = lead;
+                newConvs[canonicalPhone].phone = canonicalPhone;
+                if (lead.name || lead.businessName) newConvs[canonicalPhone].name = lead.name || lead.businessName;
+            }
+            if (lead && (lead.name || lead.businessName) && (!newConvs[canonicalPhone].name || /^\+?\d{10,}$/.test(newConvs[canonicalPhone].name))) {
+                newConvs[canonicalPhone].name = lead.name || lead.businessName;
             }
         }
-        newConvs[phone].messages.push(msg);
+        newConvs[canonicalPhone].messages.push(msg);
     });
 
     Object.values(newConvs).forEach(chat => {
-        chat.messages.sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt));
+        chat.messages.sort((a, b) => new Date(a.sentAt || a.timestamp) - new Date(b.sentAt || b.timestamp));
         const last = chat.messages[chat.messages.length - 1];
         chat.lastMessage = last.content || '';
-        chat.lastTime = last.sentAt || new Date();
+        chat.lastTime = last.sentAt || last.timestamp || new Date();
         chat.instanceId = last.instanceId || chat.instanceId;
     });
 

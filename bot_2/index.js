@@ -2904,20 +2904,68 @@ class WhatsAppBot {
   async saveMessageToBackend(msg) {
     try {
       if (msg.from === 'status@broadcast' || msg.to === 'status@broadcast') return;
-      const phone = msg.fromMe ? msg.to.split('@')[0] : msg.from.split('@')[0];
-      if (!phone || phone.length < 5) return;
+      
+      let rawJid = msg.fromMe ? msg.to : msg.from;
+      let rawPhone = rawJid ? rawJid.split('@')[0].replace(/\D/g, '') : '';
+      if (!rawPhone || rawPhone.length < 5) return;
+
+      let resolvedPhone = rawPhone;
+      let resolvedLeadName = null;
+      let resolvedLeadId = null;
+
+      // 🛠️ RESOLUCIÓN DE LIDs DE WHATSAPP BUSINESS (@lid o IDs numéricos largos de 14-16 dígitos)
+      const isLid = (rawJid && rawJid.includes('@lid')) || (rawPhone.length >= 14 && !rawPhone.startsWith('54'));
+
+      if (isLid) {
+        // A) Intentar asociar con el lead actualmente en procesamiento in-memory
+        if (this.currentlyProcessingLead) {
+          resolvedPhone = this.currentlyProcessingLead.phone.replace(/\D/g, '');
+          resolvedLeadName = this.currentlyProcessingLead.name;
+          resolvedLeadId = this.currentlyProcessingLead.id;
+        }
+
+        // B) Resolver número real vía Puppeteer Contact API
+        if (!resolvedLeadName || resolvedPhone === rawPhone) {
+          try {
+            const contact = await msg.getContact().catch(() => null);
+            if (contact && contact.number) {
+              resolvedPhone = contact.number.replace(/\D/g, '');
+            } else {
+              const chat = await msg.getChat().catch(() => null);
+              if (chat && chat.getContact) {
+                const c = await chat.getContact().catch(() => null);
+                if (c && c.number) resolvedPhone = c.number.replace(/\D/g, '');
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      // C) Si aún no tenemos leadName, consultar backend por resolvedPhone
+      if (!resolvedLeadName && resolvedPhone) {
+        try {
+          const leadRes = await axios.get(`${this.backendUrl}/lead/by-phone/${encodeURIComponent(resolvedPhone)}`).catch(() => null);
+          if (leadRes && leadRes.data && leadRes.data.lead) {
+            resolvedLeadName = leadRes.data.lead.name || leadRes.data.lead.businessName;
+            resolvedLeadId = leadRes.data.lead._id;
+          }
+        } catch (e) {}
+      }
 
       await axios.post(`${this.backendUrl}/messages`, {
-        phone: phone,
+        phone: resolvedPhone,
+        leadId: resolvedLeadId,
+        leadName: resolvedLeadName,
         content: msg.body || `[Archivo: ${msg.type}]`,
-        fromMe: msg.fromMe,
+        fromMe: msg.fromMe === true,
         type: msg.type || 'text',
         sentAt: new Date(msg.timestamp * 1000),
         whatsappMessageId: msg.id._serialized,
         instanceId: this.instanceId,
         sentFromNumber: this.connectedNumber,
         metadata: {
-          fromMe: msg.fromMe,
+          fromMe: msg.fromMe === true,
+          originalJid: rawJid,
           device: msg.deviceType
         }
       });

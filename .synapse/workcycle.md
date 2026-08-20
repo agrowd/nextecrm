@@ -1,6 +1,31 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-08-20 (04:58 Argentina)
+## Current Session: 2026-08-20 (05:05 Argentina)
+- **Objective:** Resolver la aparición de números largos (LIDs de WhatsApp Business como `222011322274011`) en la lista de chats del CRM en lugar del nombre real del negocio o su número de teléfono.
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** master (pending push)
+- **Deploy:** Listo para desplegar en VPS (`git pull` en `/srv/rascafull`).
+
+### 53. Resolución Inteligente de WhatsApp LIDs a Nombres y Teléfonos Reales
+- **Causa Raíz:**
+  1. WhatsApp Business asigna a los negocios un `LID` (Linked Device ID) de 15 dígitos (ej. `222011322274011@lid`).
+  2. En `bot/index.js`, `saveMessageToBackend` extraía la parte inicial del JID (`msg.from` o `msg.to`), enviando la cadena `222011322274011` como campo `phone` a la API central sin resolver previamente el contacto a su número GSM real (`54911...`).
+  3. Al guardarse `phone: "222011322274011"` en MongoDB sin vincular `leadId` ni `leadName`, el dashboard formateaba la conversación usando el campo bruto como `+222011322274011`.
+- **Solución Realizada:**
+  1. **Bot (`bot/index.js`)**:
+     - `saveMessageToBackend(msg)` detecta si el JID es un LID (`@lid` o números de >=14 dígitos).
+     - Asocia automáticamente con `this.currentlyProcessingLead` in-memory si está activo.
+     - Ejecuta `msg.getContact()` / `chat.getContact()` en Puppeteer para obtener el número real `contact.number`.
+     - Si es necesario, consulta al backend para recuperar el `name` y `_id` del Lead antes de guardar.
+     - Sincronizado en `bot_1/`, `bot_2/`, `bot_3/`, `bot_4/`.
+  2. **Backend (`server/index.js`)**:
+     - Endpoint `POST /api/fix-lid-messages` que analiza mensajes con números LID en MongoDB y los re-vincula por `instanceId` y rango de tiempo con su correspondiente `Lead` en la base de datos.
+  3. **CRM Dashboard (`crm-dashboard`)**:
+     - `processConversations` en `app.js` prioriza `lead.phone` (teléfono canónico) sobre el string LID.
+     - Asigna siempre `displayName = lead.name || lead.businessName`, eliminando los nombres con números largos.
+     - Ejecuta automáticamente `/fix-lid-messages` en segundo plano al cargar chats.
+
+## Previous Session: 2026-08-20 (04:58 Argentina)
 - **Objective:** Solucionar la dirección/burbujas invertidas de los mensajes en la vista de chats del CRM y mejorar los controles para pausar/reactivar la IA directamente desde la sección de Chats.
 - **Status:** ✅ COMPLETED & SYNCHRONIZED
 - **Git Info:** master (pending push)
