@@ -1,6 +1,29 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-08-20 (09:48 Argentina)
+## Current Session: 2026-09-07 (14:08 Argentina)
+- **Objective:** Auditoría exhaustiva y blindaje total de la regla de no-interferencia en números personales. Garantizar con 100% de certeza que si el usuario conecta su número personal, el bot NUNCA responderá a contactos ajenos, amigos o desconocidos fuera de la campaña de leads de Google Maps.
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** master (pending push)
+- **Deploy:** Listo para desplegar en VPS (`git pull` en `/srv/rascafull`).
+
+### 57. Blindaje Absoluto Anti-Interferencia en Números Personales
+- **Fallas Críticas Detectadas en Auditoría:**
+  1. `saveMessageToBackend` guardaba cualquier mensaje entrante de un contacto en la colección `Message` sin pasar `status`, por lo que el esquema de MongoDB le asignaba `status: 'sent'` por defecto.
+  2. Al llamar inmediatamente a `/lead/check-messages`, el endpoint contaba mensajes con `status: ['sent', 'delivered', 'read']` SIN filtrar por `fromMe: true`. En consecuencia, detectaba el mensaje entrante recién guardado, devolvía `safeToSend: false`, y el bot interpretaba erróneamente que ese número ya había sido contactado por la campaña (`isCampaignLead = true`), procediendo a responder con IA.
+  3. En `bot/index.js`, la condición para comandos de prueba (`#test` o `prueba`) no estaba encadenada con `isAdmin`, permitiendo que cualquier tercero que enviara "prueba" activara la secuencia de test.
+- **Solución Realizada:**
+  1. **Backend (`server/index.js`)**:
+     - `POST /messages`: Mensajes entrantes (`fromMe: false`) se guardan estrictamente con `direction: 'inbound'` y `status: 'received'`.
+     - `GET /lead/check-messages`: Se restringe el conteo exclusivamente a mensajes salientes (`fromMe: true` o `direction: 'outbound'`).
+     - `GET /lead/is-campaign-lead`: Nuevo endpoint de validación estricta que exige:
+       * Que el número exista en la colección `Lead` de Google Maps.
+       * Que tenga estado `contacted/interested/not_interested/completed` O que existan mensajes salientes (`fromMe: true`). Si no cumple, devuelve `isCampaignLead: false`.
+  2. **Bot (`bot/index.js`)**:
+     - `handleIncomingMessage`: Utiliza `/lead/is-campaign-lead`. Si el contacto no existe en la base de datos de prospectos de Maps o no recibió mensajes salientes, se ignora con `return` inmediato.
+     - Comandos `#test` / `prueba` protegidos estrictamente para uso exclusivo del número de administrador (`cleanContactPhone.endsWith('1126642674')`).
+     - Sincronizado en `bot/`, `bot_1/`, `bot_2/`, `bot_3/`, `bot_4/`.
+
+## Previous Session: 2026-08-20 (09:48 Argentina)
 - **Objective:** Diagnosticar y resolver la causa raíz por la cual Puppeteer Chromium no iniciaba al ejecutar `start_bot`, provocando que el bot quedara en estado `Listo (Sin sesión)` sin generar ni emitir el código QR de WhatsApp Web.
 - **Status:** ✅ COMPLETED & SYNCHRONIZED
 - **Git Info:** master (pending push)

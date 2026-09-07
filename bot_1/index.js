@@ -1962,8 +1962,13 @@ class WhatsAppBot {
       const cleanContactPhone = contactNumber.replace('@c.us', '').replace(/\D/g, '');
       const trimmedBody = messageBody.trim().toLowerCase();
 
-      if (cleanContactPhone.endsWith('1126642674') || cleanContactPhone.endsWith('5491126642674') || trimmedBody.startsWith('#test') || trimmedBody.startsWith('!test') || trimmedBody === 'prueba') {
-        if (trimmedBody.includes('test') || trimmedBody.includes('prueba')) {
+      // 🛡️ SEGURIDAD: Solo el administrador puede ejecutar comandos
+      const isAdmin = cleanContactPhone.endsWith('1126642674') || cleanContactPhone.endsWith('5491126642674');
+      const isTestCommand = trimmedBody.startsWith('#test') || trimmedBody.startsWith('!test') || trimmedBody === 'prueba';
+      const isStatusCommand = trimmedBody.startsWith('#estado') || trimmedBody.startsWith('!estado') || trimmedBody === 'estado';
+
+      if (isAdmin && (isTestCommand || isStatusCommand)) {
+        if (isTestCommand) {
           console.log(`👑 [ADMIN COMMAND] Ejecutando comando de prueba IA solicitado por ${contactNumber}...`);
           await this.client.sendMessage(contactNumber, '🧪 *[PRUEBA IA EN PROCESO]*\nGenerando negocio simulado de Google Maps y redactando 4 mensajes con ChatGPT...');
 
@@ -2041,7 +2046,7 @@ class WhatsAppBot {
           return;
         }
 
-        if (trimmedBody.includes('estado') || trimmedBody.includes('status')) {
+        if (isStatusCommand) {
           try {
             const qRes = await axios.get(`${this.backendUrl}/next`);
             const qInfo = qRes.data.queue || {};
@@ -2065,18 +2070,18 @@ class WhatsAppBot {
         }
       }
 
-      // 2. Si no es el lead in-memory, consultar en BD si existe como Lead y YA SE LE ENVIARON MENSAJES de la campaña
+      // 2. Si no es el lead in-memory, consultar en BD con endpoint estricto si existe en Leads y recibió mensaje saliente
       if (!isCampaignLead) {
         try {
-          const checkRes = await axios.get(`${this.backendUrl}/lead/check-messages`, {
+          const checkRes = await axios.get(`${this.backendUrl}/lead/is-campaign-lead`, {
             params: { phone: cleanIncomingPhone }
           });
-          // Si safeToSend es false, significa que ya existen mensajes enviados o el lead ya fue contactado
-          if (checkRes.data && checkRes.data.safeToSend === false) {
+          if (checkRes.data && checkRes.data.isCampaignLead === true) {
             isCampaignLead = true;
           }
         } catch (err) {
-          // Silenciar error de consulta
+          // Si falla la consulta, por seguridad NO consideramos que sea de la campaña
+          isCampaignLead = false;
         }
       }
 
@@ -2967,6 +2972,8 @@ class WhatsAppBot {
         leadName: resolvedLeadName,
         content: msg.body || `[Archivo: ${msg.type}]`,
         fromMe: msg.fromMe === true,
+        direction: msg.fromMe === true ? 'outbound' : 'inbound',
+        status: msg.fromMe === true ? 'sent' : 'received',
         type: msg.type || 'text',
         sentAt: new Date(msg.timestamp * 1000),
         whatsappMessageId: msg.id._serialized,
@@ -2974,6 +2981,7 @@ class WhatsAppBot {
         sentFromNumber: this.connectedNumber,
         metadata: {
           fromMe: msg.fromMe === true,
+          direction: msg.fromMe === true ? 'outbound' : 'inbound',
           originalJid: rawJid,
           device: msg.deviceType
         }

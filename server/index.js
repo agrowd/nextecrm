@@ -458,11 +458,15 @@ app.post('/messages', async (req, res) => {
     // 3. Crear Mensaje
     const isOutboundType = type === 'oferta_servicio' || type === 'respuesta_automatica' || type === 'mensaje_manual' || (req.body.messageNumber && Number(req.body.messageNumber) > 0);
     const resolvedFromMe = (fromMe === true || fromMe === 'true') ? true : (isOutboundType ? true : false);
+    const resolvedDirection = resolvedFromMe ? 'outbound' : 'inbound';
+    const resolvedStatus = resolvedFromMe ? (req.body.status || 'sent') : 'received';
 
     const newMessage = new Message({
       phone: cleanPhone,
       content,
       fromMe: resolvedFromMe,
+      direction: resolvedDirection,
+      status: resolvedStatus,
       type: type || 'text',
       timestamp: timestamp || new Date(),
       instanceId,
@@ -472,7 +476,8 @@ app.post('/messages', async (req, res) => {
       whatsappMessageId,
       metadata: {
         ...(metadata || {}),
-        fromMe: resolvedFromMe
+        fromMe: resolvedFromMe,
+        direction: resolvedDirection
       }
     });
 
@@ -1610,33 +1615,120 @@ app.put(['/api/lead/:id/bot-control', '/lead/:id/bot-control'], async (req, res)
 });
 
 // GET /lead/check-messages - DOBLE CHECK DE SEGURIDAD 🛡️
-// Verifica si ya existen mensajes enviados a este teléfono en la BD
+// Verifica si ya existen mensajes SALIENTES enviados a este teléfono en la BD
 app.get('/lead/check-messages', async (req, res) => {
   try {
     const { phone } = req.query;
     if (!phone) return res.status(400).json({ error: 'Phone required' });
 
-    // Buscar mensajes SENT, DELIVERED o READ para este teléfono
-    const existingMessages = await Message.countDocuments({
-      phone: phone,
-      status: { $in: ['sent', 'delivered', 'read'] }
+    const cleanPhone = String(phone).replace(/\D/g, '');
+    const suffix = cleanPhone.length >= 8 ? cleanPhone.slice(-8) : cleanPhone;
+
+    // Buscar únicamente mensajes SALIENTES enviados por nosotros a este teléfono
+    const existingOutboundMessages = await Message.countDocuments({
+      $or: [
+        { phone: phone },
+        { phone: cleanPhone },
+        { phone: new RegExp(suffix + '$') }
+      ],
+      $or: [
+        { fromMe: true },
+        { direction: 'outbound' },
+        { type: { $in: ['oferta_servicio', 'respuesta_automatica', 'mensaje_manual'] } },
+        { messageNumber: { $gt: 0 } }
+      ]
     });
 
     // También verificar si el lead ya está marcado como contactado
     const leadContacted = await Lead.findOne({
-      phone: phone,
+      $or: [
+        { phone: phone },
+        { phone: cleanPhone },
+        { phone: new RegExp(suffix + '$') }
+      ],
       status: { $in: ['contacted', 'interested', 'not_interested', 'completed'] }
     });
 
     res.json({
-      safeToSend: existingMessages === 0 && !leadContacted,
-      existingMessages,
+      safeToSend: existingOutboundMessages === 0 && !leadContacted,
+      existingMessages: existingOutboundMessages,
       leadStatus: leadContacted ? leadContacted.status : 'clean',
-      reason: existingMessages > 0 ? 'existing_messages' : (leadContacted ? 'lead_already_contacted' : null)
+      reason: existingOutboundMessages > 0 ? 'existing_messages' : (leadContacted ? 'lead_already_contacted' : null)
     });
   } catch (error) {
     console.error('Error en check-messages:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /lead/is-campaign-lead - VERIFICACIÓN DE SEGURIDAD ABSOLUTA 🛡️
+// Determina si un número que escribe pertenece a la campaña de Rascafull o es un contacto ajeno/personal
+app.get(['/lead/is-campaign-lead', '/api/lead/is-campaign-lead'], async (req, res) => {
+  try {
+    const { phone } = req.query;
+    if (!phone) return res.status(400).json({ isCampaignLead: false, error: 'Phone required' });
+
+    const cleanPhone = String(phone).replace('@c.us', '').replace(/\D/g, '');
+    if (cleanPhone.length < 6) {
+      return res.json({ isCampaignLead: false, reason: 'invalid_phone' });
+    }
+    const suffix = cleanPhone.length >= 8 ? cleanPhone.slice(-8) : cleanPhone;
+
+    // 1. Buscar si el Lead existe en MongoDB (colección de prospectos de Google Maps)
+    const lead = await Lead.findOne({
+      $or: [
+        { phone: phone },
+        { phone: cleanPhone },
+        { phone: new RegExp(suffix + '$') }
+      ]
+    });
+
+    // Si NO existe en la base de datos de leads de Maps -> 100% CONTACTO PERSONAL / AJENO
+    if (!lead) {
+      return res.json({ 
+        isCampaignLead: false, 
+        reason: 'not_in_lead_database',
+        message: 'El número no existe en la base de datos de prospectos.' 
+      });
+    }
+
+    // 2. Si existe en la BD de leads, verificar si alguna vez se le envió un mensaje saliente
+    const hasOutbound = await Message.exists({
+      $or: [
+        { leadId: lead._id },
+        { phone: cleanPhone },
+        { phone: new RegExp(suffix + '$') }
+      ],
+      $or: [
+        { fromMe: true },
+        { direction: 'outbound' },
+        { type: { $in: ['oferta_servicio', 'respuesta_automatica', 'mensaje_manual'] } },
+        { messageNumber: { $gt: 0 } }
+      ]
+    });
+
+    const isContactedStatus = ['contacted', 'interested', 'not_interested', 'completed'].includes(lead.status);
+
+    if (hasOutbound || isContactedStatus) {
+      return res.json({
+        isCampaignLead: true,
+        leadId: lead._id,
+        leadName: lead.name,
+        status: lead.status,
+        botPaused: lead.botPaused || false,
+        manualIntervention: lead.manualIntervention || false
+      });
+    }
+
+    // Si está en la BD pero en estado 'pending' y NUNCA se le envió mensaje -> NO responder aún
+    return res.json({
+      isCampaignLead: false,
+      reason: 'never_contacted',
+      message: 'El lead está en la base pero nunca recibió un mensaje de la campaña.'
+    });
+  } catch (error) {
+    console.error('Error en is-campaign-lead:', error);
+    res.status(500).json({ isCampaignLead: false, error: error.message });
   }
 });
 
