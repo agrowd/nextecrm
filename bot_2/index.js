@@ -609,6 +609,7 @@ class WhatsAppBot {
       console.log(`\n🚀 === BOT INICIADO CON SERVICIOS INTEGRADOS ===`);
       console.log(`📊 Verificando estado de la cola...`);
       console.log(`🤖 AI Text Generator: ${hasAiKey ? 'ACTIVO (' + (process.env.OPENAI_API_KEY ? 'ChatGPT' : 'Gemini') + ')' : 'FALLBACK'}`);
+      console.log(`🛡️ Modo Respuestas Automáticas: ${process.env.AUTO_REPLY_ENABLED === 'true' ? 'ACTIVADO' : 'DESACTIVADO (MODO SOLO ENVÍO - Respuestas 100% Humanas en CRM)'}`);
 
       // ✅ KEEP-ALIVE: Evitar desconexión por inactividad
       if (this._keepAliveInterval) clearInterval(this._keepAliveInterval);
@@ -2265,6 +2266,15 @@ class WhatsAppBot {
         }
       }
 
+      // 🛑 MODO SOLO ENVÍO (D-35): DESACTIVAR TODAS LAS RESPUESTAS AUTOMÁTICAS
+      // El bot NO responde a nadie automáticamente para evitar errores.
+      // Toda respuesta a un lead es gestionada exclusivamente por un operador humano desde el CRM.
+      const isAutoReplyEnabled = process.env.AUTO_REPLY_ENABLED === 'true';
+      if (!isAutoReplyEnabled) {
+        console.log(`🛑 [MODO SOLO ENVÍO ACTIVO] Mensaje de ${contactNumber} registrado en CRM (Estado: ${backendStatus}). NO se envía respuesta automática.`);
+        return;
+      }
+
       // 2. Responder si es necesario y hay una respuesta generada
       if (analysis.shouldRespond && analysis.reply) {
         const replyDelay = 5000 + Math.random() * 8000; // Delay humano de 5-13 segundos
@@ -2801,6 +2811,11 @@ class WhatsAppBot {
   }
 
   async sendAutoResponse(message, response) {
+    if (process.env.AUTO_REPLY_ENABLED !== 'true') {
+      console.log(`🛑 [MODO SOLO ENVÍO] sendAutoResponse omitido para ${message.from}.`);
+      return;
+    }
+
     let autoResponse = '';
 
     switch (response.type) {

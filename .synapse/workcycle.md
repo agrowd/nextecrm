@@ -1,6 +1,28 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-09-07 (14:08 Argentina)
+## Current Session: 2026-09-07 (14:22 Argentina)
+- **Objective:** Desactivar completamente las auto-respuestas del bot (IA, demos, plantillas) para implementar el "Modo Solo Envío". El bot ahora únicamente envía la prospección saliente de la cola de Google Maps y registra las respuestas entrantes en el CRM para que sean atendidas exclusivamente por un operador humano.
+- **Status:** ✅ COMPLETED & SYNCHRONIZED
+- **Git Info:** master (pending push)
+- **Deploy:** Listo para desplegar en VPS (`git pull` en `/srv/rascafull`).
+
+### 58. Implementación del Modo Solo Envío (Cero Respuestas Automáticas)
+- **Causa/Requerimiento:** Solicitud explícita del usuario: *"Pone para que no se le responda a nadie, solo enviar mensajes, sino van a haber muchos errores"*.
+- **Solución Realizada:**
+  1. **Bot (`bot/index.js`)**:
+     - Se añadió la guarda `AUTO_REPLY_ENABLED` (por defecto `false`) justo antes de cualquier bloque de respuesta automática en `handleIncomingMessage`.
+     - Cuando entra un mensaje de un cliente o contacto:
+       * Se guarda en MongoDB (`saveMessageToBackend`) con `direction: 'inbound'` y `status: 'received'`.
+       * Se notifica al CRM vía Socket.io (`new_whatsapp_message`) para el chat en vivo.
+       * Se frena inmediatamente la secuencia saliente del lead (`abortCurrentSequence = true`) para no enviarle más mensajes en frío si ya contestó.
+       * Se clasifica silenciosamente la intención (`interested`, `not_interested`, `manual_review`) para actualizar el CRM.
+       * Si es interesado, se notifica por WhatsApp al admin (`5491126642674`).
+       * **NO se envía ninguna respuesta automática de WhatsApp al contacto** (`return` inmediato antes del bloque de IA).
+     - Se aplicó la misma guarda a `sendAutoResponse` y a los flujos de demo dental y pitch de auto-reply.
+     - Sincronizado en `bot/`, `bot_1/`, `bot_2/`, `bot_3/`, `bot_4/`.
+  2. **Decisiones (`.synapse/decisions.md`)**: Registrada decisión técnica `D-35` con estado `🔒 LOCKED`.
+
+## Previous Session: 2026-09-07 (14:08 Argentina)
 - **Objective:** Auditoría exhaustiva y blindaje total de la regla de no-interferencia en números personales. Garantizar con 100% de certeza que si el usuario conecta su número personal, el bot NUNCA responderá a contactos ajenos, amigos o desconocidos fuera de la campaña de leads de Google Maps.
 - **Status:** ✅ COMPLETED & SYNCHRONIZED
 - **Git Info:** master (pending push)

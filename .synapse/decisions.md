@@ -34,5 +34,6 @@
 | D-32 | **Atenuar/Diminish Inactive Bot Control Cards** | Applying 55% opacity and hover transformations to bots with `not_running` status visually highlights active bots while keeping inactive controls available. | 🔒 LOCKED |
 | D-33 | **100% Dynamic 4-Message Sequence with ChatGPT (No Ads, Focus Software & IA NatoH)** | All 4 messages in the prospecting sequence are generated dynamically with `gpt-4o-mini` based on real lead data (Maps rating, location, web availability), boosting Software/Systems ($650k->$350k), IA NatoH ($350k->$180k), eliminating Publicidad/Ads, and ending with a natural portfolio offer. | 🔒 LOCKED |
 | D-34 | **Chat Tagging & Auto-Pause on Manual Messages** | The AI responder is strictly disabled for any chat with WhatsApp Business labels or CRM tags, or where `botPaused` is toggled. Sending a manual message from the CRM chat automatically pauses the bot for that lead to prevent interrupting human sales interactions. | 🔒 LOCKED |
+| D-35 | **Modo Solo Envío (Sin Auto-Respuestas)** | Desactiva globalmente todas las respuestas automáticas generadas por IA, demos o plantillas para mensajes entrantes. El bot únicamente envía prospección saliente de la cola de Google Maps y registra las respuestas entrantes en el CRM para que sean atendidas exclusivamente por un operador humano, evitando errores y alucinaciones. | 🔒 LOCKED |
 
 
