@@ -702,9 +702,27 @@ Se diseñó la arquitectura de los 4 prompts dinámicos para `gpt-4o-mini` sin v
    - **Sin Interferencia**: No responderá jamás a contactos personales, amigos, familiares, grupos o mensajes de desconocidos fuera de la campaña de Rascafull.
    - **Control Humano Extra**: Si un lead de la campaña responde y está pausado o etiquetado en WhatsApp Web o CRM, la IA tampoco responde para permitir la intervención de un operador humano.
 
+---
 
+## Pregunta del Usuario (2026-09-16):
+> Podes hacer que los contactos que tengan etiquetas en el whatsapp no se les envie mensaje por mas que en la base de datos esten para enviarles
 
+---
 
-
-
-
+## Diagnóstico y Solución Aplicada:
+1. **Detección Exhaustiva en Vivo de Etiquetas de WhatsApp Web**:
+   - Se implementó `checkContactWhatsAppLabels(whatsappFormat)` en `bot/index.js`, que inspecciona directamente el almacén de Puppeteer (`window.Store.Label` y `window.Store.Chat`) y la API nativa de WhatsApp Web (`Chat.getLabels()`).
+   - También se reforzó `checkChatExists` en `whatsappChecker.js` para detectar chats que tengan etiquetas activas aunque no tengan mensajes previos.
+2. **Blindaje Previo al Envío en `sendMessageSequence`**:
+   - **Capa 1 (Base de Datos)**: Si el lead ya tiene `tags`, `labels` o `botPaused: true`, se cancela de inmediato el envío antes de procesar nada.
+   - **Capa 2 (WhatsApp Web en Vivo)**: Si el contacto tiene cualquier etiqueta en WhatsApp:
+     - Se registra en logs: `🏷️ [OMITIDO POR ETIQUETAS EN WHATSAPP] Lead "..." (...) tiene etiquetas activas: [...] NO SE ENVIARÁ NINGÚN MENSAJE.`
+     - No se envía ningún mensaje y no se llama a la API de IA.
+     - Se actualiza su estado en MongoDB a `contacted` (o `interested` / `not_interested` / `completed` si la etiqueta lo especifica), se guardan las etiquetas en los campos `tags` y `labels` del lead, y se activa `botPaused: true` y `manualIntervention: true` para que no vuelva a ser asignado ni procesado.
+3. **Exclusión Temprana en el Servidor (`/next` y `Lead.getNextLead`)**:
+   - Se añadió un filtro a las consultas de asignación de cola para que leads con etiquetas o pausados en la base de datos no sean entregados a los bots.
+   - Se mejoró el webhook `/api/webhooks/whatsapp-status` para recibir y persistir las etiquetas y pausar los leads.
+4. **Sincronización Automática Periódica**:
+   - `syncTagsWithBackend` ahora sincroniza cualquier etiqueta hacia el backend y se ejecuta automáticamente 15 segundos después de que el bot esté `ready` y recurrentemente cada 15 minutos mediante `cron`.
+5. **Propagación a la Flota Multi-Bot**:
+   - Se corrió `scripts/sync-bots.js` actualizando `bot_1`, `bot_2`, `bot_3` y `bot_4`.

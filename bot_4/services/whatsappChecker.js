@@ -471,6 +471,13 @@ class WhatsAppChecker {
           msg.type === 'document'
         );
 
+        // 🏷️ Verificar si el chat tiene etiquetas asignadas en WhatsApp
+        const hasLabels = (chat.labels && Array.isArray(chat.labels) && chat.labels.length > 0);
+        if (hasLabels) {
+          console.log(`🏷️ Chat con etiquetas detectado en checkChatExists: ${phoneNumber} (${chat.labels.length} etiquetas)`);
+          return true;
+        }
+
         if (realMessages.length > 0) {
           console.log(`⚠️ Chat real detectado con ${phoneNumber} (Tipos: ${realMessages.map(m => m.type).join(', ')})`);
           return true;

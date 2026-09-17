@@ -628,6 +628,18 @@ class WhatsAppBot {
         this.warmupManager.start().catch(err => console.error('Error starting warmupManager:', err));
       }
 
+      // 🏷️ Sincronizar etiquetas de WhatsApp con el backend (15s tras iniciar y cada 15 min)
+      setTimeout(() => {
+        this.syncTagsWithBackend().catch(err => console.error('Error en syncTagsWithBackend inicial:', err));
+      }, 15000);
+
+      if (this._tagSyncCron) this._tagSyncCron.stop();
+      this._tagSyncCron = cron.schedule('*/15 * * * *', () => {
+        if (this.isReady) {
+          this.syncTagsWithBackend().catch(err => console.error('Error en cron syncTagsWithBackend:', err));
+        }
+      });
+
       // Emitir métricas iniciales
       this.emitMetrics().catch(err => console.error('Error emitting initial metrics:', err));
     });
@@ -1234,6 +1246,50 @@ class WhatsAppBot {
       const phoneNumber = phoneValidation.formatted;
       const whatsappFormat = phoneValidation.whatsappFormat;
       console.log(`      ✅ Formato válido: ${phoneNumber} (${whatsappFormat})`);
+
+      // 🏷️ 2.1️⃣ Verificación de etiquetas previas en Base de Datos
+      const dbTags = (lead.tags && Array.isArray(lead.tags) && lead.tags.length > 0) ? lead.tags : [];
+      const dbLabels = (lead.labels && Array.isArray(lead.labels) && lead.labels.length > 0) ? lead.labels : [];
+      if (dbTags.length > 0 || dbLabels.length > 0 || lead.botPaused === true) {
+        const activeTags = dbTags.length > 0 ? dbTags : dbLabels;
+        console.log(`   🏷️ [OMITIDO POR ETIQUETAS EN BD] Lead "${lead.name}" (${phoneNumber}) ya tiene etiquetas/pausa en BD: [${activeTags.join(', ')}]. NO se enviará mensaje.`);
+        this.log(`🏷️ Lead ${lead.name} omitido por etiquetas en BD: [${activeTags.join(', ')}]`, 'info', null, lead.id);
+        this.statsTracker.trackLead(lead, 'existing_conversation', { method: 'db_labels_check' });
+        await this.updateLeadStatus(lead.id, 'contacted', lead.name, {
+          botPaused: true,
+          manualIntervention: true,
+          notes: `Omitido por etiquetas en BD: [${activeTags.join(', ')}]`
+        });
+        return { success: false, reason: 'already_labeled_in_db', labels: activeTags };
+      }
+
+      // 🏷️ 2.2️⃣ Verificación de Etiquetas directamente en WhatsApp Web (WhatsApp Business Labels)
+      console.log(`   2.5️⃣ Verificando si el contacto tiene etiquetas en WhatsApp...`);
+      const waLabelCheck = await this.checkContactWhatsAppLabels(whatsappFormat);
+      if (waLabelCheck.hasLabels && waLabelCheck.labels.length > 0) {
+        console.log(`   🏷️ [OMITIDO POR ETIQUETAS EN WHATSAPP] Lead "${lead.name}" (${phoneNumber}) tiene etiquetas activas en WhatsApp: [${waLabelCheck.labels.join(', ')}]. NO SE ENVIARÁ NINGÚN MENSAJE.`);
+        this.log(`🏷️ Lead ${lead.name} (${phoneNumber}) omitido por etiquetas en WhatsApp: [${waLabelCheck.labels.join(', ')}]`, 'info', null, lead.id);
+
+        let targetStatus = 'contacted';
+        if (waLabelCheck.labels.some(l => l.toLowerCase().includes('interesad'))) targetStatus = 'interested';
+        else if (waLabelCheck.labels.some(l => l.toLowerCase().includes('no interesa'))) targetStatus = 'not_interested';
+        else if (waLabelCheck.labels.some(l => l.toLowerCase().includes('vendido') || l.toLowerCase().includes('cliente'))) targetStatus = 'completed';
+
+        this.statsTracker.trackLead(lead, 'existing_conversation', { method: 'whatsapp_labels_check' });
+        await this.updateLeadStatus(lead.id, targetStatus, lead.name, {
+          tags: waLabelCheck.labels,
+          labels: waLabelCheck.labels,
+          botPaused: true,
+          manualIntervention: true,
+          notes: `Etiquetas detectadas en WhatsApp: [${waLabelCheck.labels.join(', ')}] - Mensajes cancelados automáticamente.`
+        });
+
+        if (this.whatsappChecker) {
+          this.whatsappChecker.clearNumberFromCache(phoneNumber);
+        }
+
+        return { success: false, reason: 'has_whatsapp_labels', labels: waLabelCheck.labels };
+      }
 
       // ✅ VERIFICACIÓN RÁPIDA CON quickVerify() (NO envía mensajes)
       console.log(`   3️⃣ Ejecutando QuickVerify en WhatsApp...`);
@@ -3517,6 +3573,118 @@ class WhatsAppBot {
   }
 
   /**
+   * 🏷️ Verificar exhaustivamente si un contacto/chat tiene etiquetas asignadas en WhatsApp Web
+   * @param {string} whatsappFormat - Formato de chat de WhatsApp (ej: 54911xxxx@c.us)
+   * @returns {Promise<{ hasLabels: boolean, labels: string[] }>}
+   */
+  async checkContactWhatsAppLabels(whatsappFormat) {
+    if (!this.client || !this.isReady) {
+      return { hasLabels: false, labels: [] };
+    }
+
+    const foundLabels = [];
+
+    // 1. Verificación directa mediante Puppeteer en window.Store (Ultrarrápida y fiable)
+    try {
+      if (this.client.pupPage) {
+        const storeLabels = await this.client.pupPage.evaluate((targetFormat) => {
+          try {
+            const results = [];
+            const rawDigits = targetFormat.replace(/\D/g, '');
+
+            // A) Buscar en window.Store.Label
+            if (window.Store && window.Store.Label) {
+              const labelModels = window.Store.Label.getModelsArray ? window.Store.Label.getModelsArray() : [];
+              for (const lbl of labelModels) {
+                const lblName = lbl.name || String(lbl.id);
+                if (lbl.labelItemCollection && lbl.labelItemCollection.getModelsArray) {
+                  const items = lbl.labelItemCollection.getModelsArray();
+                  for (const item of items) {
+                    if (item.parentType === 'Chat' && item.parentId) {
+                      const pid = String(item.parentId._serialized || item.parentId);
+                      const pidDigits = pid.replace(/\D/g, '');
+                      if (pid === targetFormat || pidDigits === rawDigits || (rawDigits.length >= 8 && pidDigits.endsWith(rawDigits.slice(-8)))) {
+                        if (!results.includes(lblName)) results.push(lblName);
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            // B) Buscar directamente en window.Store.Chat
+            if (window.Store && window.Store.Chat) {
+              const chats = window.Store.Chat.getModelsArray ? window.Store.Chat.getModelsArray() : [];
+              for (const c of chats) {
+                const cId = String(c.id?._serialized || c.id || '');
+                const cDigits = cId.replace(/\D/g, '');
+                if (cId === targetFormat || cDigits === rawDigits || (rawDigits.length >= 8 && cDigits.endsWith(rawDigits.slice(-8)))) {
+                  if (c.labels && Array.isArray(c.labels) && c.labels.length > 0) {
+                    for (const lId of c.labels) {
+                      const lblObj = window.Store.Label ? window.Store.Label.get(lId) : null;
+                      const name = lblObj ? (lblObj.name || String(lblObj.id)) : String(lId);
+                      if (!results.includes(name)) results.push(name);
+                    }
+                  }
+                  break;
+                }
+              }
+            }
+
+            return results;
+          } catch (e) {
+            return [];
+          }
+        }, whatsappFormat).catch(() => []);
+
+        if (storeLabels && storeLabels.length > 0) {
+          storeLabels.forEach(l => { if (!foundLabels.includes(l)) foundLabels.push(l); });
+        }
+      }
+    } catch (storeErr) {
+      // Silenciar y continuar al método WWebJS
+    }
+
+    // 2. Verificación mediante API de whatsapp-web.js (getChatById)
+    try {
+      const waChat = await this.client.getChatById(whatsappFormat).catch(() => null);
+      if (waChat) {
+        if (waChat.labels && Array.isArray(waChat.labels) && waChat.labels.length > 0) {
+          try {
+            const allLabels = await this.client.getLabels().catch(() => []);
+            for (const lId of waChat.labels) {
+              const foundLbl = allLabels.find(l => l.id === lId);
+              const name = foundLbl ? foundLbl.name : String(lId);
+              if (!foundLabels.includes(name)) foundLabels.push(name);
+            }
+          } catch (lblErr) {
+            waChat.labels.forEach(l => {
+              const name = String(l);
+              if (!foundLabels.includes(name)) foundLabels.push(name);
+            });
+          }
+        } else if (typeof waChat.getLabels === 'function') {
+          const waLabels = await waChat.getLabels().catch(() => []);
+          if (waLabels && waLabels.length > 0) {
+            waLabels.forEach(l => {
+              const name = l.name || l.id || String(l);
+              if (!foundLabels.includes(name)) foundLabels.push(name);
+            });
+          }
+        }
+      }
+    } catch (chatErr) {
+      // Silenciar
+    }
+
+    return {
+      hasLabels: foundLabels.length > 0,
+      labels: foundLabels
+    };
+  }
+
+  /**
    * 🏷️ Sincronizar etiquetas de WhatsApp con el CRM
    */
   async syncTagsWithBackend() {
@@ -3524,28 +3692,44 @@ class WhatsAppBot {
 
     try {
       this.log('↻ Sincronizando etiquetas de WhatsApp...');
-      const chats = await this.client.getChats();
+      const chats = await this.client.getChats().catch(() => []);
+      if (!chats || chats.length === 0) return;
+
+      let allLabels = [];
+      try {
+        allLabels = await this.client.getLabels().catch(() => []);
+      } catch (e) {
+        allLabels = [];
+      }
 
       let syncCount = 0;
       for (const chat of chats) {
-        if (chat.labels && chat.labels.length > 0) {
-          const labels = await this.client.getLabels();
+        if (chat.labels && Array.isArray(chat.labels) && chat.labels.length > 0) {
           const chatLabels = chat.labels.map(lId => {
-            const found = labels.find(l => l.id === lId);
-            return found ? found.name : lId;
+            const found = allLabels.find(l => l.id === lId);
+            return found ? found.name : String(lId);
           });
 
-          let newStatus = null;
+          let newStatus = 'contacted';
           if (chatLabels.some(l => l.toLowerCase().includes('interesad'))) newStatus = 'interested';
           else if (chatLabels.some(l => l.toLowerCase().includes('no interesa'))) newStatus = 'not_interested';
           else if (chatLabels.some(l => l.toLowerCase().includes('vendido') || l.toLowerCase().includes('cliente'))) newStatus = 'completed';
 
-          if (newStatus) {
-            axios.post(`${this.backendUrl}/webhooks/whatsapp-status`, {
-              phone: chat.id.user,
+          const phoneDigits = (chat.id && chat.id.user) ? chat.id.user : '';
+          if (phoneDigits) {
+            axios.post(`${this.backendUrl}/api/webhooks/whatsapp-status`, {
+              phone: phoneDigits,
               status: newStatus,
-              tags: chatLabels
-            }).catch(() => { });
+              tags: chatLabels,
+              labels: chatLabels
+            }).catch(() => {
+              axios.post(`${this.backendUrl}/webhooks/whatsapp-status`, {
+                phone: phoneDigits,
+                status: newStatus,
+                tags: chatLabels,
+                labels: chatLabels
+              }).catch(() => {});
+            });
             syncCount++;
           }
         }

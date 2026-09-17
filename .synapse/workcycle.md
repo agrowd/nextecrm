@@ -708,3 +708,20 @@ docker compose logs -f
 - **Backend & Bot Statuses:** Registra dinámicamente `lastSentInfo` (nombre del lead, teléfono y hora local) y lo emite en tiempo real vía Socket.io.
 - **Formateo de Teléfonos para Admin:** Integrada función `formatPhoneClean(phone)` que formatea números a formato limpio internacional (ej. `+54 9 11 5832-6331`) en alertas y notificaciones al admin `5491126642674`.
 - **Logs del VPS:** Entregados comandos exactos para inspeccionar el historial y estado real de envíos de mensajes del Bot 1.
+
+## Current Session: 2026-09-16 (13:45 Argentina)
+- **Objective:** Excluir contactos con etiquetas de WhatsApp del envío de mensajes de prospección.
+- **Status:** ✅ COMPLETED
+- **Git Info:** master
+- **Deploy:** Listo para deploy en VPS.
+
+### 40. Exclusión de Contactos con Etiquetas de WhatsApp y CRM
+- **Problema:** Contactos que tenían etiquetas asignadas en WhatsApp (ej. de WhatsApp Business) recibían mensajes de prospección en frío porque en la base de datos figuraban en estado `pending`.
+- **Solución:**
+  1. `bot/index.js`: Implementado `checkContactWhatsAppLabels(whatsappFormat)` que verifica exhaustivamente mediante Puppeteer (`window.Store.Label` y `window.Store.Chat`) y WWebJS API (`Chat.getLabels()`).
+  2. `sendMessageSequence`: Comprueba etiquetas en BD y en WhatsApp Web en vivo. Si el contacto tiene etiquetas, se aborta inmediatamente el envío antes de invocar la IA, se actualiza en MongoDB el estado (`contacted`, `interested`, etc.), se guardan las etiquetas en `tags`/`labels` y se marca `botPaused: true` para evitar bucles infinitos.
+  3. `whatsappChecker.js`: Añadida detección de etiquetas en `checkChatExists`.
+  4. `server/index.js` & `server/models/Lead.js`: En `/next` y `Lead.getNextLead`, se excluyen leads que tengan etiquetas o `botPaused: true`. Se mejoró el webhook `/api/webhooks/whatsapp-status` para persistir `tags`, `labels` y pausar el bot.
+  5. Sincronización automática de etiquetas (`syncTagsWithBackend`) programada cada 15 min y 15s post inicio.
+  6. Sincronizada la flota de bots (`bot_1`, `bot_2`, `bot_3`, `bot_4`) con `scripts/sync-bots.js`.
+

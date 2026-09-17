@@ -96,10 +96,29 @@ LeadSchema.statics.getNextLead = function (instanceId) {
   return this.findOneAndUpdate(
     {
       status: 'pending', // Solo tomar pending, NO queued (para evitar robar leads en proceso)
-      $or: [
-        { assignedToInstance: { $exists: false } },
-        { assignedToInstance: '' },
-        { assignedToInstance: null }
+      botPaused: { $ne: true },
+      $and: [
+        {
+          $or: [
+            { assignedToInstance: { $exists: false } },
+            { assignedToInstance: '' },
+            { assignedToInstance: null }
+          ]
+        },
+        {
+          $or: [
+            { tags: { $exists: false } },
+            { tags: { $size: 0 } },
+            { tags: null }
+          ]
+        },
+        {
+          $or: [
+            { labels: { $exists: false } },
+            { labels: { $size: 0 } },
+            { labels: null }
+          ]
+        }
       ]
     },
     {

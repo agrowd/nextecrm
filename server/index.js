@@ -265,10 +265,31 @@ app.get('/next', async (req, res) => {
 
     console.log(`🤖 Bot ${instanceId} buscando preferencia (terminados en ${suffixes.join(',')})...`);
 
+    const labelExclusion = {
+      botPaused: { $ne: true },
+      $and: [
+        {
+          $or: [
+            { tags: { $exists: false } },
+            { tags: { $size: 0 } },
+            { tags: null }
+          ]
+        },
+        {
+          $or: [
+            { labels: { $exists: false } },
+            { labels: { $size: 0 } },
+            { labels: null }
+          ]
+        }
+      ]
+    };
+
     lead = await Lead.findOneAndUpdate(
       {
         status: 'pending',
-        phone: { $regex: regexSuffix }
+        phone: { $regex: regexSuffix },
+        ...labelExclusion
       },
       {
         $set: {
@@ -285,7 +306,10 @@ app.get('/next', async (req, res) => {
     if (!lead) {
       console.log(`⚠️ Bot ${instanceId} no encontró leads preferidos. Usando Fallback...`);
       lead = await Lead.findOneAndUpdate(
-        { status: 'pending' },
+        {
+          status: 'pending',
+          ...labelExclusion
+        },
         {
           $set: {
             status: 'processing',
@@ -1978,7 +2002,19 @@ app.post(['/api/leads/re-audit-all', '/leads/re-audit-all'], async (req, res) =>
 app.put('/lead/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, whatsappResponse, contactedByNumber, contactedByInstance, templateVariantUsed, respondedToTemplate } = req.body;
+    const {
+      status,
+      whatsappResponse,
+      contactedByNumber,
+      contactedByInstance,
+      templateVariantUsed,
+      respondedToTemplate,
+      tags,
+      labels,
+      botPaused,
+      manualIntervention,
+      notes
+    } = req.body;
 
     if (id === 'undefined' || !id) {
       return res.status(400).json({
@@ -2019,6 +2055,24 @@ app.put('/lead/:id/status', async (req, res) => {
     }
     if (respondedToTemplate !== undefined) {
       lead.respondedToTemplate = respondedToTemplate;
+    }
+
+    // 🏷️ Control de Etiquetas y Pausa
+    if (tags && Array.isArray(tags)) {
+      lead.tags = tags;
+    }
+    if (labels && Array.isArray(labels)) {
+      lead.labels = labels;
+    }
+    if (botPaused !== undefined) {
+      lead.botPaused = botPaused;
+      if (botPaused) lead.botPausedAt = new Date();
+    }
+    if (manualIntervention !== undefined) {
+      lead.manualIntervention = manualIntervention;
+    }
+    if (notes) {
+      lead.notes = notes;
     }
 
     await lead.save();
@@ -3109,19 +3163,52 @@ app.post('/api/config', async (req, res) => {
   }
 });
 
-app.post('/api/webhooks/whatsapp-status', async (req, res) => {
+const handleWhatsAppStatusWebhook = async (req, res) => {
   try {
-    const { phone, status, tags } = req.body;
-    // Lógica para actualizar lead basado en etiquetas o status de WA
-    // Por ahora simple log y update status
-    if (status) {
-      await Lead.updateMany({ phone: { $regex: phone.replace(/\D/g, '') } }, { status });
+    const { phone, status, tags, labels } = req.body;
+    if (!phone) {
+      return res.status(400).json({ success: false, error: 'Phone is required' });
     }
-    res.json({ success: true });
+
+    const cleanPhone = String(phone).replace(/\D/g, '');
+    const phonePattern = cleanPhone.length >= 8 ? cleanPhone.slice(-8) : cleanPhone;
+
+    const updateData = {};
+    if (status) {
+      updateData.status = status;
+    }
+
+    const allTags = [];
+    if (tags && Array.isArray(tags)) allTags.push(...tags);
+    if (labels && Array.isArray(labels)) {
+      labels.forEach(l => { if (!allTags.includes(l)) allTags.push(l); });
+    }
+
+    if (allTags.length > 0) {
+      updateData.tags = allTags;
+      updateData.labels = allTags;
+      updateData.botPaused = true;
+      updateData.manualIntervention = true;
+      if (!status || status === 'pending') {
+        updateData.status = 'contacted';
+      }
+    }
+
+    const result = await Lead.updateMany(
+      { phone: { $regex: phonePattern } },
+      { $set: updateData }
+    );
+
+    console.log(`🏷️ Webhook WhatsApp Status: ${cleanPhone} actualizado (${result.modifiedCount} leads modificados) con tags: [${allTags.join(', ')}]`);
+    res.json({ success: true, modifiedCount: result.modifiedCount });
   } catch (error) {
+    console.error('❌ Error en webhook whatsapp-status:', error);
     res.status(500).json({ success: false, error: error.message });
   }
-});
+};
+
+app.post('/api/webhooks/whatsapp-status', handleWhatsAppStatusWebhook);
+app.post('/webhooks/whatsapp-status', handleWhatsAppStatusWebhook);
 
 // --- GESTIÓN DE PLANTILLAS (MENSAJES) ---
 
@@ -4671,9 +4758,31 @@ app.get('/next', async (req, res) => {
     const totalCount = await Lead.countDocuments({});
 
     // 2. Buscar siguiente lead pendiente (FIFO)
-    // Usamos findOneAndUpdate para atomicidad (evitar que dos bots tomen el mismo)
+    const labelExclusion = {
+      botPaused: { $ne: true },
+      $and: [
+        {
+          $or: [
+            { tags: { $exists: false } },
+            { tags: { $size: 0 } },
+            { tags: null }
+          ]
+        },
+        {
+          $or: [
+            { labels: { $exists: false } },
+            { labels: { $size: 0 } },
+            { labels: null }
+          ]
+        }
+      ]
+    };
+
     const lead = await Lead.findOneAndUpdate(
-      { status: 'pending' },
+      {
+        status: 'pending',
+        ...labelExclusion
+      },
       {
         $set: {
           status: 'processing',
