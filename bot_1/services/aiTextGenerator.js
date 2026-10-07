@@ -161,6 +161,57 @@ class AITextGenerator {
     }
 
     /**
+     * Generador rápido de Dossier Heurístico (cuando no viene pre-calculado de BD)
+     */
+    generateQuickDossier(lead) {
+        const category = (lead.category || '').toLowerCase();
+        const hasWeb = !!(lead.website && lead.website.trim().length > 0);
+        const webAudit = lead.webAudit || {};
+
+        if (!hasWeb) {
+            return {
+                primaryPain: 'Sin presencia web oficial en Google para captar clientes en su zona',
+                targetService: 'web_express',
+                targetServiceLabel: 'Sitio Web Profesional & SEO Maps',
+                consultativeHook: `Estuve viendo su ficha en Google Maps (${lead.rating ? lead.rating + '⭐' : 'muy buenas opiniones'}), pero noté que aún no cuentan con un sitio web oficial donde mostrar todos sus servicios.`,
+                suggestedPitch: 'Sitio web profesional con dominio propio, hosting y botón directo de WhatsApp.'
+            };
+        } else if (webAudit.hasWhatsAppWidget === false) {
+            return {
+                primaryPain: 'Sitio web sin canal directo de conversión a WhatsApp',
+                targetService: 'rediseño_web',
+                targetServiceLabel: 'Rediseño Web & Botón WhatsApp',
+                consultativeHook: `Estuve mirando su web (${lead.website}) y noté que no tienen botón flotante de WhatsApp directo para que les escriban rápido desde el celular.`,
+                suggestedPitch: 'Optimización web de alta conversión con botón flotante directo.'
+            };
+        } else if (['odontol', 'dental', 'clinic', 'medic', 'salud', 'estet', 'peluquer', 'belleza', 'spa', 'veterin', 'consultorio'].some(k => category.includes(k))) {
+            return {
+                primaryPain: 'Cuello de botella en la coordinación manual de turnos por WhatsApp',
+                targetService: 'software_turnero',
+                targetServiceLabel: 'Sistema de Turnos & Asistente IA 24/7',
+                consultativeHook: `Muchos consultorios y centros de salud nos comentan lo desgastante que es coordinar turnos a mano por chat; ayudamos a automatizar la agenda con confirmación automática.`,
+                suggestedPitch: 'Sistema de turnos interactivo con recordatorios y asistente IA 24/7.'
+            };
+        } else if (['tienda', 'ropa', 'indumentaria', 'calzado', 'mayorista', 'distribuidor', 'repuesto', 'bazar'].some(k => category.includes(k))) {
+            return {
+                primaryPain: 'Atención manual de precios y stock por mensaje',
+                targetService: 'ecommerce',
+                targetServiceLabel: 'Tienda Online E-Commerce',
+                consultativeHook: `Vemos que muchos locales pierden ventas pasando fotos y precios por mensaje en vez de tener catálogo digital con cobro automático.`,
+                suggestedPitch: 'Tienda online completa con catálogo y cobros con Mercado Pago.'
+            };
+        }
+
+        return {
+            primaryPain: 'Atención y agendamiento manual de consultas',
+            targetService: 'ia_natoh',
+            targetServiceLabel: 'Software de Gestión & Asistente IA 24/7',
+            consultativeHook: `Vi su perfil en Google Maps con muy buena reputación en la zona y me llamó la atención su potencial para automatizar consultas directas.`,
+            suggestedPitch: 'Software a medida y asistente virtual de WhatsApp 24/7.'
+        };
+    }
+
+    /**
      * Generar secuencia de ENGANCHE (4 mensajes 100% personalizados y COHERENTES con ChatGPT)
      */
     async generatePersonalizedSequence(lead) {
@@ -170,6 +221,10 @@ class AITextGenerator {
             const template = this.getTemplateForBusiness(lead.category);
             const activeApiKey = this.apiKey || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
 
+            if (!lead.dossier || !lead.dossier.primaryPain) {
+                lead.dossier = this.generateQuickDossier(lead);
+            }
+
             if (this.stats.errors < 3 && activeApiKey) {
                 this.apiKey = activeApiKey;
                 const cleanName = this.getCleanBusinessName(lead.name);
@@ -177,23 +232,30 @@ class AITextGenerator {
                     ? `Observaciones en su web (${lead.website}): ${lead.webAudit.insights.join(', ')}`
                     : '';
 
+                const dossier = lead.dossier || {};
+                const dossierInfo = (dossier.consultativeHook || dossier.primaryPain)
+                    ? `\n🎯 DIAGNÓSTICO AUDITADO (AGENTES 2 Y 3):\n- Dolor/Fricción operativa: ${dossier.primaryPain || 'Atención manual de clientes'}\n- Gancho consultivo recomendado: "${dossier.consultativeHook || ''}"\n- Solución técnica recomendada: ${dossier.targetServiceLabel || 'Software a medida / IA NatoH'}\n- Enfoque de venta sugerido: ${dossier.suggestedPitch || ''}`
+                    : '';
+
                 const prompt = `
 Contexto: Escribes por WhatsApp como Juan Cruz de Nexte Marketing contactando al dueño o encargado de ${cleanName} (${lead.category || 'su rubro'}) en ${lead.location || 'la zona'}.
+${dossierInfo}
 
 Misión: Generar UNA SECUENCIA CONTINUA DE 4 MENSAJES que se enviarán uno tras otro en el mismo chat de WhatsApp.
 LA SECUENCIA DEBE TENER COHERENCIA PERFECTA COMO UNA SOLA CONVERSACIÓN FLUIDA.
 
 ⚠️ REGLAS OBLIGATORIAS DE ESTRUCTURA Y FLUIDEZ:
-1. MENSAJE 1 (Saludo + Enganche):
+1. MENSAJE 1 (Saludo + Enganche Consultivo):
    - DEBE empezar con saludo natural ("¡Hola! Te escribe Juan Cruz de Nexte Marketing..." o "¡Buenas! Soy Juan Cruz de Nexte Marketing...").
    - Mencioná ${cleanName} de forma muy orgánica.
+   ${dossier.consultativeHook ? `- INCLUYE O ADAPTA ESTE GANCHO CONSULTIVO DE APERTURA: "${dossier.consultativeHook}"` : ''}
    - Si hay observaciones web (${webAuditInfo}), mencioná de forma sutil un detalle técnico real.
    - PROHIBIDO DESPEDIRSE en el mensaje 1 (NUNCA digas "Un abrazo", "Saludos", ni hagas preguntas de cierre aquí). Es solo la apertura.
 
 2. MENSAJE 2 (Presentación de experiencia y valor):
    - CONTINÚA el pensamiento sin volver a saludar.
    - PROHIBIDO repetir "¡Hola!", "Soy Juan Cruz" o "Buenas".
-   - Mencioná cómo en Nexte (más de 10 años de trayectoria) ayudan a negocios como ${cleanName} con software a medida, turneros automáticos y asistentes de WhatsApp con IA para desahogar la atención.
+   - Mencioná cómo en Nexte (más de 10 años de trayectoria) ayudan a negocios como ${cleanName} con software a medida, turneros automáticos y asistentes de WhatsApp con IA para desahogar la atención${dossier.primaryPain ? ` (atacando directamente: ${dossier.primaryPain})` : ''}.
 
 3. MENSAJE 3 (Propuesta Comercial COMPLETA y bien formateada):
    - PROHIBIDO saludar de nuevo.
@@ -297,15 +359,19 @@ FORMATO DE RESPUESTA REQUERIDO (Devuelve ÚNICAMENTE un JSON válido con 4 eleme
             ? `- Hallazgos técnicos web (${lead.website}): ${lead.webAudit.insights.join(', ')}`
             : '';
 
+        const dossierHook = lead.dossier?.consultativeHook
+            ? `- Gancho consultivo auditado: "${lead.dossier.consultativeHook}"`
+            : '';
+
         const prompt = `
 Contexto: Escribes por WhatsApp como Juan Cruz de Nexte Marketing.
 Misión: Redactar un primer mensaje super natural, fluido, 100% humano y conversacional para el dueño o encargado de ${cleanName}.
 
-REGLAS DE ORO DEESTILO (OBLIGATORIO):
+REGLAS DE ORO DE ESTILO (OBLIGATORIO):
 1. NUNCA leas la ficha técnica de Google Maps como un robot (PROHIBIDO decir "noté que aún no tienen rating", "estaba viendo sobre X en Y" o "contar con pocas opiniones").
 2. Saludá de forma natural y cercana (ej: "¡Hola! Soy Juan Cruz de Nexte Marketing...").
 3. Mencioná ${cleanName} de forma orgánica y fluida.
-4. Si hay hallazgos técnicos (${webAuditInfo}), comentá de forma amable y sutil una sola observación técnica (ej: "vi que la web no tiene botón directo de WhatsApp" o "noté que les falta configurar la medición de visitas").
+${dossierHook ? `4. INCLUYE O ADAPTA ESTA OBSERVACIÓN CONSULTIVA: "${lead.dossier.consultativeHook}"` : (webAuditInfo ? `4. Observación técnica sutil: ${webAuditInfo}` : '')}
 5. Tono argentino conversacional, profesional y directo ("vos", "te comento", "un abrazo"). Sin excesos de emojis.
 6. Extensión: entre 30 y 50 palabras máximo.
 
@@ -323,6 +389,9 @@ Escribe ÚNICAMENTE el texto final del mensaje 1:
             return cleanMessage;
         } catch (error) {
             console.error('Error OpenAI mensaje 1:', error.message);
+            if (lead.dossier?.consultativeHook) {
+                return `¡Hola! Soy Juan Cruz de Nexte Marketing. ${lead.dossier.consultativeHook}`;
+            }
             if (!lead.website) {
                 return `¡Hola! Soy Juan Cruz de Nexte Marketing. Estuve revisando el perfil de ${lead.name} en Google Maps y noté que no cuentan con un sitio web oficial. Hoy en día en ${lead.location || 'tu zona'}, muchos clientes buscan primero en Google antes de contactar y terminan yéndose a otros negocios.`;
             }

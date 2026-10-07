@@ -416,6 +416,52 @@
           if (!isNaN(val)) lead.reviewCount = val;
         }
 
+        // Extraer Reseñas visibles (Review Snippets para minería de dolores)
+        lead.reviews = [];
+        try {
+          const seenReviewTexts = new Set();
+          const cardReviews = main.querySelectorAll('div.jftiEf, div[data-review-id]');
+          if (cardReviews.length > 0) {
+            cardReviews.forEach(cr => {
+              if (lead.reviews.length >= 8) return;
+              const textEl = cr.querySelector('span.wiI7pd, div.MyEned');
+              const text = textEl ? textEl.innerText.trim() : '';
+              if (text && text.length > 10 && !seenReviewTexts.has(text)) {
+                seenReviewTexts.add(text);
+                const authorEl = cr.querySelector('div.d4r55, div.WNx5W');
+                const author = authorEl ? authorEl.innerText.trim() : '';
+                const starEl = cr.querySelector('span.kvMYJc, span[role="img"]');
+                let starRating = null;
+                if (starEl && starEl.getAttribute('aria-label')) {
+                  const m = starEl.getAttribute('aria-label').match(/([\d,\.]+)/);
+                  if (m) starRating = parseFloat(m[1].replace(',', '.'));
+                }
+                const dateEl = cr.querySelector('span.rsqaWe');
+                const timeStr = dateEl ? dateEl.innerText.trim() : '';
+                lead.reviews.push({ text, rating: starRating, author, time: timeStr });
+              }
+            });
+          }
+
+          // Fallback a cualquier span de reseña visible
+          if (lead.reviews.length === 0) {
+            const snippetEls = main.querySelectorAll('span.wiI7pd');
+            snippetEls.forEach(snip => {
+              if (lead.reviews.length >= 8) return;
+              const text = snip.innerText.trim();
+              if (text && text.length > 10 && !seenReviewTexts.has(text)) {
+                seenReviewTexts.add(text);
+                lead.reviews.push({ text });
+              }
+            });
+          }
+          if (lead.reviews.length > 0) {
+            log(`⭐ Extraídas ${lead.reviews.length} opiniones públicas para ${lead.name}`, 'info');
+          }
+        } catch (revErr) {
+          // Ignorar silenciosamente
+        }
+
         // Verificar si es duplicado antes de enviar
         if (isDuplicate(lead)) {
           log(`⏭️ Saltando lead duplicado: ${lead.name}`, 'warn');

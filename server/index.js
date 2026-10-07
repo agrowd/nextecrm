@@ -107,6 +107,7 @@ const BotInstance = require('./models/BotInstance');
 const Config = require('./models/Config');
 const TemplateVariant = require('./models/TemplateVariant');
 const { auditWebsite } = require('./services/webScraper');
+const { analyzeLeadPains } = require('./services/painAnalyzer');
 // MongoDB es la fuente principal de datos
 
 const http = require('http');
@@ -398,35 +399,54 @@ app.post('/ingest', async (req, res) => {
         });
         added++;
 
-        // Si tiene web, disparar auditoría en background
-        if (hasWeb) {
-          auditWebsite(leadData.website).then(async (result) => {
-            if (result.success) {
-              await Lead.findByIdAndUpdate(newLead._id, {
-                websiteValid: true,
-                pixelFacebook: result.hasFacebookPixel,
-                pixelGoogle: result.hasGooglePixel,
-                instagramUrl: result.instagramUrl,
-                facebookUrl: result.facebookUrl
-              });
-              // Emitir actualización
-              if (global.io) {
+        // 🔍 AGENTE 2 & 3: Auditoría Web & Minería de Dolores / Dossier en Background
+        const runBackgroundIntelligence = async () => {
+          let currentLead = newLead;
+          if (hasWeb) {
+            try {
+              const auditResult = await auditWebsite(leadData.website);
+              const isAccessible = auditResult && !auditResult.error;
+              currentLead = await Lead.findByIdAndUpdate(newLead._id, {
+                websiteValid: isAccessible,
+                webAudit: auditResult,
+                pixelFacebook: auditResult?.hasMetaPixel || false,
+                pixelGoogle: auditResult?.hasGA4 || false
+              }, { new: true });
+
+              if (global.io && currentLead) {
                 global.io.emit('lead_updated', {
-                  leadId: newLead._id,
+                  leadId: currentLead._id,
                   updates: {
-                    websiteValid: true,
-                    pixelFacebook: result.hasFacebookPixel,
-                    pixelGoogle: result.hasGooglePixel,
-                    instagramUrl: result.instagramUrl,
-                    facebookUrl: result.facebookUrl
+                    websiteValid: currentLead.websiteValid,
+                    webAudit: currentLead.webAudit,
+                    pixelFacebook: currentLead.pixelFacebook,
+                    pixelGoogle: currentLead.pixelGoogle
                   }
                 });
               }
-            } else {
-              await Lead.findByIdAndUpdate(newLead._id, { websiteValid: false });
+            } catch (auditErr) {
+              originalConsoleError('Error en background auditWebsite:', auditErr.message);
             }
-          }).catch(err => originalConsoleError('Error en background auditWebsite:', err.message));
-        }
+          }
+
+          // Generar Dossier Estratégico (Dolores y Oferta Consultiva)
+          try {
+            const dossier = await analyzeLeadPains(currentLead || newLead);
+            if (dossier) {
+              const updatedWithDossier = await Lead.findByIdAndUpdate(newLead._id, { dossier }, { new: true });
+              if (global.io && updatedWithDossier) {
+                global.io.emit('lead_updated', {
+                  leadId: updatedWithDossier._id,
+                  updates: { dossier: updatedWithDossier.dossier }
+                });
+              }
+            }
+          } catch (dossierErr) {
+            originalConsoleError('Error generando dossier en background:', dossierErr.message);
+          }
+        };
+
+        runBackgroundIntelligence().catch(err => originalConsoleError('Error en background intelligence:', err.message));
 
         // Notificar nuevo lead
         if (global.io) global.io.emit('new_lead', newLead.toObject());
@@ -2937,6 +2957,79 @@ app.get('/api/json/leads', async (req, res) => {
       error: 'Error interno del servidor',
       message: error.message
     });
+  }
+});
+
+// POST /api/leads/:id/analyze-dossier - Analizar dolores y generar dossier para un lead individual
+app.post('/api/leads/:id/analyze-dossier', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const lead = await Lead.findById(id);
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead no encontrado' });
+    }
+
+    const dossier = await analyzeLeadPains(lead);
+    const updatedLead = await Lead.findByIdAndUpdate(id, { dossier }, { new: true });
+
+    if (global.io) {
+      global.io.emit('lead_updated', {
+        leadId: updatedLead._id,
+        updates: { dossier: updatedLead.dossier }
+      });
+    }
+
+    res.json({
+      success: true,
+      dossier: updatedLead.dossier,
+      lead: updatedLead
+    });
+  } catch (error) {
+    console.error('Error generando dossier para lead:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/leads/batch-analyze-dossier - Procesar en lote leads pendientes sin dossier
+app.post('/api/leads/batch-analyze-dossier', async (req, res) => {
+  try {
+    const limit = parseInt(req.body.limit || req.query.limit || 20);
+    const leadsToAnalyze = await Lead.find({
+      status: 'pending',
+      $or: [
+        { dossier: { $exists: false } },
+        { 'dossier.primaryPain': { $exists: false } },
+        { 'dossier.primaryPain': '' }
+      ]
+    }).limit(limit);
+
+    let processed = 0;
+    for (const lead of leadsToAnalyze) {
+      try {
+        const dossier = await analyzeLeadPains(lead);
+        if (dossier) {
+          await Lead.findByIdAndUpdate(lead._id, { dossier });
+          processed++;
+          if (global.io) {
+            global.io.emit('lead_updated', {
+              leadId: lead._id,
+              updates: { dossier }
+            });
+          }
+        }
+      } catch (err) {
+        console.warn(`Error procesando dossier para ${lead.name}:`, err.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      totalFound: leadsToAnalyze.length,
+      processed
+    });
+  } catch (error) {
+    console.error('Error en batch dossier analysis:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

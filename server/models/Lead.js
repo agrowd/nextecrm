@@ -76,6 +76,25 @@ const LeadSchema = new mongoose.Schema({
     hasWhatsAppWidget: { type: Boolean, default: false },
     title: { type: String, default: '' },
     insights: { type: [String], default: [] }
+  },
+  // ⭐ Reseñas de Google Maps para minería de dolores (Agent 2)
+  reviews: [{
+    text: { type: String, default: '' },
+    rating: { type: Number, default: null },
+    time: { type: String, default: '' },
+    author: { type: String, default: '' }
+  }],
+  // 🎯 Dossier de Diagnóstico y Estrategia de Venta (Agent 3)
+  dossier: {
+    analyzedAt: { type: Date, default: null },
+    primaryPain: { type: String, default: '' },
+    painPoints: { type: [String], default: [] },
+    targetService: { type: String, default: '' }, // 'software_turnero', 'web_express', 'rediseño_web', 'ecommerce', 'ia_natoh'
+    targetServiceLabel: { type: String, default: '' },
+    consultativeHook: { type: String, default: '' },
+    suggestedPitch: { type: String, default: '' },
+    suggestedOffer: { type: String, default: '' },
+    confidence: { type: Number, default: null }
   }
 }, {
   timestamps: true,

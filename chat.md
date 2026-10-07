@@ -726,3 +726,40 @@ Se diseñó la arquitectura de los 4 prompts dinámicos para `gpt-4o-mini` sin v
    - `syncTagsWithBackend` ahora sincroniza cualquier etiqueta hacia el backend y se ejecuta automáticamente 15 segundos después de que el bot esté `ready` y recurrentemente cada 15 minutos mediante `cron`.
 5. **Propagación a la Flota Multi-Bot**:
    - Se corrió `scripts/sync-bots.js` actualizando `bot_1`, `bot_2`, `bot_3` y `bot_4`.
+
+---
+
+## Pregunta del Usuario (2026-10-07):
+> como hacemos que este sistema que estamos trabajando funcione mejor? con agentes? que agarre la mayor cantidad de gente en google, analice bien si tiene web, si necesitan sistemas y les hablen, todo con ia. Planteame un plan
+
+---
+
+## Diagnóstico y Propuesta Estratégica Aplicada:
+1. **Transición a Arquitectura Multi-Agente Autónoma**:
+   - Se diseñó un plan maestro de 5 agentes especializados para superar las limitaciones de secuencias rígidas y scrapers manuales:
+     1. **Agente 1 (Minero Masivo Maps)**: Escaneo geográfico en cuadrículas GPS (Grid Scanner) para superar el tope de 120 fichas de Maps.
+     2. **Agente 2 (Auditor Forense & NLP Reviews)**: Auditoría técnica web profunda (SSL, velocidad, stack) y minería de reseñas para descubrir quejas reales de clientes (turnos, lentitud, falta de respuesta).
+     3. **Agente 3 (Estratega de Oferta)**: Clasificación de necesidades en 4 arquetipos (Web Express, Rediseño, Turnero/IA NatoH, Software a medida) y generación de Dossier de Venta.
+     4. **Agente 4 (Prospector Consultivo)**: Apertura de conversación en WhatsApp hiper-personalizada enfocada en el dolor auditado, con rotación multi-bot y límites seguros.
+     5. **Agente 5 (Copiloto / Closer)**: Asistencia en tiempo real en el CRM con respuestas sugeridas en 1 clic y agendamiento de demos.
+2. **Entregable:** Documento maestro `plan_agentes_inteligencia.md`.
+
+---
+
+## Implementación Ejecutada (Fase 1 - Minería de Dolores & Dossier de Venta) (2026-10-07):
+1. **Extracción de Reseñas de Google Maps (`extension/content.js`)**:
+   - Se añadió extracción de opiniones públicas de clientes (`div.jftiEf`, `span.wiI7pd`, rating y autor) durante la inspección de cada ficha, enviándose en el campo `reviews` del payload.
+2. **Modelo de Lead (`server/models/Lead.js`)**:
+   - Incorporados subdocumentos `reviews` y `dossier` (`primaryPain`, `painPoints`, `targetService`, `consultativeHook`, `suggestedPitch`, `suggestedOffer`, `confidence`).
+3. **Servicio Agente 2 & 3 (`server/services/painAnalyzer.js`)**:
+   - Creado analizador con inferencia LLM (`gpt-4o-mini`) y motor heurístico de alta precisión.
+   - Detecta cuellos de botella (demoras en turnos, WhatsApp colapsado, falta de web oficial o ausencia de botón de WhatsApp) y formula el dossier comercial.
+4. **Pipeline en Backend (`server/index.js`)**:
+   - Actualizado `/ingest` para ejecutar la auditoría web (`auditWebsite`) y la generación de `dossier` en segundo plano con emisión de eventos Socket.io.
+   - Añadidos endpoints `POST /api/leads/:id/analyze-dossier` y `POST /api/leads/batch-analyze-dossier`.
+5. **Generador de Mensajes Consultivos (`bot/services/aiTextGenerator.js`)**:
+   - Mensaje 1 y Mensaje 2 integran directamente el `consultativeHook` y el `primaryPain` auditados, transformando la prospección fría en una apertura consultiva de alto valor.
+   - Añadido `generateQuickDossier` para garantizar que cualquier lead cuente con diagnóstico antes de contactarlo.
+6. **Sincronización de Flota**:
+   - Ejecutado `scripts/sync-bots.js` replicando las actualizaciones en `bot_1`, `bot_2`, `bot_3` y `bot_4`.
+

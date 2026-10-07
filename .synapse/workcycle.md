@@ -725,3 +725,38 @@ docker compose logs -f
   5. Sincronización automática de etiquetas (`syncTagsWithBackend`) programada cada 15 min y 15s post inicio.
   6. Sincronizada la flota de bots (`bot_1`, `bot_2`, `bot_3`, `bot_4`) con `scripts/sync-bots.js`.
 
+## Current Session: 2026-10-07 (13:05 - 13:25 Argentina)
+- **Objective:** Diseño e implementación de la Fase 1 del Pipeline Multi-Agente: Minería de Reseñas, Auditor Forense, Estratega de Oferta (Dossier) y Generador de Mensajes Consultivos.
+- **Status:** ✅ COMPLETED
+- **Artifact:** `plan_agentes_inteligencia.md`
+- **Git Info:** master
+
+### 41. Arquitectura Multi-Agente Autónoma (Rascafull IA)
+- **Propuesta:** División del pipeline en 5 agentes autónomos especializados:
+  1. **Agente 1 (Minero Masivo Maps):** Exploración por cuadrículas GPS (Grid Scanning) para superar el límite de 120 fichas de Maps.
+  2. **Agente 2 (Auditor Forense & Minador de Dolores):** Auditoría técnica profunda de la web (SSL, velocidad, CMS) y análisis NLP de quejas/dolores en reseñas de Google Maps.
+  3. **Agente 3 (Estratega de Oferta):** Genera el Dossier de Venta clasificando el arquetipo (Sin Web, Web Obsoleta, Turnero/IA NatoH, Software a medida) y la propuesta de precios.
+  4. **Agente 4 (Prospector Consultivo WA):** Apertura en WhatsApp 100% personalizada basada en dolores reales, variabilidad anti-spam y rotación multi-bot.
+  5. **Agente 5 (Copiloto / Closer Híbrido):** Clasificación en vivo de respuestas de clientes y generación de sugerencias de cierre con 1 clic para el operador humano.
+
+### 42. Implementación de Fase 1 (Minería de Dolores & Dossier de Venta)
+- **Extensión Chrome (`extension/content.js`):**
+  - Implementada extracción automática de reseñas públicas de clientes (`div.jftiEf`, `span.wiI7pd`, estrellas y autor) en Google Maps, empaquetadas en `lead.reviews`.
+- **Modelo de Datos (`server/models/Lead.js`):**
+  - Incorporados subdocumentos `reviews` y `dossier` (`primaryPain`, `painPoints`, `targetService`, `consultativeHook`, `suggestedPitch`, `suggestedOffer`, `confidence`).
+- **Servicio de Diagnóstico (`server/services/painAnalyzer.js`):**
+  - Creado Agente 2 & 3 con soporte dual: inferencia LLM (`gpt-4o-mini`) y motor heurístico determinístico de alta precisión.
+  - Clasifica las oportunidades clave: `software_turnero`, `web_express`, `rediseño_web`, `ecommerce`, `ia_natoh`.
+- **Backend Pipeline (`server/index.js`):**
+  - Integrado `/ingest` para correr auditoría web completa y generación de dossier en background.
+  - Creados endpoints `POST /api/leads/:id/analyze-dossier` y `POST /api/leads/batch-analyze-dossier`.
+  - Agregado `axios` a dependencias de `server/package.json` y soporte HTTP con `fetch` nativo para cero dependencias externas.
+- **Generador de Mensajes Bot (`bot/services/aiTextGenerator.js`):**
+  - Integrado `consultativeHook` y `primaryPain` en la generación de secuencias y plantillas de fallback.
+  - Añadido `generateQuickDossier` para asegurar que cualquier lead entrante siempre cuente con diagnóstico previo a la mensajería.
+- **Sincronización:**
+  - Flota completa (`bot`, `bot_1`, `bot_2`, `bot_3`, `bot_4`) sincronizada con `scripts/sync-bots.js`.
+- **Validación:**
+  - Ejecutados tests automatizados para leads sin web y clínicas con quejas de turnos en reseñas; generaron ganchos y diagnósticos con 100% de precisión.
+
+
