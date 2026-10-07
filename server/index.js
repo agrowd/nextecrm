@@ -108,6 +108,10 @@ const Config = require('./models/Config');
 const TemplateVariant = require('./models/TemplateVariant');
 const { auditWebsite } = require('./services/webScraper');
 const { analyzeLeadPains } = require('./services/painAnalyzer');
+const geoGridScanner = require('./services/geoGridScanner');
+const { closerCopilot } = require('./services/closerCopilot');
+const AITextGenerator = require('../bot/services/aiTextGenerator');
+const serverAiGenerator = new AITextGenerator();
 // MongoDB es la fuente principal de datos
 
 const http = require('http');
@@ -3029,6 +3033,98 @@ app.post('/api/leads/batch-analyze-dossier', async (req, res) => {
     });
   } catch (error) {
     console.error('Error en batch dossier analysis:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/leads/:id/preview-sequence - Previsualizar los 4 mensajes IA que generará el bot para este lead
+app.post('/api/leads/:id/preview-sequence', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const lead = await Lead.findById(id);
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead no encontrado' });
+    }
+
+    // Asegurar que tenga dossier antes de generar la secuencia
+    if (!lead.dossier || !lead.dossier.primaryPain) {
+      const dossier = await analyzeLeadPains(lead);
+      if (dossier) {
+        lead.dossier = dossier;
+        await Lead.findByIdAndUpdate(id, { dossier });
+      }
+    }
+
+    const messages = await serverAiGenerator.generatePersonalizedSequence(lead);
+
+    res.json({
+      success: true,
+      lead: {
+        id: lead._id,
+        name: lead.name,
+        category: lead.category,
+        dossier: lead.dossier
+      },
+      messages
+    });
+  } catch (error) {
+    console.error('Error generando previsualización de mensajes:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/conversations/:phone/copilot-suggestion - Sugerencia en vivo del Copiloto IA (Agente 5)
+app.get('/api/conversations/:phone/copilot-suggestion', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    const cleanPhone = phone.replace(/\D/g, '');
+
+    // Buscar el lead por teléfono
+    const lead = await Lead.findOne({
+      $or: [
+        { phone: new RegExp(cleanPhone.slice(-8) + '$') },
+        { phone: phone }
+      ]
+    }).lean();
+
+    // Obtener historial de mensajes
+    const messages = await Message.find({
+      $or: [
+        { phone: new RegExp(cleanPhone.slice(-8) + '$') },
+        { phone: phone }
+      ]
+    }).sort({ timestamp: 1 }).lean();
+
+    const suggestion = await closerCopilot.generateSuggestion(lead || { phone }, messages);
+
+    res.json({
+      success: true,
+      phone,
+      lead: lead ? { id: lead._id, name: lead.name, category: lead.category, dossier: lead.dossier } : null,
+      suggestion
+    });
+  } catch (error) {
+    console.error('Error generando sugerencia de copiloto:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/scraper/cities - Catálogo de ciudades y zonas para barrido GPS (Agente 1)
+app.get('/api/scraper/cities', (req, res) => {
+  try {
+    const zones = geoGridScanner.getPresetZones();
+    res.json({ success: true, zones });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/scraper/generate-grid - Generar cuadrícula de coordenadas GPS para Google Maps
+app.post('/api/scraper/generate-grid', (req, res) => {
+  try {
+    const grid = geoGridScanner.generateGrid(req.body);
+    res.json({ success: true, grid });
+  } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });

@@ -1,16 +1,22 @@
 # 📜 SYSTEM CHANGELOG
 
-## [2026-10-07] - Multi-Agente IA: Minería de Reseñas, Auditor Forense y Dossier Consultivo
+## [2026-10-07] - Multi-Agente IA: Arquitectura Completa Fases 1 a 5 (Geo-Grid, Dossier, Secuencia 4 Mensajes y Copiloto Closer)
 ### Added
-- **Esquema de Reseñas y Dossier:** Añadidos campos `reviews` (opiniones públicas con texto, autor y rating) y `dossier` (`primaryPain`, `painPoints`, `targetService`, `consultativeHook`, `suggestedPitch`, `suggestedOffer`) a `Lead.js`.
-- **Micro-servicio `painAnalyzer.js`:** Agente 2 y 3 implementados con inferencia de dolores mediante LLM (`gpt-4o-mini`) y motor heurístico de alta fidelidad, clasificando la necesidad técnica del cliente (Software/Turnero, Web Express, Rediseño Web, E-Commerce o Asistente IA NatoH).
-- **Extracción de Reseñas en Extensión:** `extension/content.js` ahora extrae de forma automática fragmentos de reseñas públicas (`div.jftiEf`, `span.wiI7pd`) al visitar cada negocio en Google Maps.
-- **Endpoints de Análisis de Dossier:** `POST /api/leads/:id/analyze-dossier` y `POST /api/leads/batch-analyze-dossier` en `server/index.js` para generación bajo demanda o por lotes.
-- **Generador de Secuencia Enriquecido con IA:** `aiTextGenerator.js` ahora utiliza el `consultativeHook` y el `primaryPain` auditados para abrir la conversación de WhatsApp con un enfoque consultivo genuino y ultra-personalizado.
+- **Agente 1 (Geo-Grid Scanner GPS):** Micro-servicio `geoGridScanner.js` con catálogo de 9 regiones de alta densidad de Argentina para eludir el límite de 120 resultados de Google Maps mediante micro-coordenadas. Endpoints `/api/scraper/cities` y `/api/scraper/generate-grid`.
+- **Agente 2 & 3 (Auditor Forense & Estratega de Oferta):** Esquema de reseñas y `dossier` comercial en `Lead.js`. Micro-servicio `painAnalyzer.js` (`gpt-4o-mini` + motor determinista) para detección de cuellos de botella y ganchos consultivos.
+- **Agente 4 (Prospector Consultivo):** Secuencia de 4 mensajes contextuales con ChatGPT y tarifas Otoño 2026. Endpoint `/api/leads/:id/preview-sequence`.
+- **Agente 5 (Copiloto Closer Híbrido):** Micro-servicio `closerCopilot.js` con clasificación de 7 intenciones y generación en vivo de respuestas sugeridas de 1 clic en el CRM. Endpoint `/api/conversations/:phone/copilot-suggestion`.
+- **Dashboard UI & Interacción:**
+  - Componente de Copiloto IA (`closerCopilotBox`) en el chat con regeneración, inserción en input y envío directo de 1 clic.
+  - Modal de previsualización de 4 mensajes (`sequencePreviewModal`) con diseño de burbujas interactivas y copia al portapapeles.
+  - Badges de colores por servicio en tabla de leads (`[⚙️ Turnos / IA]`, `[🌐 Web Express]`, etc.).
+  - Botón de análisis individual en modal de lead y botón de análisis masivo (`btnBatchDossier`).
+- **Optimización de Despliegue Docker:** Reglas ampliadas en `.dockerignore` (`sessions/**`, `**/Default/**`, `chrome-profile/**`, `bot_1/`) para erradicar el desborde de 4.5 GB de build context y prevenir el error `no space left on device` en VPS.
 
 ### Changed
-- **Pipeline de Ingest:** `server/index.js` ejecuta la auditoría web (`auditWebsite`) y la generación de `dossier` en segundo plano, emitiendo actualizaciones en tiempo real por Socket.io.
-- **Sincronización de Flota:** Sincronizados todos los bots (`bot_1`, `bot_2`, `bot_3`, `bot_4`) con el nuevo generador de textos.
+- **Socket.io Handlers:** Manejador `lead_updated` en `app.js` optimizado para actualizar reactivamente `currentState.leads` y perfiles activos.
+- **Flota Sincronizada:** Sincronizados todos los bots (`bot_1`, `bot_2`, `bot_3`, `bot_4`) con el nuevo generador de textos.
+
 
 ## [2026-06-12] - Ingested Audit Data Exposure, AI Intent Badges & Bot Dimming
 ### Added

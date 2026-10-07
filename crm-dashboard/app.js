@@ -170,9 +170,27 @@ function initSocket() {
     });
 
     socket.on('new_message', (data) => handleIncomingRealtimeMessage(data));
-    socket.on('lead_updated', (lead) => {
-        if (!lead || !lead.phone) return;
-        const cleanPhone = String(lead.phone).replace(/@c\.us/g, '').replace(/\D/g, '');
+    socket.on('lead_updated', (payload) => {
+        if (!payload) return;
+        const lead = payload.lead || (payload.updates ? payload : payload);
+        const leadId = payload.leadId || payload._id || lead._id;
+
+        if (leadId && currentState.leads) {
+            const idx = currentState.leads.findIndex(l => String(l._id) === String(leadId));
+            if (idx !== -1) {
+                if (payload.updates) {
+                    currentState.leads[idx] = { ...currentState.leads[idx], ...payload.updates };
+                } else if (payload.lead) {
+                    currentState.leads[idx] = payload.lead;
+                } else {
+                    currentState.leads[idx] = { ...currentState.leads[idx], ...lead };
+                }
+            }
+        }
+
+        const effectiveLead = (currentState.leads && leadId) ? currentState.leads.find(l => String(l._id) === String(leadId)) : lead;
+        if (!effectiveLead || !effectiveLead.phone) return;
+        const cleanPhone = String(effectiveLead.phone).replace(/@c\.us/g, '').replace(/\D/g, '');
         
         // Find existing conversation matching this phone or suffix
         let targetPhone = cleanPhone;
@@ -182,15 +200,15 @@ function initSocket() {
         }
 
         if (currentState.conversations && currentState.conversations[targetPhone]) {
-            currentState.conversations[targetPhone].lead = lead;
-            if (lead.name && (!currentState.conversations[targetPhone].name || currentState.conversations[targetPhone].name === targetPhone)) {
-                currentState.conversations[targetPhone].name = lead.name;
+            currentState.conversations[targetPhone].lead = effectiveLead;
+            if (effectiveLead.name && (!currentState.conversations[targetPhone].name || currentState.conversations[targetPhone].name === targetPhone)) {
+                currentState.conversations[targetPhone].name = effectiveLead.name;
             }
         }
 
         if (currentState.activeChatPhone === targetPhone) {
-            renderActiveChatControls(lead);
-            renderLeadProfilePanel(lead, currentState.conversations[targetPhone]);
+            renderActiveChatControls(effectiveLead);
+            renderLeadProfilePanel(effectiveLead, currentState.conversations[targetPhone]);
         }
         renderChatList();
     });
@@ -1056,6 +1074,7 @@ async function openChat(phone) {
     // Render messages & Controls
     renderMessages(phone);
     await loadAndRenderActiveChatControls(phone);
+    loadCopilotSuggestion(false);
 }
 
 async function loadAndRenderActiveChatControls(phone) {
@@ -1262,6 +1281,62 @@ function renderLeadProfilePanel(lead, chat) {
                 </div>
             </div>
             ` : ''}
+        </div>
+
+        <!-- CARD: DOSSIER ESTRATÉGICO (AGENTES 2 & 3) -->
+        <div class="profile-card" style="border-left: 3px solid #00bfa5;">
+            <div class="profile-card-header">
+                <h4><span class="material-icons" style="font-size: 14px; color: #00bfa5;">psychology</span> Dossier Estratégico</h4>
+                ${lead?._id ? `
+                    <button onclick="analyzeSingleLeadDossier('${lead._id}')" style="background:#7e57c225; border:1px solid #7e57c2; color:#b39ddb; font-size:10px; font-weight:600; padding:2px 6px; border-radius:4px; cursor:pointer;" title="Re-analizar dolores y propuesta con IA">
+                        ⚡ Actualizar
+                    </button>
+                ` : ''}
+            </div>
+            ${lead?.dossier && lead.dossier.primaryPain ? `
+                <div class="profile-info-row">
+                    <span class="profile-info-label">Solución Recomendada</span>
+                    <div class="profile-info-value" style="color: #00bfa5; font-weight: 700;">
+                        ${lead.dossier.targetServiceLabel || lead.dossier.targetService}
+                    </div>
+                </div>
+                <div class="profile-info-row">
+                    <span class="profile-info-label">Dolor / Fricción Detectada</span>
+                    <div class="profile-info-value" style="color: #fff; font-size: 12px;">
+                        ⚠️ ${lead.dossier.primaryPain}
+                    </div>
+                </div>
+                <div class="profile-info-row">
+                    <span class="profile-info-label">Gancho de Apertura</span>
+                    <div style="color: #e9edef; font-size: 11px; font-style: italic; background: rgba(0,0,0,0.2); padding: 6px; border-radius: 4px; border-left: 2px solid #00bfa5; margin-top: 3px;">
+                        "${lead.dossier.consultativeHook}"
+                    </div>
+                </div>
+                ${lead.dossier.suggestedOffer ? `
+                <div class="profile-info-row">
+                    <span class="profile-info-label">Oferta Sugerida</span>
+                    <div class="profile-info-value" style="color: #25d366; font-size: 12px; font-weight: 600;">
+                        ${lead.dossier.suggestedOffer}
+                    </div>
+                </div>
+                ` : ''}
+                ${lead?._id ? `
+                <button onclick="openSequencePreview('${lead._id}')" class="profile-action-btn" style="margin-top: 8px; background: linear-gradient(90deg, rgba(0,168,132,0.3), rgba(126,87,194,0.3)); border: 1px solid rgba(0,168,132,0.4); color: #fff;">
+                    <span class="material-icons" style="font-size: 14px;">auto_awesome</span> Previsualizar Secuencia IA
+                </button>
+                ` : ''}
+            ` : `
+                <div style="color: #8696a0; font-size: 12px; font-style: italic; text-align: center; padding: 6px;">
+                    Sin diagnóstico previo.
+                    ${lead?._id ? `
+                    <div style="margin-top: 6px;">
+                        <button onclick="analyzeSingleLeadDossier('${lead._id}')" style="background:#00a884; border:none; color:#fff; border-radius:4px; padding:3px 10px; font-size:11px; cursor:pointer;">
+                            ⚡ Analizar con IA
+                        </button>
+                    </div>
+                    ` : ''}
+                </div>
+            `}
         </div>
 
         <!-- 3. CARD: AUDITORÍA WEB -->
@@ -1675,6 +1750,9 @@ function handleIncomingRealtimeMessage(data) {
     if (currentState.activeChatPhone === phone) {
         renderMessages(phone);
         loadAndRenderActiveChatControls(phone);
+        if (fromMe !== true && from !== 'me') {
+            loadCopilotSuggestion(true);
+        }
     }
     renderChatList();
 }
@@ -2234,6 +2312,25 @@ function getAiIntentBadge(lead) {
     `;
 }
 
+function getDossierBadge(lead) {
+    if (!lead || !lead.dossier || !lead.dossier.targetService) return '';
+    const configs = {
+        'software_turnero': { bg: 'rgba(126, 87, 194, 0.2)', color: '#b39ddb', text: '⚙️ Turnos / IA' },
+        'web_express': { bg: 'rgba(37, 211, 102, 0.15)', color: '#25d366', text: '🌐 Web Express' },
+        'rediseño_web': { bg: 'rgba(255, 152, 0, 0.15)', color: '#ff9800', text: '🎨 Rediseño Web' },
+        'ecommerce': { bg: 'rgba(33, 150, 243, 0.15)', color: '#2196f3', text: '🛒 E-Commerce' },
+        'ia_natoh': { bg: 'rgba(0, 168, 132, 0.15)', color: '#00a884', text: '🤖 IA NatoH' }
+    };
+    const c = configs[lead.dossier.targetService] || { bg: 'rgba(255,255,255,0.08)', color: '#a0aec0', text: lead.dossier.targetServiceLabel || 'Dossier IA' };
+    return `
+        <div style="margin-top: 3px;">
+            <span class="dossier-badge" style="background: ${c.bg}; color: ${c.color}; border: 1px solid ${c.color}35; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px;" title="Dolor auditado: ${lead.dossier.primaryPain || ''}">
+                ${c.text}
+            </span>
+        </div>
+    `;
+}
+
 function renderLeadsTable() {
     const body = getEl('leadsTableBody'); if (!body) return;
     const leads = currentState.leads || [];
@@ -2288,6 +2385,7 @@ function renderLeadsTable() {
             <tr data-lead-id="${lead._id}" style="cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#1a2e38'" onmouseout="this.style.background=''">
                 <td style="font-weight:600; color:#fff;">
                     ${lead.name || 'Sin nombre'}
+                    ${getDossierBadge(lead)}
                     ${lead.address ? `<div style="font-size:11px; color:#8696a0; margin-top:2px;">${lead.address.substring(0, 40)}${lead.address.length > 40 ? '...' : ''}</div>` : ''}
                 </td>
                 <td>${lead.phone || '-'}</td>
@@ -2302,11 +2400,14 @@ function renderLeadsTable() {
                 <td style="text-align:center;">${webContent}</td>
                 <td style="text-align:center; color:#8696a0;">${lead.messagesSent || 0}</td>
                 <td>
-                    <button class="delete-lead-btn" data-id="${lead._id}" style="background:none; border:none; cursor:pointer;">
+                    <button class="delete-lead-btn" data-id="${lead._id}" style="background:none; border:none; cursor:pointer;" title="Eliminar">
                         <span class="material-icons" style="color:#f44336; font-size:18px;">delete</span>
                     </button>
-                    <button class="view-lead-btn" data-id="${lead._id}" style="background:none; border:none; cursor:pointer; margin-left:5px;">
+                    <button class="view-lead-btn" data-id="${lead._id}" style="background:none; border:none; cursor:pointer; margin-left:5px;" title="Ver Detalle">
                         <span class="material-icons" style="color:#8696a0; font-size:18px;">visibility</span>
+                    </button>
+                    <button class="preview-sequence-btn" data-id="${lead._id}" onclick="event.stopPropagation(); openSequencePreview('${lead._id}');" style="background:none; border:none; cursor:pointer; margin-left:5px;" title="Previsualizar 4 Mensajes IA">
+                        <span class="material-icons" style="color:#00bfa5; font-size:18px;">auto_awesome</span>
                     </button>
                 </td>
             </tr>
@@ -2493,8 +2594,59 @@ function openLeadModal(leadId) {
                     </div>
                 </div>
 
-                <!-- COLUMNA 2: ESTADO CRM -->
+                <!-- COLUMNA 2: DOSSIER ESTRATÉGICO & ESTADO CRM -->
                 <div>
+                    <h4 style="color:#00bfa5; font-size:12px; margin-bottom:8px; border-bottom: 1px solid #2f3b43; padding-bottom:5px; display:flex; justify-content:space-between; align-items:center;">
+                        <span>🎯 DOSSIER ESTRATÉGICO (AGENTES 2 & 3)</span>
+                        <button id="btnReanalyzeDossier_${lead._id}" onclick="analyzeSingleLeadDossier('${lead._id}')" style="background:#7e57c2; border:none; color:#fff; border-radius:4px; padding:2px 8px; font-size:10px; cursor:pointer; display:flex; align-items:center; gap:3px;">
+                            <span class="material-icons" style="font-size:12px;">psychology</span> Analizar / Regenerar
+                        </button>
+                    </h4>
+                    <div style="background:#13222a; padding:15px; border-radius:8px; margin-bottom:20px; border: 1px solid rgba(0, 191, 165, 0.25);">
+                        ${lead.dossier && lead.dossier.primaryPain ? `
+                            <div style="margin-bottom:10px;">
+                                <label style="color:#8696a0; font-size:11px;">Solución Recomendada Nexte</label>
+                                <div style="margin-top:2px;">
+                                    <span style="background:rgba(0,191,165,0.2); color:#00bfa5; border:1px solid #00bfa5; padding:3px 8px; border-radius:4px; font-size:12px; font-weight:700;">
+                                        ${lead.dossier.targetServiceLabel || lead.dossier.targetService}
+                                    </span>
+                                </div>
+                            </div>
+                            <div style="margin-bottom:10px;">
+                                <label style="color:#8696a0; font-size:11px;">Dolor / Cuello de Botella Detectado</label>
+                                <div style="color:#fff; font-size:13px; font-weight:600; margin-top:2px;">
+                                    ⚠️ ${lead.dossier.primaryPain}
+                                </div>
+                            </div>
+                            <div style="margin-bottom:10px;">
+                                <label style="color:#8696a0; font-size:11px;">Gancho Consultivo (Mensaje 1)</label>
+                                <div style="color:#e9edef; font-size:12px; font-style:italic; background:#111b21; padding:8px 10px; border-radius:4px; border-left:3px solid #00bfa5; margin-top:3px;">
+                                    "${lead.dossier.consultativeHook}"
+                                </div>
+                            </div>
+                            ${lead.dossier.suggestedOffer ? `
+                            <div style="margin-bottom:10px;">
+                                <label style="color:#8696a0; font-size:11px;">Oferta y Precios Sugeridos</label>
+                                <div style="color:#25d366; font-size:12px; font-weight:600; margin-top:2px;">
+                                    💰 ${lead.dossier.suggestedOffer}
+                                </div>
+                            </div>
+                            ` : ''}
+                            <button onclick="openSequencePreview('${lead._id}')" class="action-btn" style="width:100%; margin-top:8px; background:linear-gradient(90deg, #00a884, #7e57c2); border:none; color:#fff; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+                                <span class="material-icons" style="font-size:16px;">auto_awesome</span> Previsualizar 4 Mensajes IA
+                            </button>
+                        ` : `
+                            <div style="text-align:center; color:#8696a0; font-size:12px; padding:10px;">
+                                Este lead aún no tiene un Dossier generado.
+                                <div style="margin-top:8px;">
+                                    <button onclick="analyzeSingleLeadDossier('${lead._id}')" style="background:#00a884; border:none; color:#fff; border-radius:6px; padding:6px 14px; font-size:12px; font-weight:600; cursor:pointer;">
+                                        ⚡ Generar Dossier con IA
+                                    </button>
+                                </div>
+                            </div>
+                        `}
+                    </div>
+
                     <h4 style="color:#7e57c2; font-size:12px; margin-bottom:8px; border-bottom: 1px solid #2f3b43; padding-bottom:5px;">🤖 ESTADO EN CRM</h4>
                     <div style="background:#1a2e38; padding:15px; border-radius:8px; margin-bottom:20px;">
                         <div style="margin-bottom:12px;">
@@ -3420,3 +3572,335 @@ async function saveGlobalConfig() {
         alert("Error de red al guardar.");
     }
 }
+
+// ============================================================================
+// 🤖 MULTI-AGENTE IA: COPILOTO, DOSSIERS & PREVIEW DE SECUENCIAS (FASES 2 A 5)
+// ============================================================================
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+let currentCopilotPhone = null;
+
+async function loadCopilotSuggestion(forceRefresh = false) {
+    const box = getEl('closerCopilotBox');
+    if (!box) return;
+
+    const phone = currentState.activeChatPhone;
+    if (!phone) {
+        box.style.display = 'none';
+        return;
+    }
+
+    if (!forceRefresh && currentCopilotPhone === phone && box.dataset.loaded === 'true') {
+        box.style.display = 'block';
+        return;
+    }
+
+    currentCopilotPhone = phone;
+    box.style.display = 'block';
+    box.dataset.loaded = 'false';
+
+    const replyEl = getEl('copilotReplyText');
+    const badgeEl = getEl('copilotIntentBadge');
+    const btnApply = getEl('btnApplyCopilot');
+    const btnSend = getEl('btnSendCopilotDirect');
+
+    if (replyEl) replyEl.innerHTML = '<span style="color:#8696a0;">🧠 Analizando conversación con IA y formulando respuesta óptima...</span>';
+    if (badgeEl) {
+        badgeEl.textContent = '⏳ Analizando...';
+        badgeEl.style.background = 'rgba(134, 150, 160, 0.2)';
+        badgeEl.style.color = '#8696a0';
+    }
+    if (btnApply) btnApply.disabled = true;
+    if (btnSend) btnSend.disabled = true;
+
+    try {
+        const res = await fetchAPI(`/conversations/${encodeURIComponent(phone)}/copilot-suggestion`);
+        const data = await res.json();
+
+        if (data.success && data.suggestion) {
+            const sug = data.suggestion;
+            box.dataset.loaded = 'true';
+            box.dataset.replyText = sug.replyText;
+
+            const intentColors = {
+                'interes_alto': { bg: 'rgba(37, 211, 102, 0.25)', color: '#25d366', text: '🎯 Interés Alto' },
+                'pregunta_precio': { bg: 'rgba(255, 193, 7, 0.25)', color: '#ffc107', text: '💰 Pregunta Precio' },
+                'pide_portfolio': { bg: 'rgba(83, 189, 235, 0.25)', color: '#53bdeb', text: '🌐 Pide Portfolio' },
+                'duda_tecnica': { bg: 'rgba(126, 87, 194, 0.25)', color: '#b39ddb', text: '⚙️ Duda Técnica' },
+                'agendar_llamada': { bg: 'rgba(0, 191, 165, 0.25)', color: '#00bfa5', text: '📞 Agendar Llamada' },
+                'objecion': { bg: 'rgba(255, 152, 0, 0.25)', color: '#ff9800', text: '🛡️ Objeción' },
+                'rechazo': { bg: 'rgba(244, 67, 54, 0.25)', color: '#f44336', text: '🛑 Rechazo' },
+                'saludo': { bg: 'rgba(134, 150, 160, 0.25)', color: '#8696a0', text: '👋 Saludo' }
+            };
+
+            const cfg = intentColors[sug.intent] || { bg: 'rgba(0, 168, 132, 0.25)', color: '#00a884', text: sug.intentLabel || 'Sugerencia Copiloto' };
+            if (badgeEl) {
+                badgeEl.textContent = cfg.text;
+                badgeEl.style.background = cfg.bg;
+                badgeEl.style.color = cfg.color;
+            }
+
+            if (replyEl) {
+                replyEl.textContent = sug.replyText;
+            }
+
+            if (btnApply) btnApply.disabled = false;
+            if (btnSend) btnSend.disabled = false;
+        } else {
+            if (replyEl) replyEl.innerHTML = '<span style="color:#8696a0;">No hay sugerencia disponible para este chat aún.</span>';
+        }
+    } catch (e) {
+        console.warn('Error cargando sugerencia de copiloto:', e);
+        if (replyEl) replyEl.innerHTML = '<span style="color:#f44336;">Error de red al consultar el copiloto.</span>';
+    }
+}
+
+function applyCopilotReply() {
+    const box = getEl('closerCopilotBox');
+    const text = box?.dataset.replyText || getEl('copilotReplyText')?.innerText?.trim();
+    if (!text) return;
+
+    const input = getEl('chatInput');
+    if (input) {
+        input.value = text;
+        input.focus();
+    }
+}
+
+function sendCopilotDirect() {
+    const box = getEl('closerCopilotBox');
+    const text = box?.dataset.replyText || getEl('copilotReplyText')?.innerText?.trim();
+    if (!text) return;
+
+    const input = getEl('chatInput');
+    if (input) {
+        input.value = text;
+        const sendBtn = getEl('sendMessageBtn');
+        if (sendBtn) sendBtn.click();
+    }
+}
+
+function dismissCopilotBox() {
+    const box = getEl('closerCopilotBox');
+    if (box) box.style.display = 'none';
+}
+
+async function openSequencePreview(leadId) {
+    const modal = getEl('sequencePreviewModal');
+    if (!modal) return;
+
+    const titleEl = getEl('previewModalTitle');
+    const bodyEl = getEl('previewModalBody');
+    const metaEl = getEl('previewModalMeta');
+
+    modal.style.display = 'flex';
+    if (titleEl) titleEl.textContent = 'Previsualización de Secuencia IA';
+    if (metaEl) metaEl.textContent = 'Generando mensajes 100% personalizados con IA...';
+    if (bodyEl) {
+        bodyEl.innerHTML = `
+            <div style="text-align: center; color: #8696a0; padding: 40px 20px;">
+                <div class="material-icons rotating" style="font-size: 36px; color: #00bfa5; margin-bottom: 12px;">sync</div>
+                <div style="font-size: 14px; font-weight: 600; color: #fff;">Formulando secuencia de 4 mensajes con IA...</div>
+                <div style="font-size: 12px; margin-top: 6px;">Analizando nicho, web y dolor detectado por el Agente 2 & 3</div>
+            </div>
+        `;
+    }
+
+    try {
+        const res = await fetchAPI(`/leads/${leadId}/preview-sequence`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success && data.messages && data.messages.length > 0) {
+            const lead = data.lead;
+            if (titleEl) titleEl.textContent = `Secuencia IA para: ${lead.name || 'Lead'}`;
+            if (metaEl) metaEl.textContent = `Categoría: ${lead.category || 'General'} | Enfoque: ${lead.dossier?.targetServiceLabel || 'Software / Web'}`;
+
+            const msgLabels = [
+                { title: 'Mensaje 1: Gancho Consultivo', sub: 'Rompehielo contextual basado en su dolor auditado', badge: '🎣 Gancho', color: '#00bfa5' },
+                { title: 'Mensaje 2: Solución Nexte', sub: 'Presentación de software / web / IA resolviendo su cuello de botella', badge: '⚙️ Solución', color: '#7e57c2' },
+                { title: 'Mensaje 3: Propuesta & Precios Promo', sub: 'Tarifario Otoño 2026 con anclaje de descuento', badge: '💰 Oferta Promo', color: '#25d366' },
+                { title: 'Mensaje 4: Cierre & Portfolio', sub: 'Llamada de 5 min o envío de links reales para concretar', badge: '🤝 Cierre Suave', color: '#53bdeb' }
+            ];
+
+            let html = '';
+            data.messages.forEach((msg, idx) => {
+                const info = msgLabels[idx] || { title: `Mensaje ${idx + 1}`, badge: 'Mensaje', color: '#00a884' };
+                html += `
+                    <div style="background: #1a2730; border: 1px solid #2f3b43; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; position: relative;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="background: ${info.color}25; color: ${info.color}; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; border: 1px solid ${info.color}40;">
+                                    ${info.badge}
+                                </span>
+                                <span style="font-size: 13px; font-weight: 600; color: #fff;">${info.title}</span>
+                            </div>
+                            <button onclick="copySequenceText(this, ${idx})" data-text="${encodeURIComponent(msg)}" style="background: #202c33; border: 1px solid #2f3b43; color: #8696a0; border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Copiar mensaje">
+                                <span class="material-icons" style="font-size: 13px;">content_copy</span> Copiar
+                            </button>
+                        </div>
+                        <div style="font-size: 13px; color: #e9edef; white-space: pre-wrap; line-height: 1.5; background: #111b21; padding: 10px 12px; border-radius: 6px; border-left: 3px solid ${info.color}; font-family: inherit;">${escapeHtml(msg)}</div>
+                        ${info.sub ? `<div style="font-size: 11px; color: #8696a0; margin-top: 6px;">💡 ${info.sub}</div>` : ''}
+                    </div>
+                `;
+            });
+
+            if (bodyEl) bodyEl.innerHTML = html;
+        } else {
+            if (bodyEl) {
+                bodyEl.innerHTML = `
+                    <div style="text-align: center; color: #f44336; padding: 30px;">
+                        <div class="material-icons" style="font-size: 36px; margin-bottom: 8px;">error_outline</div>
+                        <div>No se pudo generar la secuencia: ${data.error || 'Respuesta vacía'}</div>
+                    </div>
+                `;
+            }
+        }
+    } catch (e) {
+        console.error('Error previsualizando secuencia:', e);
+        if (bodyEl) {
+            bodyEl.innerHTML = `
+                <div style="text-align: center; color: #f44336; padding: 30px;">
+                    <div class="material-icons" style="font-size: 36px; margin-bottom: 8px;">wifi_off</div>
+                    <div>Error de conexión al generar la secuencia.</div>
+                </div>
+            `;
+        }
+    }
+}
+
+function copySequenceText(btn, idx) {
+    const rawText = decodeURIComponent(btn.dataset.text || '');
+    if (!rawText) return;
+
+    navigator.clipboard.writeText(rawText).then(() => {
+        const origHTML = btn.innerHTML;
+        btn.innerHTML = '<span class="material-icons" style="font-size: 13px; color: #25d366;">check</span> ¡Copiado!';
+        btn.style.borderColor = '#25d366';
+        setTimeout(() => {
+            btn.innerHTML = origHTML;
+            btn.style.borderColor = '#2f3b43';
+        }, 2000);
+    }).catch(err => {
+        console.warn('Error copiando:', err);
+    });
+}
+
+function closeSequencePreviewModal() {
+    const modal = getEl('sequencePreviewModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function analyzeSingleLeadDossier(leadId) {
+    const btn = getEl(`btnReanalyzeDossier_${leadId}`);
+    const origHTML = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-icons rotating" style="font-size: 12px;">sync</span> Analizando...';
+    }
+
+    try {
+        const res = await fetchAPI(`/leads/${leadId}/analyze-dossier`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success && data.lead) {
+            if (currentState.leads) {
+                const idx = currentState.leads.findIndex(l => String(l._id) === String(leadId));
+                if (idx !== -1) {
+                    currentState.leads[idx] = data.lead;
+                }
+            }
+            renderLeadsTable();
+
+            if (typeof currentLeadId !== 'undefined' && String(currentLeadId) === String(leadId)) {
+                openLeadModal(leadId);
+            }
+
+            ui.modal.show(
+                'Dossier Generado con Éxito',
+                `Negocio: ${data.lead.name}\n\n🎯 Dolor Detectado: ${data.lead.dossier?.primaryPain || 'General'}\n💡 Solución Propuesta: ${data.lead.dossier?.targetServiceLabel || 'Software / Web'}\n🎣 Gancho Consultivo: "${data.lead.dossier?.consultativeHook || ''}"`,
+                'success',
+                [{ text: 'Aceptar', value: true, color: '#00a884' }]
+            );
+        } else {
+            alert(`No se pudo generar el dossier: ${data.error || 'Error desconocido'}`);
+        }
+    } catch (e) {
+        console.error('Error analizando dossier:', e);
+        alert('Error de conexión al analizar dossier.');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = origHTML;
+        }
+    }
+}
+
+async function batchAnalyzePendingDossiers() {
+    const ok = await ui.modal.show(
+        'Analizar Dossiers con IA',
+        'Se auditarán los dolores y necesidades de hasta 20 leads pendientes en Google Maps para generar sus ganchos consultivos y propuestas personalizadas con IA.\n\n¿Deseas iniciar?',
+        'info',
+        [
+            { text: 'Cancelar', value: false, color: '#202c33' },
+            { text: 'Iniciar Análisis', value: true, color: '#7e57c2' }
+        ]
+    );
+    if (!ok) return;
+
+    const btn = getEl('btnBatchDossier');
+    const origHTML = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-icons rotating" style="font-size: 18px;">sync</span> Analizando...';
+    }
+
+    try {
+        const res = await fetchAPI('/leads/batch-analyze-dossier', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ limit: 20 })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            await ui.modal.show(
+                'Lote Completado',
+                `Se formularon ${data.processed} dossiers estratégicos con IA de un total de ${data.totalFound} leads pendientes encontrados.`,
+                'success',
+                [{ text: 'Aceptar', value: true, color: '#00a884' }]
+            );
+            await fetchLeads();
+        } else {
+            alert(`Error procesando lote: ${data.error || 'Error desconocido'}`);
+        }
+    } catch (e) {
+        console.error('Error en batch dossier:', e);
+        alert('Error de red al procesar el lote de dossiers.');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = origHTML;
+        }
+    }
+}
+
+// Global exports multi-agente
+window.escapeHtml = escapeHtml;
+window.loadCopilotSuggestion = loadCopilotSuggestion;
+window.applyCopilotReply = applyCopilotReply;
+window.sendCopilotDirect = sendCopilotDirect;
+window.dismissCopilotBox = dismissCopilotBox;
+window.openSequencePreview = openSequencePreview;
+window.copySequenceText = copySequenceText;
+window.closeSequencePreviewModal = closeSequencePreviewModal;
+window.analyzeSingleLeadDossier = analyzeSingleLeadDossier;
+window.batchAnalyzePendingDossiers = batchAnalyzePendingDossiers;

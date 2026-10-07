@@ -763,3 +763,26 @@ Se diseñó la arquitectura de los 4 prompts dinámicos para `gpt-4o-mini` sin v
 6. **Sincronización de Flota**:
    - Ejecutado `scripts/sync-bots.js` replicando las actualizaciones en `bot_1`, `bot_2`, `bot_3` y `bot_4`.
 
+---
+
+## Implementación Ejecutada (Fases 2 a 5 - Arquitectura Multi-Agente Completa) (2026-10-07):
+1. **Agente 1: Minero Masivo GPS (`server/services/geoGridScanner.js`)**:
+   - Implementado motor de micro-cuadrículas que divide las principales urbes argentinas en celdas de 1.5 a 3 km con micro-coordenadas GPS `!3d...` para evadir el corte de 120 resultados de Google Maps.
+   - Catálogo de 9 zonas preconfiguradas: CABA, GBA Norte/Sur/Oeste, La Plata, Córdoba, Rosario, Mendoza, Mar del Plata.
+   - Endpoints `/api/scraper/cities` y `/api/scraper/generate-grid`.
+2. **Agente 5: Copiloto de Cierre Híbrido (`server/services/closerCopilot.js`)**:
+   - Motor LLM (`gpt-4o-mini`) + fallback determinista que evalúa en tiempo real los mensajes del cliente clasificado en 7 intenciones comerciales:
+     * `interes_alto`, `pregunta_precio`, `pide_portfolio`, `duda_tecnica`, `agendar_llamada`, `objecion`, `rechazo`, `saludo`.
+   - Genera respuestas sugeridas ultra-personalizadas manteniendo el tono argentino profesional de Nexte.
+   - Endpoint `/api/conversations/:phone/copilot-suggestion`.
+3. **Previsualización de Secuencia de 4 Mensajes IA (`server/index.js`)**:
+   - Endpoint `/api/leads/:id/preview-sequence` que genera en vivo los 4 mensajes específicos que se enviarán a un lead particular usando su dossier comercial.
+4. **Dashboard CRM (`crm-dashboard/index.html` y `crm-dashboard/app.js`)**:
+   - **Copiloto IA en Vivo (`closerCopilotBox`)**: Caja inteligente sobre la barra de snippets que muestra la intención detectada, la respuesta propuesta, botón para cargar en el input del chat y botón para envío directo de 1 clic.
+   - **Modal de Secuencia IA (`sequencePreviewModal`)**: Visualización detallada de los 4 mensajes como burbujas de chat, con badges distintivos y botón interactivo para copiar cada texto al portapapeles.
+   - **Badges de Solución en Tabla de Leads**: Indicadores visuales automáticos (`[⚙️ Turnos / IA]`, `[🌐 Web Express]`, `[🎨 Rediseño Web]`, `[🛒 E-Commerce]`, `[🤖 IA NatoH]`) según el dolor identificado en el dossier.
+   - **Dossier Comercial en Modales y Perfiles**: Sección completa con dolor diagnosticado, gancho consultivo y oferta sugerida, con botones de re-análisis individual y por lote (`btnBatchDossier`).
+5. **Mitigación Docker y Rendimiento VPS (`.dockerignore`)**:
+   - Exclusión estricta de cachés de Puppeteer y Chromium (`sessions/**`, `**/Default/**`, `chrome-profile/**`, `bot_1/`) reduciendo el contexto de compilación de 4.5 GB a menos de 50 MB, erradicando el error `ResourceExhausted: no space left on device`.
+
+
