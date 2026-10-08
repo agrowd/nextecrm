@@ -383,6 +383,10 @@ async function fetchStats() {
         // Also fetch bot stats and realtime stats
         fetchBotStats();
         fetchRealtimeStats();
+        fetchQualificationStats();
+        if (!window.currentTargetPlan) {
+            fetchNextScrapingTarget();
+        }
     } catch (e) { console.error(e); }
 }
 
@@ -3893,6 +3897,153 @@ async function batchAnalyzePendingDossiers() {
     }
 }
 
+// --- CALIFICACIÓN & AGENTE 1 GEO-PLANNER ---
+let currentTargetPlan = null;
+
+async function fetchQualificationStats() {
+    try {
+        const res = await fetchAPI('/leads/qualification-stats');
+        const data = await res.json();
+        if (data && data.success && data.stats) {
+            const s = data.stats;
+            const rateEl = getEl('rtQualifiedRate');
+            if (rateEl) rateEl.textContent = s.qualificationRate || '0%';
+            const qCountEl = getEl('rtQualifiedCount');
+            if (qCountEl) qCountEl.textContent = (s.qualified || 0).toLocaleString();
+            const dCountEl = getEl('rtDiscardedCount');
+            if (dCountEl) dCountEl.textContent = (s.discarded || 0).toLocaleString();
+        }
+    } catch (e) {
+        console.error('Error fetching qualification stats:', e);
+    }
+}
+
+async function fetchNextScrapingTarget(forceShuffle = false) {
+    const reasonEl = getEl('targetReason');
+    const badgeEl = getEl('targetStatusBadge');
+    if (reasonEl) reasonEl.textContent = 'Consultando memoria de zonas y calculando próximo objetivo sin solapamiento...';
+
+    try {
+        const queryParam = forceShuffle ? `?shuffle=${Date.now()}` : '';
+        const res = await fetchAPI(`/scraper/next-target${queryParam}`);
+        const data = await res.json();
+
+        if (data && data.success) {
+            window.currentTargetPlan = data;
+            renderScraperTargetWidget(data);
+        } else {
+            if (reasonEl) reasonEl.textContent = 'No se pudo obtener la próxima recomendación.';
+        }
+    } catch (e) {
+        console.error('Error fetching next target:', e);
+        if (reasonEl) reasonEl.textContent = 'Error de conexión con el Agente 1.';
+    }
+}
+
+function renderScraperTargetWidget(target) {
+    if (!target) return;
+
+    const zName = getEl('targetZoneName');
+    const zCity = getEl('targetZoneCity');
+    const rLabel = getEl('targetRubroLabel');
+    const sQuery = getEl('targetSearchQuery');
+    const solLabel = getEl('targetSolutionLabel');
+    const reasonEl = getEl('targetReason');
+    const badgeEl = getEl('targetStatusBadge');
+    const covEl = getEl('targetCoverageStats');
+    const histEl = getEl('targetHistoryCount');
+
+    if (zName) zName.textContent = target.zone ? target.zone.name : '-';
+    if (zCity) zCity.textContent = target.zone ? `${target.zone.city} (zoom ${target.zone.zoom || 15}z)` : 'Argentina';
+    if (rLabel) rLabel.textContent = target.rubro ? target.rubro.label : '-';
+    if (sQuery) sQuery.textContent = target.searchQuery ? `"${target.searchQuery}"` : '-';
+    if (solLabel) solLabel.textContent = target.rubro ? target.rubro.targetSolution : '-';
+    if (reasonEl) reasonEl.textContent = target.reason || 'Objetivo óptimo para minería de prospectos.';
+
+    if (badgeEl) {
+        if (target.isNewTarget) {
+            badgeEl.textContent = 'Nueva Zona';
+            badgeEl.style.background = '#00a88426';
+            badgeEl.style.color = '#00a884';
+        } else {
+            badgeEl.textContent = 'Re-escaneo Ciclo';
+            badgeEl.style.background = '#ff980026';
+            badgeEl.style.color = '#ff9800';
+        }
+    }
+
+    // Fetch history metrics for coverage display
+    fetchAPI('/scraper/zones-history?limit=1')
+        .then(r => r.json())
+        .then(histData => {
+            if (histData && histData.success) {
+                if (covEl) covEl.textContent = `${histData.coveragePercent || 0}% Cobertura`;
+                if (histEl) histEl.textContent = `${histData.totalScannedCombinations || 0} de ${histData.totalPossibleCombinations || 0} cuadrículas`;
+            }
+        })
+        .catch(() => {});
+}
+
+function openTargetInGoogleMaps() {
+    if (!window.currentTargetPlan || !window.currentTargetPlan.googleMapsUrl) {
+        alert('Cargando próximo objetivo...');
+        return;
+    }
+    window.open(window.currentTargetPlan.googleMapsUrl, '_blank');
+}
+
+function copyTargetSearchQuery() {
+    if (!window.currentTargetPlan || !window.currentTargetPlan.searchQuery) {
+        alert('Cargando próximo objetivo...');
+        return;
+    }
+    navigator.clipboard.writeText(window.currentTargetPlan.searchQuery).then(() => {
+        ui.modal.show('Copiado', `Búsqueda copiada al portapapeles:\n\n"${window.currentTargetPlan.searchQuery}"`, 'success', [{ text: 'OK', value: true, color: '#00a884' }]);
+    }).catch(() => {
+        prompt('Copia manualmente:', window.currentTargetPlan.searchQuery);
+    });
+}
+
+async function markCurrentTargetScanned() {
+    if (!window.currentTargetPlan || !window.currentTargetPlan.zone || !window.currentTargetPlan.rubro) {
+        alert('No hay objetivo activo para marcar.');
+        return;
+    }
+
+    const { zone, rubro } = window.currentTargetPlan;
+    try {
+        const res = await fetchAPI('/scraper/mark-scanned', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                zoneId: zone.id,
+                zoneName: zone.name,
+                city: zone.city,
+                keyword: rubro.id,
+                keywordLabel: rubro.label,
+                center: zone.center,
+                zoom: zone.zoom,
+                notes: 'Marcado manualmente desde Dashboard CRM'
+            })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+            await ui.modal.show(
+                'Zona Registrada',
+                `Se guardó la cuadrícula [${zone.name} - ${rubro.label}] en la memoria persistente.\nCalculando siguiente zona no explorada...`,
+                'success',
+                [{ text: 'Continuar', value: true, color: '#00a884' }]
+            );
+            await fetchNextScrapingTarget(true);
+        } else {
+            alert(`Error registrando zona: ${data.error || 'Error desconocido'}`);
+        }
+    } catch (e) {
+        console.error('Error marking zone scanned:', e);
+        alert('Error de conexión al marcar la zona.');
+    }
+}
+
 // Global exports multi-agente
 window.escapeHtml = escapeHtml;
 window.loadCopilotSuggestion = loadCopilotSuggestion;
@@ -3904,3 +4055,9 @@ window.copySequenceText = copySequenceText;
 window.closeSequencePreviewModal = closeSequencePreviewModal;
 window.analyzeSingleLeadDossier = analyzeSingleLeadDossier;
 window.batchAnalyzePendingDossiers = batchAnalyzePendingDossiers;
+window.fetchNextScrapingTarget = fetchNextScrapingTarget;
+window.renderScraperTargetWidget = renderScraperTargetWidget;
+window.openTargetInGoogleMaps = openTargetInGoogleMaps;
+window.copyTargetSearchQuery = copyTargetSearchQuery;
+window.markCurrentTargetScanned = markCurrentTargetScanned;
+window.fetchQualificationStats = fetchQualificationStats;

@@ -1,5 +1,22 @@
 # 📜 SYSTEM CHANGELOG
 
+## [2026-10-08] - Memoria Persistente de Zonas GPS, Calificación de Leads y Mensajes Ultra-Especializados
+### Added
+- **Memoria Persistente de Zonas GPS (`ScannedZone.js` & `geoGridScanner.js`):**
+  - Mongoose Model `ScannedZone` con índice único `{ zoneId, keyword }` que persiste métricas de barrido (fecha, leads encontrados, calificados y descartados).
+  - Algoritmo autónomo `getNextRecommendedTarget(city)` que analiza la base de datos y selecciona la siguiente micro-zona virgen o menos reciente, generando el enlace directo de Google Maps listo para el scraper.
+  - Endpoints de control: `GET /api/scraper/next-target`, `GET /api/scraper/zones-history` y `POST /api/scraper/mark-scanned`.
+- **Filtro Temprano de Calificación & Sanitizador (`phoneValidator.js`):**
+  - En `POST /ingest`, sanitiza números a formato móvil argentino `549...` y descarta preventivamente números fijos o inválidos.
+  - Exclusión automática de entidades públicas y no comerciales (comisarías, ministerios, embajadas, hospitales públicos).
+  - Leads no viables ingresan como `status: 'discarded'`, `isQualified: false`, manteniendo la cola `pending` 100% limpia para Bot 1.
+  - Endpoint `GET /api/leads/qualification-stats` con tasa porcentual de calificación.
+- **Frontend CRM (Dashboard & Planificador GPS):**
+  - Widget interactivo "Agente 1: Planificador Autónomo de Zonas GPS" en el CRM: indica zona, rubro, solución recomendada y permite abrir directamente en Google Maps con 1 clic o cambiar de sugerencia.
+  - Tarjeta en tiempo real "Leads Calificados" con contador de válidos vs descartados.
+- **Secuencia No Robótica Especializada (`aiTextGenerator.js`):**
+  - Eliminado el folleto genérico de 6 servicios en el Mensaje 3. Ahora ofrece con precisión quirúrgica el servicio que el lead necesita según su rubro y auditoría (Web Express si no tiene web, Rediseño si es obsoleta, Turnos a Medida para salud/estética, o Carta QR sin comisiones para gastronomía).
+
 ## [2026-10-07] - Multi-Agente IA: Arquitectura Completa Fases 1 a 5 (Geo-Grid, Dossier, Secuencia 4 Mensajes y Copiloto Closer)
 ### Added
 - **Agente 1 (Geo-Grid Scanner GPS):** Micro-servicio `geoGridScanner.js` con catálogo de 9 regiones de alta densidad de Argentina para eludir el límite de 120 resultados de Google Maps mediante micro-coordenadas. Endpoints `/api/scraper/cities` y `/api/scraper/generate-grid`.

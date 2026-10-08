@@ -233,16 +233,65 @@ class AITextGenerator {
                     : '';
 
                 const dossier = lead.dossier || {};
+                const targetService = dossier.targetService || 'software_turnero';
                 const dossierInfo = (dossier.consultativeHook || dossier.primaryPain)
                     ? `\n🎯 DIAGNÓSTICO AUDITADO (AGENTES 2 Y 3):\n- Dolor/Fricción operativa: ${dossier.primaryPain || 'Atención manual de clientes'}\n- Gancho consultivo recomendado: "${dossier.consultativeHook || ''}"\n- Solución técnica recomendada: ${dossier.targetServiceLabel || 'Software a medida / IA NatoH'}\n- Enfoque de venta sugerido: ${dossier.suggestedPitch || ''}`
                     : '';
+
+                let serviceProposalGuideline = '';
+                if (targetService === 'web_express') {
+                    serviceProposalGuideline = `
+- El negocio NO tiene página web oficial. La propuesta en el Mensaje 3 DEBE CENTRARSE DIRECTAMENTE en el SITIO WEB PROFESIONAL:
+  🌐 *SITIO WEB PROFESIONAL & PRESENCIA DIGITAL*
+  Precio regular $500.000 → *Promo Otoño: $250.000* (o 2 cuotas de $125.000).
+  Incluye: Diseño a medida 100% adaptado a celulares, dominio propio .com, hosting por 1 año, certificado SSL y botón directo a WhatsApp para convertir búsquedas de Google en clientes.
+  (Menciona brevemente que si desean automatizar atención, también implementamos el Asistente IA NatoH en promo a $180.000).
+  PROHIBIDO listar servicios que no tienen que ver con su necesidad principal.`;
+                } else if (targetService === 'rediseño_web') {
+                    serviceProposalGuideline = `
+- El negocio tiene web pero está desactualizada o sin canal directo de WhatsApp. La propuesta en el Mensaje 3 DEBE CENTRARSE en REDISEÑO & CONVERSIÓN:
+  🚀 *REDISEÑO WEB DE ALTA CONVERSIÓN & CANAL DE RESPUESTA*
+  Precio regular $500.000 → *Promo Otoño: $250.000* en 2 pagos.
+  Renovamos su sitio para que cargue en menos de 2 segundos en celulares, con llamadas a la acción directas y botón flotante de WhatsApp para no perder visitantes.
+  (Menciona que también podemos sumar el Asistente Virtual IA NatoH 24/7 en promo a $180.000).
+  PROHIBIDO listar servicios ajenos a esta solución.`;
+                } else if (targetService === 'software_turnero') {
+                    serviceProposalGuideline = `
+- El negocio es centro de salud, estética, odontología, veterinaria, taller o citas. La propuesta en el Mensaje 3 DEBE CENTRARSE en el SISTEMA DE TURNOS & GESTIÓN A MEDIDA:
+  ⚙️ *SISTEMA DE GESTIÓN & TURNOS ONLINE A MEDIDA*
+  Precio regular $650.000 → *Promo Otoño: $350.000* en 2 pagos de $175.000.
+  Permite administrar agendas por profesional/servicio, enviar confirmaciones y recordatorios automáticos por WhatsApp y reducir más del 40% las ausencias de pacientes/clientes.
+  (Menciona que también se puede integrar con el Asistente IA NatoH para agendar 24/7).
+  PROHIBIDO listar servicios no solicitados.`;
+                } else if (targetService === 'gastronomia_pedidos' || targetService === 'gastronomia') {
+                    serviceProposalGuideline = `
+- El negocio es gastronómico (restaurante, bar, pizzería). La propuesta en el Mensaje 3 DEBE CENTRARSE en CARTA QR & PEDIDOS DIRECTOS:
+  🍕 *CARTA DIGITAL QR + SISTEMA DE PEDIDOS A WHATSAPP*
+  Precio regular $650.000 → *Promo Otoño: $350.000* en 2 pagos.
+  Menú interactivo con fotos y precios, cálculo de montos y recepción de pedidos directo a su WhatsApp sin comisiones a terceros.
+  (Opcional breve: Asistente IA NatoH para reservas y consultas 24/7 a $180.000).
+  PROHIBIDO listar servicios no solicitados.`;
+                } else if (targetService === 'ecommerce' || targetService === 'ecommerce_tienda') {
+                    serviceProposalGuideline = `
+- El negocio es una tienda o comercio de productos. La propuesta en el Mensaje 3 DEBE CENTRARSE en TIENDA E-COMMERCE:
+  🛒 *TIENDA ONLINE E-COMMERCE CON MERCADO PAGO*
+  Precio regular $800.000 → *Promo Otoño: $500.000*.
+  Catálogo autogestionable, carrito de compras y cobros directos integrados con Mercado Pago sin intermediarios.`;
+                } else {
+                    serviceProposalGuideline = `
+- La propuesta en el Mensaje 3 debe enfocarse en SOFTWARE A MEDIDA & ASISTENTE IA:
+  🤖 *ASISTENTE VIRTUAL IA NATOH (WHATSAPP 24/7)*
+  Precio regular $350.000 → *Promo Otoño: $180.000*.
+  Atiende consultas de clientes las 24 hs, responde dudas frecuentes y agenda citas en el acto.
+  ⚙️ *SOFTWARE & SISTEMAS A MEDIDA:* Promo $350.000 en 2 pagos según requerimiento.`;
+                }
 
                 const prompt = `
 Contexto: Escribes por WhatsApp como Juan Cruz de Nexte Marketing contactando al dueño o encargado de ${cleanName} (${lead.category || 'su rubro'}) en ${lead.location || 'la zona'}.
 ${dossierInfo}
 
 Misión: Generar UNA SECUENCIA CONTINUA DE 4 MENSAJES que se enviarán uno tras otro en el mismo chat de WhatsApp.
-LA SECUENCIA DEBE TENER COHERENCIA PERFECTA COMO UNA SOLA CONVERSACIÓN FLUIDA.
+LA SECUENCIA DEBE TENER COHERENCIA PERFECTA COMO UNA SOLA CONVERSACIÓN FLUIDA Y SONAR A UN CONSULTOR HUMANO REAL (NUNCA A UN BOT NI SPAM).
 
 ⚠️ REGLAS OBLIGATORIAS DE ESTRUCTURA Y FLUIDEZ:
 1. MENSAJE 1 (Saludo + Enganche Consultivo):
@@ -255,35 +304,19 @@ LA SECUENCIA DEBE TENER COHERENCIA PERFECTA COMO UNA SOLA CONVERSACIÓN FLUIDA.
 2. MENSAJE 2 (Presentación de experiencia y valor):
    - CONTINÚA el pensamiento sin volver a saludar.
    - PROHIBIDO repetir "¡Hola!", "Soy Juan Cruz" o "Buenas".
-   - Mencioná cómo en Nexte (más de 10 años de trayectoria) ayudan a negocios como ${cleanName} con software a medida, turneros automáticos y asistentes de WhatsApp con IA para desahogar la atención${dossier.primaryPain ? ` (atacando directamente: ${dossier.primaryPain})` : ''}.
+   - Mencioná cómo en Nexte (más de 10 años de trayectoria) ayudan a negocios como ${cleanName} con soluciones concretas para desahogar la atención${dossier.primaryPain ? ` (atacando directamente: ${dossier.primaryPain})` : ''}.
 
-3. MENSAJE 3 (Propuesta Comercial COMPLETA y bien formateada):
+3. MENSAJE 3 (Propuesta Comercial A MEDIDA según lo que realmente necesita):
    - PROHIBIDO saludar de nuevo.
+   - PROHIBIDO enviar un folleto masivo o lista genérica de 6 servicios desconectados. DEBE SER UNA PROPUESTA PRECISA Y PERSONALIZADA.
    - USA ÚNICAMENTE UN SOLO ASTERISCO (*texto*) PARA NEGRITAS EN WHATSAPP. PROHIBIDO USAR DOBLE ASTERISCO (**).
-   - INCLUYE OBLIGATORIAMENTE SALTOS DE LÍNEA DOBLES (separados por renglones vacíos) entre cada servicio para que quede visualmente impecable y fácil de leer. Estructura exacta a seguir:
-
-⚙️ *SOFTWARE A MEDIDA & SISTEMAS DE GESTIÓN*
-Precio regular $650.000 → *Promo: $350.000* en 2 pagos. (Optimiza turnos, agendas, fichas de clientes/pacientes y stock).
-
-🤖 *ASISTENTE VIRTUAL IA NATOH (WHATSAPP 24/7)*
-Precio regular $350.000 → *Promo: $180.000*. (Atiende 24/7, agendan turnos y valida comprobantes de pago).
-
-🌐 *PÁGINA WEB PROFESIONAL o E-COMMERCE*
-Web Profesional *$250.000* (o E-Commerce *$500.000*). Incluye dominio, hosting y SSL.
-
-📸 *CONTENIDO MULTIMEDIA & EDITORIAL*
-Precio regular $250.000/mes → *Promo: $140.000/mes*.
-
-📍 *OPTIMIZACIÓN GOOGLE MAPS & SEO LOCAL*
-Precio regular $300.000 → *Promo: $150.000*.
-
-🎁 *COMBO INTEGRAL CON DESCUENTO*
-$1.800.000 → 🔥 *Promo Final: $690.000* (Ahorro de $1.110.000).
+   - Utiliza saltos de línea dobles entre puntos clave.
+   ${serviceProposalGuideline}
 
 4. MENSAJE 4 (Cierre y Llamado a la Acción):
    - Mencioná que en Nexte se adaptan 100% a la escala de ${cleanName}.
-   - Ofrecé enviar ejemplos reales de sistemas/webs desarrollados o agendar una breve charla.
-   - AQUÍ Y SOLO AQUÍ va la despedida final ("Quedo a disposición. ¡Saludos!").
+   - Ofrecé enviar ejemplos reales de sistemas/webs desarrollados o agendar una breve charla de 5 minutos sin compromiso.
+   - AQUÍ Y SOLO AQUÍ va la despedida final ("Quedo a tu disposición. ¡Saludos!").
 
 FORMATO DE RESPUESTA REQUERIDO (Devuelve ÚNICAMENTE un JSON válido con 4 elementos):
 [
@@ -324,12 +357,24 @@ FORMATO DE RESPUESTA REQUERIDO (Devuelve ÚNICAMENTE un JSON válido con 4 eleme
             console.error(`❌ Error crítico en generación:`, error.message);
             this.stats.errors++;
 
-            // FALLBACK FINAL DE EMERGENCIA (4 mensajes)
+            // FALLBACK FINAL DE EMERGENCIA (4 mensajes personalizados al dolor)
+            const targetService = lead.dossier?.targetService || 'software_turnero';
+            let fallbackOffer = `⚙️ *SISTEMA DE GESTIÓN & TURNOS A MEDIDA*\nPrecio regular $650.000 → *Promo Otoño: $350.000* en 2 pagos.\n\n🤖 *ASISTENTE VIRTUAL IA NATOH (WHATSAPP 24/7):* Promo $180.000 para responder y agendar 24/7.`;
+            if (targetService === 'web_express') {
+                fallbackOffer = `🌐 *SITIO WEB PROFESIONAL & PRESENCIA DIGITAL*\nPrecio de lista $500.000 → *Promo Otoño: $250.000* (o 2 cuotas de $125.000).\nIncluye diseño mobile, dominio propio .com, hosting 1 año, SSL y botón directo a WhatsApp.`;
+            } else if (targetService === 'rediseño_web') {
+                fallbackOffer = `🚀 *REDISEÑO WEB & CANAL DE RESPUESTA DIRECTA*\nPrecio regular $500.000 → *Promo: $250.000* en 2 pagos.\nOptimizamos la velocidad en celulares y sumamos botón flotante de WhatsApp para no perder consultas.`;
+            } else if (targetService === 'gastronomia_pedidos' || targetService === 'gastronomia') {
+                fallbackOffer = `🍕 *CARTA DIGITAL QR + PEDIDOS A WHATSAPP*\nPrecio regular $650.000 → *Promo: $350.000* en 2 pagos.\nMenú interactivo con fotos y pedidos directo a su WhatsApp sin comisiones a terceros.`;
+            } else if (targetService === 'ecommerce') {
+                fallbackOffer = `🛒 *TIENDA ONLINE E-COMMERCE CON MERCADO PAGO*\nPrecio regular $800.000 → *Promo: $500.000*.\nCatálogo autogestionable con cobros directos integrados.`;
+            }
+
             const fallbackMsgs = [
                 `¡Hola! Soy Juan Cruz de Nexte Marketing. Estuve revisando la presencia digital de ${lead.name} y me llamó la atención su potencial en la zona.`,
-                `En Nexte llevamos más de 10 años desarrollando software a medida, asistentes virtuales con IA y soluciones para desahogar la atención de negocios.`,
-                `🏢 *SOLUCIONES DIGITALES NEXTE 2026*\n\n⚙️ *SISTEMAS & SOFTWARE A MEDIDA:* $650.000 → Promo $350.000 en 2 pagos\n🤖 *ASISTENTE VIRTUAL IA NATOH (WHATSAPP 24/7):* $350.000 → Promo $180.000\n🌐 *PÁGINA WEB PROFESIONAL:* $500.000 → Promo $250.000\n📍 *SEO GOOGLE MAPS:* $300.000 → Promo $150.000\n\n🎁 *COMBO INTEGRAL:* $1.800.000 → 🔥 *$690.000* (Ahorro de $1.110.000).`,
-                `Nos adaptamos a la escala de tu negocio. Si querés te envío algunos ejemplos reales de sistemas desarrollados o agendamos una llamada breve. ¡Saludos!`
+                `En Nexte llevamos más de 10 años desarrollando soluciones tecnológicas para desahogar la atención de negocios y optimizar la captación de clientes.`,
+                fallbackOffer,
+                `Nos adaptamos a la escala de tu negocio. Si querés te envío algunos ejemplos reales de sistemas o webs desarrolladas, o coordinamos una llamada breve. ¡Saludos!`
             ];
             return fallbackMsgs;
         }

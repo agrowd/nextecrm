@@ -106,10 +106,12 @@ const Log = require('./models/Log');
 const BotInstance = require('./models/BotInstance');
 const Config = require('./models/Config');
 const TemplateVariant = require('./models/TemplateVariant');
+const ScannedZone = require('./models/ScannedZone');
 const { auditWebsite } = require('./services/webScraper');
 const { analyzeLeadPains } = require('./services/painAnalyzer');
 const geoGridScanner = require('./services/geoGridScanner');
 const { closerCopilot } = require('./services/closerCopilot');
+const { cleanAndFormatArgentinianNumber } = require('./services/phoneValidator');
 const AITextGenerator = require('../bot/services/aiTextGenerator');
 const serverAiGenerator = new AITextGenerator();
 // MongoDB es la fuente principal de datos
@@ -381,84 +383,166 @@ app.post('/logs', async (req, res) => {
   }
 });
 
-// POST /ingest - Recibir leads del scraper
+// POST /ingest - Recibir leads del scraper con filtro de calificación y memoria de zonas
 app.post('/ingest', async (req, res) => {
   try {
     const data = req.body;
     const leads = Array.isArray(data) ? data : (data.leads ? data.leads : [data]);
     let added = 0;
+    let discarded = 0;
+    let duplicates = 0;
 
     console.log(`📥 Ingestando ${leads.length} leads...`);
 
+    const junkKeywords = [
+      'policia', 'comisaria', 'ministerio', 'secretaria de', 'embajada', 'consulado',
+      'juzgado', 'escuela publica', 'colegio publico', 'hospital publico', 'municipalidad',
+      'afip', 'anses', 'registro civil', 'defensoria', 'banco nacion', 'banco provincia'
+    ];
+
     for (const leadData of leads) {
-      // Verificar duplicados por teléfono
-      const exists = await Lead.findOne({ phone: leadData.phone });
-      if (!exists) {
-        const hasWeb = !!(leadData.website && leadData.website.trim().length > 0);
-        const newLead = await Lead.create({
-          ...leadData,
-          status: 'pending',
-          source: 'extension',
-          hasWebsite: hasWeb
+      const rawPhone = leadData.phone || '';
+      const phoneCheck = cleanAndFormatArgentinianNumber(rawPhone);
+
+      // Verificación de entidades no comerciales
+      const nameLower = (leadData.name || '').toLowerCase();
+      const catLower = (leadData.category || '').toLowerCase();
+      const isJunkEntity = junkKeywords.some(k => nameLower.includes(k) || catLower.includes(k));
+
+      // Determinar calificación del lead
+      let isQualified = true;
+      let qualificationReason = 'Móvil comercial verificado';
+      let leadStatus = 'pending';
+
+      if (!phoneCheck.valid) {
+        isQualified = false;
+        leadStatus = 'discarded';
+        qualificationReason = phoneCheck.error || 'Sin teléfono móvil válido';
+      } else if (isJunkEntity) {
+        isQualified = false;
+        leadStatus = 'discarded';
+        qualificationReason = 'Entidad pública / no comercial';
+      }
+
+      const effectivePhone = phoneCheck.valid ? phoneCheck.formatted : rawPhone;
+      const cleanSuffix = effectivePhone.replace(/\D/g, '').slice(-8);
+
+      // Verificar duplicados por teléfono formateado o sufijo
+      let exists = null;
+      if (cleanSuffix && cleanSuffix.length >= 8) {
+        exists = await Lead.findOne({
+          $or: [
+            { phone: effectivePhone },
+            { phone: new RegExp(cleanSuffix + '$') }
+          ]
         });
-        added++;
+      } else if (effectivePhone) {
+        exists = await Lead.findOne({ phone: effectivePhone });
+      }
 
-        // 🔍 AGENTE 2 & 3: Auditoría Web & Minería de Dolores / Dossier en Background
-        const runBackgroundIntelligence = async () => {
-          let currentLead = newLead;
-          if (hasWeb) {
-            try {
-              const auditResult = await auditWebsite(leadData.website);
-              const isAccessible = auditResult && !auditResult.error;
-              currentLead = await Lead.findByIdAndUpdate(newLead._id, {
-                websiteValid: isAccessible,
-                webAudit: auditResult,
-                pixelFacebook: auditResult?.hasMetaPixel || false,
-                pixelGoogle: auditResult?.hasGA4 || false
-              }, { new: true });
+      if (exists) {
+        duplicates++;
+        continue;
+      }
 
-              if (global.io && currentLead) {
-                global.io.emit('lead_updated', {
-                  leadId: currentLead._id,
-                  updates: {
-                    websiteValid: currentLead.websiteValid,
-                    webAudit: currentLead.webAudit,
-                    pixelFacebook: currentLead.pixelFacebook,
-                    pixelGoogle: currentLead.pixelGoogle
-                  }
-                });
-              }
-            } catch (auditErr) {
-              originalConsoleError('Error en background auditWebsite:', auditErr.message);
-            }
-          }
+      const hasWeb = !!(leadData.website && leadData.website.trim().length > 0);
+      const newLead = await Lead.create({
+        ...leadData,
+        phone: effectivePhone,
+        phoneValidated: phoneCheck.valid,
+        status: leadStatus,
+        isQualified,
+        qualificationReason,
+        source: leadData.source || 'extension',
+        hasWebsite: hasWeb,
+        scannedZoneId: leadData.zoneId || '',
+        scannedZoneName: leadData.zoneName || leadData.location || ''
+      });
 
-          // Generar Dossier Estratégico (Dolores y Oferta Consultiva)
+      if (!isQualified) {
+        discarded++;
+        continue;
+      }
+
+      added++;
+
+      // 🔍 AGENTE 2 & 3: Auditoría Web & Minería de Dolores / Dossier en Background
+      const runBackgroundIntelligence = async () => {
+        let currentLead = newLead;
+        if (hasWeb) {
           try {
-            const dossier = await analyzeLeadPains(currentLead || newLead);
-            if (dossier) {
-              const updatedWithDossier = await Lead.findByIdAndUpdate(newLead._id, { dossier }, { new: true });
-              if (global.io && updatedWithDossier) {
-                global.io.emit('lead_updated', {
-                  leadId: updatedWithDossier._id,
-                  updates: { dossier: updatedWithDossier.dossier }
-                });
-              }
+            const auditResult = await auditWebsite(leadData.website);
+            const isAccessible = auditResult && !auditResult.error;
+            currentLead = await Lead.findByIdAndUpdate(newLead._id, {
+              websiteValid: isAccessible,
+              webAudit: auditResult,
+              pixelFacebook: auditResult?.hasMetaPixel || false,
+              pixelGoogle: auditResult?.hasGA4 || false
+            }, { new: true });
+
+            if (global.io && currentLead) {
+              global.io.emit('lead_updated', {
+                leadId: currentLead._id,
+                updates: {
+                  websiteValid: currentLead.websiteValid,
+                  webAudit: currentLead.webAudit,
+                  pixelFacebook: currentLead.pixelFacebook,
+                  pixelGoogle: currentLead.pixelGoogle
+                }
+              });
             }
-          } catch (dossierErr) {
-            originalConsoleError('Error generando dossier en background:', dossierErr.message);
+          } catch (auditErr) {
+            originalConsoleError('Error en background auditWebsite:', auditErr.message);
           }
-        };
+        }
 
-        runBackgroundIntelligence().catch(err => originalConsoleError('Error en background intelligence:', err.message));
+        // Generar Dossier Estratégico (Dolores y Oferta Consultiva)
+        try {
+          const dossier = await analyzeLeadPains(currentLead || newLead);
+          if (dossier) {
+            const updatedWithDossier = await Lead.findByIdAndUpdate(newLead._id, { dossier }, { new: true });
+            if (global.io && updatedWithDossier) {
+              global.io.emit('lead_updated', {
+                leadId: updatedWithDossier._id,
+                updates: { dossier: updatedWithDossier.dossier }
+              });
+            }
+          }
+        } catch (dossierErr) {
+          originalConsoleError('Error generando dossier en background:', dossierErr.message);
+        }
+      };
 
-        // Notificar nuevo lead
-        if (global.io) global.io.emit('new_lead', newLead.toObject());
+      runBackgroundIntelligence().catch(err => originalConsoleError('Error en background intelligence:', err.message));
+
+      if (global.io) global.io.emit('new_lead', newLead.toObject());
+    }
+
+    // Registrar memoria de zona si se envió metadata de ubicación/keyword
+    if (leads.length > 0) {
+      const first = leads[0];
+      const zId = first.zoneId || (first.location ? first.location.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'zona_desconocida');
+      const kw = first.keyword || first.category || 'general';
+      if (zId && kw) {
+        geoGridScanner.recordZoneScan({
+          zoneId: zId,
+          zoneName: first.zoneName || first.location || zId,
+          keyword: kw,
+          totalLeadsFound: leads.length,
+          validLeadsIngested: added,
+          discardedLeads: discarded
+        }).catch(e => console.warn('Aviso guardando memoria de zona:', e.message));
       }
     }
 
-    console.log(`✅ Ingestados ${added} nuevos leads.`);
-    res.json({ success: true, added, total: leads.length });
+    console.log(`✅ Ingestados ${added} leads calificados | 🚫 ${discarded} descartados | 🔄 ${duplicates} duplicados.`);
+    res.json({
+      success: true,
+      added,
+      discarded,
+      duplicates,
+      total: leads.length
+    });
 
   } catch (error) {
     console.error('Error en /ingest:', error);
@@ -3125,6 +3209,68 @@ app.post('/api/scraper/generate-grid', (req, res) => {
     const grid = geoGridScanner.generateGrid(req.body);
     res.json({ success: true, grid });
   } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/scraper/next-target - Obtener próxima zona y rubro recomendados sin repetición (Agente 1)
+app.get('/api/scraper/next-target', async (req, res) => {
+  try {
+    const target = await geoGridScanner.getNextRecommendedTarget(req.query.city);
+    res.json(target);
+  } catch (error) {
+    console.error('Error obteniendo próximo objetivo de scraping:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/scraper/zones-history - Historial de zonas y rubros ya escaneados con métricas
+app.get('/api/scraper/zones-history', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit || 50);
+    const history = await geoGridScanner.getScannedHistory(limit);
+    res.json(history);
+  } catch (error) {
+    console.error('Error obteniendo historial de zonas escaneadas:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/scraper/mark-scanned - Registrar manualmente o por webhook que una zona fue escaneada
+app.post('/api/scraper/mark-scanned', async (req, res) => {
+  try {
+    const result = await geoGridScanner.recordZoneScan(req.body);
+    res.json(result);
+  } catch (error) {
+    console.error('Error marcando zona como escaneada:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/leads/qualification-stats - Estadísticas de leads calificados vs descartados
+app.get('/api/leads/qualification-stats', async (req, res) => {
+  try {
+    const total = await Lead.countDocuments({});
+    const qualified = await Lead.countDocuments({ status: { $ne: 'discarded' }, isQualified: true });
+    const discarded = await Lead.countDocuments({ $or: [{ status: 'discarded' }, { isQualified: false }] });
+    const pending = await Lead.countDocuments({ status: 'pending', isQualified: true });
+    const contacted = await Lead.countDocuments({ status: 'contacted' });
+    const interested = await Lead.countDocuments({ status: 'interested' });
+
+    res.json({
+      success: true,
+      stats: {
+        total,
+        qualified,
+        discarded,
+        pending,
+        contacted,
+        interested,
+        qualificationRate: total > 0 ? Math.round((qualified / total) * 100) : 0
+      }
+    });
+  } catch (error) {
+    console.error('Error en qualification-stats:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

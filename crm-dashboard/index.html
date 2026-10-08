@@ -187,6 +187,64 @@
                         <div style="font-size: 11px; color: #666; margin-top: 4px;" id="rtLastMessageInfo">Esperando...
                         </div>
                     </div>
+                    <div class="realtime-stat-card"
+                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 2px solid #00bcd4; border-radius: 16px; padding: 20px 15px; text-align: center;">
+                        <div style="font-size: 28px; font-weight: 700; color: #00bcd4; font-family: 'Consolas', monospace;"
+                            id="rtQualifiedRate">--%</div>
+                        <div style="font-size: 13px; color: #8696a0; margin-top: 8px;">Leads Calificados</div>
+                        <div style="font-size: 11px; color: #8696a0; margin-top: 4px;" id="rtQualifiedSub"><span id="rtQualifiedCount">0</span> válidos / <span id="rtDiscardedCount">0</span> descartados</div>
+                    </div>
+                </div>
+
+                <!-- AGENTE 1: PLANIFICADOR AUTÓNOMO DE ZONAS GPS & PRÓXIMO OBJETIVO -->
+                <div class="gps-target-planner-card" style="background: linear-gradient(135deg, #16242c 0%, #111b21 100%); border: 1px solid #2a3942; border-left: 4px solid #00a884; border-radius: 14px; padding: 22px; margin-top: 25px; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.25);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                                <span class="material-icons" style="color: #00a884; font-size: 24px;">explore</span>
+                                <h2 style="font-size: 18px; font-weight: 700; color: #e9edef; margin: 0;">Agente 1: Planificador Autónomo de Zonas GPS & Próximo Objetivo</h2>
+                                <span id="targetStatusBadge" style="background: #00a88426; color: #00a884; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase;">Nueva Zona</span>
+                            </div>
+                            <p style="color: #8696a0; font-size: 13px; margin: 0;" id="targetReason">Calculando cuadrícula no explorada para evitar duplicar leads...</p>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <button id="btnShuffleTarget" onclick="fetchNextScrapingTarget(true)" class="btn-action" style="background: #202c33; color: #8696a0; border: 1px solid #3b4a54; padding: 8px 14px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                                <span class="material-icons" style="font-size: 16px;">shuffle</span> Otra Zona
+                            </button>
+                            <button id="btnCopyTargetQuery" onclick="copyTargetSearchQuery()" class="btn-action" style="background: #202c33; color: #00a884; border: 1px solid #00a88455; padding: 8px 14px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                                <span class="material-icons" style="font-size: 16px;">content_copy</span> Copiar Búsqueda
+                            </button>
+                            <button id="btnOpenMapsTarget" onclick="openTargetInGoogleMaps()" class="btn-action" style="background: #00a884; color: #111b21; border: none; font-weight: 700; padding: 8px 16px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                                <span class="material-icons" style="font-size: 18px;">open_in_new</span> Abrir en Google Maps
+                            </button>
+                            <button id="btnMarkScanned" onclick="markCurrentTargetScanned()" class="btn-action" title="Marcar zona como escaneada en BD" style="background: #202c33; color: #e9edef; border: 1px solid #3b4a54; padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 13px;">
+                                <span class="material-icons" style="font-size: 16px; color: #25d366;">check</span> Marcar Escaneada
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-top: 18px; padding-top: 18px; border-top: 1px solid #202c33;">
+                        <div style="background: #111b21; padding: 12px 14px; border-radius: 8px; border: 1px solid #202c33;">
+                            <div style="font-size: 11px; color: #8696a0; text-transform: uppercase;">📍 Zona & Coordenadas</div>
+                            <div style="font-size: 14px; font-weight: 600; color: #e9edef; margin-top: 4px;" id="targetZoneName">Cargando...</div>
+                            <div style="font-size: 11px; color: #00a884; margin-top: 2px;" id="targetZoneCity">CABA / GBA</div>
+                        </div>
+                        <div style="background: #111b21; padding: 12px 14px; border-radius: 8px; border: 1px solid #202c33;">
+                            <div style="font-size: 11px; color: #8696a0; text-transform: uppercase;">🏢 Rubro / Sector</div>
+                            <div style="font-size: 14px; font-weight: 600; color: #e9edef; margin-top: 4px;" id="targetRubroLabel">Cargando...</div>
+                            <div style="font-size: 11px; color: #aebac1; margin-top: 2px;" id="targetSearchQuery">-</div>
+                        </div>
+                        <div style="background: #111b21; padding: 12px 14px; border-radius: 8px; border: 1px solid #202c33;">
+                            <div style="font-size: 11px; color: #8696a0; text-transform: uppercase;">🎯 Solución Objetivo Nexte</div>
+                            <div style="font-size: 14px; font-weight: 600; color: #ffb74d; margin-top: 4px;" id="targetSolutionLabel">-</div>
+                            <div style="font-size: 11px; color: #8696a0; margin-top: 2px;">Propuesta a la medida del rubro</div>
+                        </div>
+                        <div style="background: #111b21; padding: 12px 14px; border-radius: 8px; border: 1px solid #202c33;">
+                            <div style="font-size: 11px; color: #8696a0; text-transform: uppercase;">🌐 Cobertura de Base de Datos</div>
+                            <div style="font-size: 14px; font-weight: 600; color: #25d366; margin-top: 4px;" id="targetCoverageStats">Calculando...</div>
+                            <div style="font-size: 11px; color: #8696a0; margin-top: 2px;" id="targetHistoryCount">0 combinaciones escaneadas</div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- PER-BOT DAILY STATS -->

@@ -793,4 +793,37 @@ docker compose logs -f
 - **Validación:**
   - Ejecutados tests automatizados para leads sin web y clínicas con quejas de turnos en reseñas; generaron ganchos y diagnósticos con 100% de precisión.
 
+## Current Session: 2026-10-08 (10:35 Argentina)
+- **Objective:** Coherencia de Adquisición de Clientes: Memoria de Zonas GPS en Scraping, Calificación Temprana de Leads Viables y Mensajes Consultivos Hiper-Personalizados (Sin sonar a robot).
+- **Status:** ✅ COMPLETED
+- **Git Info:** master
+- **Deploy:** Listo para deploy en VPS.
+
+### 43. Memoria Persistente de Zonas GPS, Calificación Pre-Ingesta y Ofertas Especializadas
+- **Problema Planteado:**
+  1. El scraper repetía zonas en Google Maps y no registraba el historial de búsqueda.
+  2. Entraban prospectos no comerciales (policías, ministerios) o con números fijos/inválidos que saturaban la cola y hacían fallar a los bots.
+  3. Los mensajes de prospección (especialmente Mensaje 3) sonaban a robot ofreciendo un folleto estático de 6 servicios juntos a cualquier rubro.
+  4. Necesidad de enfocar el sistema en un bot estable primero (Bot 1) adaptando el CRM.
+- **Solución Implementada:**
+  1. **Memoria de Zonas GPS (`ScannedZone.js` & `geoGridScanner.js`):**
+     - Mongoose Model `ScannedZone` con índice único `{ zoneId, keyword }`.
+     - 26 sub-zonas granulares (CABA, GBA Norte/Oeste/Sur, La Plata, Córdoba, Rosario, Mendoza, Mar del Plata) y catálogo de 15 rubros prioritarios.
+     - `getNextRecommendedTarget(city)`: calcula la próxima cuadrícula no explorada o la más antigua, generando la URL exacta de Google Maps.
+     - Registro automático de cada lote de leads ingerido en `recordZoneScan`.
+     - Endpoints: `GET /api/scraper/next-target`, `GET /api/scraper/zones-history`, `POST /api/scraper/mark-scanned`.
+  2. **Calificación Temprana y Sanitización de Teléfonos (`phoneValidator.js` & `server/index.js`):**
+     - En `POST /ingest`, se limpian y formatean números celulares argentinos al formato canónico `549...`.
+     - Descarte automático (`status: 'discarded'`, `isQualified: false`) de entidades públicas y números fijos/inválidos, manteniendo la cola de prospectos 100% viable.
+     - Endpoint `GET /api/leads/qualification-stats` con contadores y ratio de calificación.
+  3. **Ofertas No Robóticas Ultra-Especializadas (`aiTextGenerator.js`):**
+     - Rediseñado el prompt de Mensaje 3: se eliminó la lista genérica de 6 precios. Ahora presenta exclusivamente la solución que encaja con el negocio (Web Express si no tiene web, Rediseño si es obsoleta, Turnos a Medida para salud/estética/servicios, Carta QR sin comisiones para gastronomía).
+     - Se mantuvieron las tarifas transparentes Otoño 2026 sin sonar a plantilla.
+     - Sincronización completa de toda la flota (`bot/`, `bot_1/`, `bot_2/`, `bot_3/`, `bot_4/`).
+  4. **Adaptación del Dashboard CRM (`crm-dashboard/index.html` & `crm-dashboard/app.js`):**
+     - Tarjeta en tiempo real de "Leads Calificados" (% calificados, válidos vs descartados).
+     - Componente interactivo "Agente 1: Planificador Autónomo de Zonas GPS": muestra zona sugerida, rubro, solución Nexte, cobertura de base de datos, botón "Abrir en Google Maps" con 1 clic, "Copiar Búsqueda", "Otra Zona" y "Marcar Escaneada".
+     - Integración reactiva en `fetchStats()` y exportación global a `window`.
+
+
 

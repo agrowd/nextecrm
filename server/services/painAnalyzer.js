@@ -195,13 +195,13 @@ INSTRUCCIÓN: Devuelve ÚNICAMENTE un objeto JSON válido con la siguiente estru
             suggestedPitch = 'Sistema de turnos interactivo con recordatorios por WhatsApp y asistente IA 24/7.';
             suggestedOffer = 'Combo Sistema de Turnos + Asistente IA: Promo $490.000 (regular $1.000.000).';
         } else if (isGastronomy) {
-            targetService = 'ia_natoh';
-            targetServiceLabel = 'Asistente Virtual IA NatoH 24/7 (Reservas y Menú)';
-            primaryPain = 'Consultas constantes de carta, horarios y reservas saturando WhatsApp en horas pico';
+            targetService = 'gastronomia_pedidos';
+            targetServiceLabel = 'Carta Digital QR + Pedidos a WhatsApp';
+            primaryPain = 'Consultas constantes de carta y pedidos saturando WhatsApp en horas pico';
             painPoints = ['Demoras en responder pedidos o reservas', 'Mensajes sin responder en horas pico de servicio', 'Menú desactualizado en PDF'];
-            consultativeHook = `En horarios pico suele colapsar el WhatsApp con consultas de reservas y menú; desarrollamos asistentes virtuales que atienden y toman reservas automáticamente 24/7.`;
-            suggestedPitch = 'Empleado virtual en WhatsApp entrenado con su carta, precios y protocolo de reservas.';
-            suggestedOffer = 'Asistente IA NatoH: Promo $180.000 (regular $350.000).';
+            consultativeHook = `En horarios pico suele colapsar el WhatsApp con consultas de pedidos y reservas; implementamos carta digital interactiva con pedidos directos a su WhatsApp sin pagar comisiones a terceros.`;
+            suggestedPitch = 'Menú digital interactivo con fotos, cálculo de montos y recepción de pedidos directo a WhatsApp.';
+            suggestedOffer = 'Carta Digital QR + Pedidos a WhatsApp: Promo $350.000 en 2 pagos (o Asistente IA $180.000).';
         }
 
         return {

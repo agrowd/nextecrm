@@ -95,7 +95,13 @@ const LeadSchema = new mongoose.Schema({
     suggestedPitch: { type: String, default: '' },
     suggestedOffer: { type: String, default: '' },
     confidence: { type: Number, default: null }
-  }
+  },
+  // 🗺️ Zona de Escaneo GPS (Agente 1)
+  scannedZoneId: { type: String, default: '', trim: true },
+  scannedZoneName: { type: String, default: '', trim: true },
+  // 🎯 Calificación de Calidad del Lead ("Clientes que Sirven")
+  isQualified: { type: Boolean, default: true },
+  qualificationReason: { type: String, default: '', trim: true }
 }, {
   timestamps: true,
   strict: false, // Permite campos adicionales

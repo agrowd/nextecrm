@@ -6,9 +6,9 @@
 - **VPS:** Debian Linux, Docker Compose, MongoDB Atlas
 
 ## 📌 Estado Global
-- **Current Phase:** Fases 1 a 5 Multi-Agente Completadas (Minero Masivo GPS, Auditor Web/Reseñas, Estratega de Oferta, Prospector Consultivo y Copiloto de Cierre)
-- **Last Sync:** 2026-10-07 15:15 Argentina
-- **Pending:** Despliegue en VPS (`git pull`, limpieza de docker context y rebuild)
+- **Current Phase:** Pipeline Multi-Agente con Memoria Persistente de Zonas GPS, Calificación Pre-Ingesta y Ofertas Especializadas a Medida
+- **Last Sync:** 2026-10-08 10:30 Argentina
+- **Pending:** Despliegue en VPS (`git pull`, rebuild sin caché y arranque del contenedor)
 
 ## Active Shards
 | Shard | Purpose |
@@ -24,13 +24,14 @@
 ## Key Components & Multi-Agent Engine
 | Component | Path | Description |
 |:---|:---|:---|
-| Agente 1 (Geo-Grid Scanner) | `server/services/geoGridScanner.js` | Barrido masivo por micro-cuadrículas GPS superando el límite de 120 de Google Maps |
+| Agente 1 (Geo-Grid Planner & Memory) | `server/services/geoGridScanner.js` & `server/models/ScannedZone.js` | Memoria persistente de cuadrículas GPS y rubros explorados; sugiere objetivos virgen sin repetición |
+| Validador Telefónico & Calificador | `server/services/phoneValidator.js` | Sanitización estricta de móviles argentinos (549), descarte preventivo de líneas fijas y entes públicos |
 | Agente 2 (Auditor Forense) | `server/services/webScraper.js` | Extracción profunda de web, tecnologías, pixeles, redes y reseñas de Google |
 | Agente 3 (Estratega de Oferta) | `server/services/painAnalyzer.js` | Minería de fricciones operativas y generación del Dossier Comercial personalizado |
-| Agente 4 (Prospector Consultivo) | `bot/services/aiTextGenerator.js` | Generador de 4 mensajes dinámicos con ChatGPT anclados al dolor y oferta |
+| Agente 4 (Prospector Consultivo) | `bot/services/aiTextGenerator.js` | Generador de mensajes dinámicos no robóticos enfocados en la solución real requerida por el negocio |
 | Agente 5 (Copiloto Closer) | `server/services/closerCopilot.js` | Clasificador de intenciones en tiempo real y sugerencias de cierre de 1 clic en el CRM |
 | Central Server | `server/index.js` | API central, gestión de prospectos, WebSockets y endpoints de agentes |
-| Dashboard CRM | `crm-dashboard/` | Frontend unificado: chat en vivo, copiloto IA, previsualización de secuencia y dossiers |
+| Dashboard CRM | `crm-dashboard/` | Frontend unificado: chat en vivo, copiloto IA, previsualización de secuencia, dossiers y planificador GPS |
 | Bot 1 | `bot/` | Bot principal de WhatsApp (git master) |
 | Bot 2-4 | `bot_2/`, `bot_3/`, `bot_4/` | Bots secundarios sincronizados de la flota |
 | Local duplicate | `bot_1/` | ⚠️ NOT USED in production |

@@ -785,4 +785,32 @@ Se diseñó la arquitectura de los 4 prompts dinámicos para `gpt-4o-mini` sin v
 5. **Mitigación Docker y Rendimiento VPS (`.dockerignore`)**:
    - Exclusión estricta de cachés de Puppeteer y Chromium (`sessions/**`, `**/Default/**`, `chrome-profile/**`, `bot_1/`) reduciendo el contexto de compilación de 4.5 GB a menos de 50 MB, erradicando el error `ResourceExhausted: no space left on device`.
 
+---
+
+## Implementación Ejecutada (Memoria de Zonas GPS, Calificación y Ofertas a Medida) (2026-10-08):
+1. **Memoria Persistente de Zonas GPS & Planificador Autónomo (`ScannedZone.js` & `geoGridScanner.js`)**:
+   - Mongoose Model `ScannedZone` con índice único `{ zoneId, keyword }` que persiste métricas de escaneo (`scannedAt`, `totalLeadsFound`, `validLeadsIngested`, `discardedLeads`).
+   - 26 sub-zonas predefinidas (CABA, GBA Norte/Oeste/Sur, La Plata, Córdoba, Rosario, Mendoza, Mar del Plata) y catálogo de 15 rubros comerciales prioritarios con su solución Nexte asociada.
+   - Algoritmo `getNextRecommendedTarget(city)`: calcula dinámicamente la siguiente cuadrícula virgen o la más antigua, generando la URL exacta de Google Maps.
+   - Registro automático en cada ingesta de prospectos (`recordZoneScan`).
+   - Endpoints: `GET /api/scraper/next-target`, `GET /api/scraper/zones-history`, `POST /api/scraper/mark-scanned`.
+2. **Filtro Temprano de Calificación & Sanitización de Celulares (`phoneValidator.js` & `server/index.js`)**:
+   - En `POST /ingest`, sanitiza automáticamente los números a formato celular argentino canónico `549...`.
+   - Descarte preventivo (`status: 'discarded'`, `isQualified: false`) de organismos gubernamentales/policiales y números fijos/inválidos, manteniendo la cola de prospectos 100% limpia y funcional.
+   - Endpoint `GET /api/leads/qualification-stats` con métricas de calificación y descarte en tiempo real.
+3. **Ofertas No Robóticas Ultra-Especializadas (`bot/services/aiTextGenerator.js`)**:
+   - Rediseño de Mensaje 3: se eliminó el listado genérico de 6 precios tipo folleto. Ahora se ofrece con precisión quirúrgica únicamente el servicio que el negocio realmente necesita:
+     * Sin web → Web Express Profesional ($250k promo o 2 cuotas de $125k).
+     * Web obsoleta/sin WA → Rediseño Web & Canal de Respuesta Inmediata ($250k).
+     * Salud/Estética/Talleres → Sistema de Gestión & Turnos Online a Medida ($350k en 2 pagos de $175k).
+     * Gastronomía → Carta Digital QR + Pedidos WhatsApp sin comisiones ($350k).
+     * Comercio/Indumentaria → Tienda Online E-commerce con Mercado Pago ($500k).
+     * Soporte saturado → Asistente Virtual IA NatoH 24/7 ($180k).
+   - Sincronización completa de toda la flota (`bot/`, `bot_1/`, `bot_2/`, `bot_3/`, `bot_4/`).
+4. **Adaptación del Dashboard CRM (`crm-dashboard/index.html` & `crm-dashboard/app.js`)**:
+   - Tarjeta en tiempo real "Leads Calificados" (% calificados, válidos vs descartados).
+   - Componente interactivo "Agente 1: Planificador Autónomo de Zonas GPS": muestra zona sugerida, rubro, solución Nexte, cobertura de base de datos, botón "Abrir en Google Maps" con 1 clic, "Copiar Búsqueda", "Otra Zona" y "Marcar Escaneada".
+   - Integración reactiva en `fetchStats()` y exportación global a `window`.
+
+
 
