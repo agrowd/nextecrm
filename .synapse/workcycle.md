@@ -797,7 +797,7 @@ docker compose logs -f
 - **Objective:** Coherencia de Adquisición de Clientes: Memoria de Zonas GPS en Scraping, Calificación Temprana de Leads Viables y Mensajes Consultivos Hiper-Personalizados (Sin sonar a robot).
 - **Status:** ✅ COMPLETED
 - **Git Info:** master
-- **Deploy:** Listo para deploy en VPS.
+- **Deploy:** ✅ Desplegado exitosamente en VPS (`149.50.128.73:5782`). Contenedor `rascafull-crm` online, PM2 backend (8484) y frontend (8485) activos y verificados.
 
 ### 43. Memoria Persistente de Zonas GPS, Calificación Pre-Ingesta y Ofertas Especializadas
 - **Problema Planteado:**
@@ -824,6 +824,12 @@ docker compose logs -f
      - Tarjeta en tiempo real de "Leads Calificados" (% calificados, válidos vs descartados).
      - Componente interactivo "Agente 1: Planificador Autónomo de Zonas GPS": muestra zona sugerida, rubro, solución Nexte, cobertura de base de datos, botón "Abrir en Google Maps" con 1 clic, "Copiar Búsqueda", "Otra Zona" y "Marcar Escaneada".
      - Integración reactiva en `fetchStats()` y exportación global a `window`.
+  5. **Despliegue y Sanitización en VPS:**
+     - Conexión remota por SSH a `149.50.128.73:5782`.
+     - Liberados más de 16 GB de caché previa y contenedores obsoletos de Docker (`docker builder prune`, `docker image prune`).
+     - Actualizado código a `HEAD` (`git pull origin master`).
+     - Recompilado y levantado contenedor `rascafull-crm` con Docker Compose.
+     - Verificado estado saludable: `nexte-backend` (puerto 8484) y `nexte-frontend` (puerto 8485) online, MongoDB conectado, 9.4 GB de disco libre.
 
 
 
