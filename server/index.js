@@ -3251,9 +3251,15 @@ app.post('/api/scraper/mark-scanned', async (req, res) => {
 app.get('/api/leads/qualification-stats', async (req, res) => {
   try {
     const total = await Lead.countDocuments({});
-    const qualified = await Lead.countDocuments({ status: { $ne: 'discarded' }, isQualified: true });
     const discarded = await Lead.countDocuments({ $or: [{ status: 'discarded' }, { isQualified: false }] });
-    const pending = await Lead.countDocuments({ status: 'pending', isQualified: true });
+    const qualified = await Lead.countDocuments({ 
+      status: { $ne: 'discarded' }, 
+      $or: [
+        { isQualified: true }, 
+        { isQualified: { $exists: false }, phone: { $exists: true, $ne: '' } }
+      ] 
+    });
+    const pending = await Lead.countDocuments({ status: 'pending', isQualified: { $ne: false } });
     const contacted = await Lead.countDocuments({ status: 'contacted' });
     const interested = await Lead.countDocuments({ status: 'interested' });
 
@@ -3271,6 +3277,52 @@ app.get('/api/leads/qualification-stats', async (req, res) => {
     });
   } catch (error) {
     console.error('Error en qualification-stats:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/leads/auto-qualify-all - Auditar y clasificar leads existentes en BD
+app.post('/api/leads/auto-qualify-all', async (req, res) => {
+  try {
+    const unverifiedLeads = await Lead.find({
+      $or: [
+        { isQualified: { $exists: false } },
+        { isQualified: null }
+      ]
+    }).limit(1500);
+
+    let qualifiedCount = 0;
+    let discardedCount = 0;
+
+    for (const lead of unverifiedLeads) {
+      const nameLower = (lead.name || '').toLowerCase();
+      const isNonCommercial = /comisar|polic|ministerio|secretar|embajada|consulado|fiscal|hospital\s+p|centro\s+de\s+salud\s+p|anses|afip|ioma|pami|registro\s+civil|municipalidad|tribunal/.test(nameLower);
+
+      const phoneValidation = phoneValidator.cleanAndFormatArgentinianNumber(lead.phone);
+
+      if (isNonCommercial || !phoneValidation.isValid) {
+        lead.status = 'discarded';
+        lead.isQualified = false;
+        lead.qualificationReason = isNonCommercial ? 'Entidad pública/no comercial' : (phoneValidation.reason || 'Número no válido para prospección');
+        await lead.save();
+        discardedCount++;
+      } else {
+        lead.phone = phoneValidation.cleanWhatsappNumber;
+        lead.isQualified = true;
+        lead.qualificationReason = 'Móvil verificado y activo';
+        await lead.save();
+        qualifiedCount++;
+      }
+    }
+
+    res.json({
+      success: true,
+      processed: unverifiedLeads.length,
+      qualified: qualifiedCount,
+      discarded: discardedCount
+    });
+  } catch (error) {
+    console.error('Error en auto-qualify-all:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

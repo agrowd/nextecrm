@@ -452,73 +452,95 @@ async function renderBotSessionCards(bots) {
 
     // Si no hay bots activos, mostrar placeholder
     if (!bots || bots.length === 0) {
-        container.innerHTML = '<div style="color: #666; font-size: 13px; text-align: center; width: 100%;">Esperando conexión de bots...</div>';
+        container.innerHTML = '<div style="color: #666; font-size: 13px; text-align: center; width: 100%; padding: 20px;">Esperando inicialización de bots...</div>';
         return;
     }
 
-    container.innerHTML = bots.map(bot => {
-        const color = botColors[bot.instanceId] || '#00bcd4';
-        const startStr = bot.startedAt ? new Date(bot.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+    const bot1 = bots.find(b => b.instanceId === 'bot_1') || bots[0];
+    const secondaryBots = bots.filter(b => b.instanceId !== (bot1.instanceId));
 
-        let batteryHtml = '';
-        if (bot.battery) {
-            const battIcon = bot.battery.plugged ? '⚡' : '';
-            batteryHtml = `<div style="font-size: 10px; color: #8696a0;">🔋 ${bot.battery.level}% ${battIcon}</div>`;
-        }
-        let limitHtml = '';
-        if (bot.limits) {
-            limitHtml = `<div style="font-size: 10px; color: #8696a0;">🎯 Límite: ${bot.limits.processed}/${bot.limits.max}</div>`;
-        }
-        let sleepHtml = '';
-        if (bot.statusInfo) {
-            let sleepText = 'Activo';
-            let sleepColor = '#25d366';
-            if (bot.statusInfo.outsideHours) {
-                sleepText = '🌙 Fuera de hora';
-                sleepColor = '#ff9800';
-            } else if (bot.statusInfo.sleepMode) {
-                sleepText = '💤 Suspendido';
-                sleepColor = '#2196f3';
-            }
-            sleepHtml = `<div style="font-size: 10px; color: ${sleepColor}; font-weight: 600;">${sleepText}</div>`;
-        }
+    const isReady = bot1.status === 'ready';
+    const statusColor = isReady ? '#25d366' : (bot1.status === 'qr_ready' ? '#ff9800' : '#f44336');
+    const statusLabel = isReady ? '🟢 CONECTADO' : (bot1.status === 'qr_ready' ? '🟡 ESPERANDO QR' : `🔴 ${bot1.status.toUpperCase()}`);
+    const processed = (bot1.limits && bot1.limits.processed) || 0;
+    const maxDaily = (bot1.limits && bot1.limits.max) || 50;
+    const leadsToday = bot1.sessionLeads || 0;
+    const msgsToday = bot1.sessionMessages || 0;
+    const startStr = bot1.startedAt ? new Date(bot1.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
 
-        return `
-            <div class="bot-daily-card" style="background: #111b21; border: 1px solid ${color}40; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <div style="width: 32px; height: 32px; background: ${color}20; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: ${color};">
-                        ${bot.instanceId.split('_')[1] || '1'}
+    let html = `
+        <div class="bot-hero-card" style="background: linear-gradient(135deg, #13222a 0%, #0d1b21 100%); border: 2px solid #00a884; border-radius: 14px; padding: 20px; box-shadow: 0 4px 20px rgba(0, 168, 132, 0.15);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <div style="width: 48px; height: 48px; background: #00a88426; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                        🤖
                     </div>
-                    <div style="flex: 1;">
-                        <div style="font-size: 11px; color: #8696a0; text-transform: uppercase;">${bot.instanceId.replace('_', ' ')}</div>
-                        <div style="font-size: 10px; color: ${bot.status === 'ready' ? '#25d366' : '#ff9800'}; font-weight: 600;">${bot.status.toUpperCase()}</div>
-                    </div>
-                    <div style="text-align: right;">
-                        ${sleepHtml || `
-                        <div style="font-size: 10px; color: #666;">Iniciado</div>
-                        <div style="font-size: 11px; color: #8696a0;">${startStr}</div>
-                        `}
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <h3 style="margin: 0; font-size: 18px; color: #e9edef; font-weight: 700;">Bot 1: Prospección Activa</h3>
+                            <span style="background: ${statusColor}22; color: ${statusColor}; border: 1px solid ${statusColor}55; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;">
+                                ${statusLabel}
+                            </span>
+                        </div>
+                        <div style="font-size: 12px; color: #8696a0; margin-top: 4px;">
+                            Instancia principal de envíos no robóticos a clientes viables (Iniciado: ${startStr})
+                        </div>
                     </div>
                 </div>
-                ${(batteryHtml || limitHtml) ? `
-                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #2f3b4350; padding-top: 8px; margin-top: 5px;">
-                    ${batteryHtml}
-                    ${limitHtml}
-                </div>
-                ` : ''}
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; border-top: 1px solid #2f3b4350; padding-top: 10px; margin-top: 5px;">
-                    <div style="text-align: center;">
-                        <div style="font-size: 18px; font-weight: 700; color: #fff;">${bot.sessionLeads}</div>
-                        <div style="font-size: 9px; color: #8696a0; text-transform: uppercase;">Leads hoy</div>
-                    </div>
-                    <div style="text-align: center; border-left: 1px solid #2f3b4350;">
-                        <div style="font-size: 18px; font-weight: 700; color: #fff;">${bot.sessionMessages}</div>
-                        <div style="font-size: 9px; color: #8696a0; text-transform: uppercase;">Mensajes</div>
-                    </div>
+
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button onclick="document.querySelector('[data-view=connection]')?.click()" style="background: #00a884; color: #111b21; border: none; font-weight: 700; padding: 10px 18px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 13px;">
+                        <span class="material-icons" style="font-size: 18px;">qr_code_scanner</span> ${isReady ? 'Administrar Conexión' : 'Vincular WhatsApp (Ver QR)'}
+                    </button>
                 </div>
             </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 18px; padding-top: 15px; border-top: 1px solid #202c33;">
+                <div style="background: #111b21; padding: 12px; border-radius: 8px; border: 1px solid #202c33; text-align: center;">
+                    <div style="font-size: 22px; font-weight: 700; color: #00a884; font-family: monospace;">${processed} / ${maxDaily}</div>
+                    <div style="font-size: 11px; color: #8696a0; margin-top: 3px;">Límite Diario Seguro</div>
+                </div>
+                <div style="background: #111b21; padding: 12px; border-radius: 8px; border: 1px solid #202c33; text-align: center;">
+                    <div style="font-size: 22px; font-weight: 700; color: #25d366; font-family: monospace;">${leadsToday}</div>
+                    <div style="font-size: 11px; color: #8696a0; margin-top: 3px;">Contactados Hoy</div>
+                </div>
+                <div style="background: #111b21; padding: 12px; border-radius: 8px; border: 1px solid #202c33; text-align: center;">
+                    <div style="font-size: 22px; font-weight: 700; color: #7e57c2; font-family: monospace;">${msgsToday}</div>
+                    <div style="font-size: 11px; color: #8696a0; margin-top: 3px;">Mensajes Enviados</div>
+                </div>
+                <div style="background: #111b21; padding: 12px; border-radius: 8px; border: 1px solid #202c33; text-align: center;">
+                    <div style="font-size: 22px; font-weight: 700; color: #ff9800; font-family: monospace;">${bot1.battery ? bot1.battery.level + '%' : '100%'}</div>
+                    <div style="font-size: 11px; color: #8696a0; margin-top: 3px;">Batería Dispositivo</div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    if (secondaryBots.length > 0) {
+        html += `
+            <details style="background: #111b21; border: 1px solid #2f3b43; border-radius: 10px; padding: 12px 16px; margin-top: 15px;">
+                <summary style="color: #8696a0; font-size: 13px; font-weight: 600; cursor: pointer; user-select: none;">
+                    ⚙️ Flota Secundaria en Reserva (Bot 2, 3 y 4 en espera)
+                </summary>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 12px;">
+                    ${secondaryBots.map(b => {
+                        const col = botColors[b.instanceId] || '#7e57c2';
+                        return `
+                            <div style="background: #16242c; border: 1px solid #202c33; border-radius: 8px; padding: 12px; opacity: 0.8;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-weight: 600; color: ${col}; font-size: 12px;">${b.instanceId.toUpperCase()}</span>
+                                    <span style="font-size: 10px; color: #8696a0;">${b.status.toUpperCase()}</span>
+                                </div>
+                                <div style="font-size: 11px; color: #666; margin-top: 4px;">Instancia en pausa</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </details>
         `;
-    }).join('');
+    }
+
+    container.innerHTML = html;
 }
 async function fetchBotHistory() {
     try {
@@ -3899,6 +3921,14 @@ async function batchAnalyzePendingDossiers() {
 
 // --- CALIFICACIÓN & AGENTE 1 GEO-PLANNER ---
 let currentTargetPlan = null;
+const SOLUTION_LABELS = {
+    'software_turnero': '⚙️ Sistema de Turnos & Gestión Online',
+    'web_express': '🌐 Web Profesional Express (Sin Web)',
+    'rediseño_web': '🎨 Rediseño Web & Botón WhatsApp',
+    'gastronomia_pedidos': '🍽️ Carta Digital QR + Pedidos WhatsApp',
+    'ecommerce_tienda': '🛒 Tienda Online E-commerce',
+    'ia_natoh': '🤖 Asistente Virtual IA 24/7'
+};
 
 async function fetchQualificationStats() {
     try {
@@ -3907,11 +3937,21 @@ async function fetchQualificationStats() {
         if (data && data.success && data.stats) {
             const s = data.stats;
             const rateEl = getEl('rtQualifiedRate');
-            if (rateEl) rateEl.textContent = s.qualificationRate || '0%';
+            if (rateEl) rateEl.textContent = `${s.qualificationRate || 0}%`;
             const qCountEl = getEl('rtQualifiedCount');
             if (qCountEl) qCountEl.textContent = (s.qualified || 0).toLocaleString();
             const dCountEl = getEl('rtDiscardedCount');
             if (dCountEl) dCountEl.textContent = (s.discarded || 0).toLocaleString();
+
+            // Si hay leads en base de datos pero aún no están calificados, disparar auto-calificación silenciosa
+            if (s.total > 0 && s.qualified === 0 && s.discarded === 0 && !window._autoQualifyRan) {
+                window._autoQualifyRan = true;
+                console.log("⚙️ Ejecutando auditoría y calificación de leads en cola...");
+                fetchAPI('/leads/auto-qualify-all', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(() => fetchQualificationStats())
+                    .catch(() => {});
+            }
         }
     } catch (e) {
         console.error('Error fetching qualification stats:', e);
@@ -3957,7 +3997,11 @@ function renderScraperTargetWidget(target) {
     if (zCity) zCity.textContent = target.zone ? `${target.zone.city} (zoom ${target.zone.zoom || 15}z)` : 'Argentina';
     if (rLabel) rLabel.textContent = target.rubro ? target.rubro.label : '-';
     if (sQuery) sQuery.textContent = target.searchQuery ? `"${target.searchQuery}"` : '-';
-    if (solLabel) solLabel.textContent = target.rubro ? target.rubro.targetSolution : '-';
+    
+    if (solLabel) {
+        const rawSol = target.rubro ? target.rubro.targetSolution : '';
+        solLabel.textContent = SOLUTION_LABELS[rawSol] || rawSol || 'Propuesta a Medida';
+    }
     if (reasonEl) reasonEl.textContent = target.reason || 'Objetivo óptimo para minería de prospectos.';
 
     if (badgeEl) {
@@ -3978,7 +4022,8 @@ function renderScraperTargetWidget(target) {
         .then(histData => {
             if (histData && histData.success) {
                 if (covEl) covEl.textContent = `${histData.coveragePercent || 0}% Cobertura`;
-                if (histEl) histEl.textContent = `${histData.totalScannedCombinations || 0} de ${histData.totalPossibleCombinations || 0} cuadrículas`;
+                const maxCombos = histData.totalPossibleCombinations || 390;
+                if (histEl) histEl.textContent = `${histData.totalScannedCombinations || 0} de ${maxCombos} cuadrículas`;
             }
         })
         .catch(() => {});

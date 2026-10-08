@@ -811,6 +811,13 @@ Se diseñó la arquitectura de los 4 prompts dinámicos para `gpt-4o-mini` sin v
    - Tarjeta en tiempo real "Leads Calificados" (% calificados, válidos vs descartados).
    - Componente interactivo "Agente 1: Planificador Autónomo de Zonas GPS": muestra zona sugerida, rubro, solución Nexte, cobertura de base de datos, botón "Abrir en Google Maps" con 1 clic, "Copiar Búsqueda", "Otra Zona" y "Marcar Escaneada".
    - Integración reactiva en `fetchStats()` y exportación global a `window`.
+5. **Limpieza Integral del Dashboard & Foco en Bot 1 (2026-10-08)**:
+   - Removidas secciones muertas: `Historial Acumulado (Logouts y Números)`, `Tiempo Estimado Restante`, `Mensajes por Bot`, `Leads Rechazados` y `scraperStatusCard`.
+   - Barra de métricas unificada en 6 KPIs clave sin redundancias.
+   - Formateadas las etiquetas de soluciones sugeridas y corregido el conteo de 390 cuadrículas en `geoGridScanner.js`.
+   - Endpoint `POST /api/leads/auto-qualify-all` para auditar la base existente de 598 leads.
+   - Centro de Control Hero para **Bot 1** con acceso directo a QR de WhatsApp y reserva colapsada para bots secundarios.
+
 
 
 

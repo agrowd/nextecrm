@@ -107,92 +107,49 @@
                     <button class="refresh-btn" id="refreshStats"><span class="material-icons">refresh</span></button>
                 </header>
 
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon" style="background: #00a884;"><span
-                                class="material-icons">contact_phone</span></div>
-                        <div class="stat-info">
-                            <h3>Contactados</h3>
-                            <p class="stat-value" id="statContacted">-</p>
-                            <span class="stat-sub">Leads procesados</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon" style="background: #25d366;"><span class="material-icons">thumb_up</span>
-                        </div>
-                        <div class="stat-info">
-                            <h3>Interesados</h3>
-                            <p class="stat-value" id="statInterested">-</p>
-                            <span class="stat-sub">Respuestas positivas</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon" style="background: #7e57c2;"><span class="material-icons">send</span>
-                        </div>
-                        <div class="stat-info">
-                            <h3>Historial</h3>
-                            <p class="stat-value" id="statMessages">-</p>
-                            <span class="stat-sub">Msj totales</span>
-                        </div>
-                    </div>
-                    <div class="stat-card" id="businessHoursCard">
-                        <div class="stat-icon" style="background: #ff9800;"><span class="material-icons">schedule</span>
-                        </div>
-                        <div class="stat-info">
-                            <h3>Horario Comercial</h3>
-                            <p class="stat-value" id="statBizHours" style="font-size: 18px;">--:-- a --:--</p>
-                            <span class="stat-sub">Configurado</span>
-                        </div>
-                    </div>
-                    <div class="stat-card" id="scraperStatusCard" style="border-color: #444;">
-                        <div class="stat-icon" style="background: #333;"><span
-                                class="material-icons">travel_explore</span></div>
-                        <div class="stat-info">
-                            <h3 id="activeScraperLabel">Scraper: Inactivo</h3>
-                            <p class="stat-value" id="scraperCount" style="font-size: 16px;">0 activos</p>
-                            <span class="stat-sub" id="scraperLastKeyword">Búsqueda libre</span>
-                        </div>
-                    </div>
-                </div>
-                <!-- REALTIME STATS - Grandes y prominentes -->
+                <!-- UNIFIED REALTIME KPI BAR -->
                 <div class="realtime-stats">
                     <div class="realtime-stat-card"
-                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 2px solid #00a884; border-radius: 16px; padding: 20px 15px; text-align: center;">
-                        <div style="font-size: 40px; font-weight: 700; color: #00a884; font-family: 'Consolas', monospace;"
+                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 2px solid #00a884; border-radius: 16px; padding: 18px 15px; text-align: center;">
+                        <div style="font-size: 38px; font-weight: 700; color: #00a884; font-family: 'Consolas', monospace;"
                             id="rtLeadsQueue">-</div>
-                        <div style="font-size: 13px; color: #8696a0; margin-top: 8px;">Leads en Cola</div>
-                        <div style="font-size: 11px; color: #666; margin-top: 4px;">Pendientes + En proceso</div>
+                        <div style="font-size: 13px; color: #8696a0; margin-top: 6px;">Leads en Cola</div>
+                        <div style="font-size: 11px; color: #666; margin-top: 4px;">Pendientes para Bot 1</div>
                     </div>
                     <div class="realtime-stat-card"
-                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 2px solid #7e57c2; border-radius: 16px; padding: 20px 15px; text-align: center;">
-                        <div style="font-size: 40px; font-weight: 700; color: #7e57c2; font-family: 'Consolas', monospace;"
+                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 2px solid #00bcd4; border-radius: 16px; padding: 18px 15px; text-align: center;">
+                        <div style="font-size: 32px; font-weight: 700; color: #00bcd4; font-family: 'Consolas', monospace;"
+                            id="rtQualifiedRate">--%</div>
+                        <div style="font-size: 13px; color: #8696a0; margin-top: 6px;">Leads Calificados</div>
+                        <div style="font-size: 11px; color: #8696a0; margin-top: 4px;" id="rtQualifiedSub"><span id="rtQualifiedCount">0</span> válidos / <span id="rtDiscardedCount">0</span> descartados</div>
+                    </div>
+                    <div class="realtime-stat-card"
+                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 2px solid #7e57c2; border-radius: 16px; padding: 18px 15px; text-align: center;">
+                        <div style="font-size: 38px; font-weight: 700; color: #7e57c2; font-family: 'Consolas', monospace;"
                             id="rtMessagesToday">-</div>
-                        <div style="font-size: 13px; color: #8696a0; margin-top: 8px;">Mensajes Hoy</div>
-                        <div style="font-size: 11px; color: #25d366; margin-top: 4px;"><span id="rtDelivered">0</span> ✓
-                            entregados | <span id="rtFailed" style="color:#f44336;">0</span> ✗ fallidos</div>
+                        <div style="font-size: 13px; color: #8696a0; margin-top: 6px;">Mensajes Hoy</div>
+                        <div style="font-size: 11px; color: #25d366; margin-top: 4px;"><span id="rtDelivered">0</span> ✓ entregados | <span id="rtFailed" style="color:#f44336;">0</span> ✗ fallidos</div>
                     </div>
                     <div class="realtime-stat-card"
-                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 2px solid #25d366; border-radius: 16px; padding: 20px 15px; text-align: center;">
-                        <div style="font-size: 40px; font-weight: 700; color: #25d366; font-family: 'Consolas', monospace;"
+                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 2px solid #25d366; border-radius: 16px; padding: 18px 15px; text-align: center;">
+                        <div style="font-size: 38px; font-weight: 700; color: #25d366; font-family: 'Consolas', monospace;"
                             id="rtContactados">-</div>
-                        <div style="font-size: 13px; color: #8696a0; margin-top: 8px;">Contactados Hoy</div>
-                        <div style="font-size: 11px; color: #f44336; margin-top: 4px;"><span id="rtLeadsFailed">0</span>
-                            no llegaron</div>
+                        <div style="font-size: 13px; color: #8696a0; margin-top: 6px;">Contactados Hoy</div>
+                        <div style="font-size: 11px; color: #25d366; margin-top: 4px;">⭐ <span id="statInterested" style="font-weight:700;">-</span> interesados / <span id="statContacted" style="display:none;">-</span><span id="statMessages" style="display:none;">-</span><span id="rtLeadsFailed">0</span> no llegaron</div>
                     </div>
                     <div class="realtime-stat-card"
-                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 2px solid #ff9800; border-radius: 16px; padding: 20px 15px; text-align: center;">
+                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 2px solid #ff9800; border-radius: 16px; padding: 18px 15px; text-align: center;">
                         <div style="font-size: 22px; font-weight: 700; color: #ff9800; font-family: 'Consolas', monospace;"
                             id="rtLastMessage">--:--</div>
-                        <div style="font-size: 13px; color: #8696a0; margin-top: 8px;">Último Mensaje</div>
-                        <div style="font-size: 11px; color: #666; margin-top: 4px;" id="rtLastMessageInfo">Esperando...
-                        </div>
+                        <div style="font-size: 13px; color: #8696a0; margin-top: 6px;">Último Mensaje</div>
+                        <div style="font-size: 11px; color: #666; margin-top: 4px;" id="rtLastMessageInfo">Esperando...</div>
                     </div>
-                    <div class="realtime-stat-card"
-                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 2px solid #00bcd4; border-radius: 16px; padding: 20px 15px; text-align: center;">
-                        <div style="font-size: 28px; font-weight: 700; color: #00bcd4; font-family: 'Consolas', monospace;"
-                            id="rtQualifiedRate">--%</div>
-                        <div style="font-size: 13px; color: #8696a0; margin-top: 8px;">Leads Calificados</div>
-                        <div style="font-size: 11px; color: #8696a0; margin-top: 4px;" id="rtQualifiedSub"><span id="rtQualifiedCount">0</span> válidos / <span id="rtDiscardedCount">0</span> descartados</div>
+                    <div class="realtime-stat-card" id="businessHoursCard"
+                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 2px solid #546e7a; border-radius: 16px; padding: 18px 15px; text-align: center;">
+                        <div style="font-size: 18px; font-weight: 700; color: #90a4ae; font-family: 'Consolas', monospace;"
+                            id="statBizHours">09:00 a 20:00</div>
+                        <div style="font-size: 13px; color: #8696a0; margin-top: 6px;">Horario Comercial</div>
+                        <div style="font-size: 11px; color: #25d366; margin-top: 4px;">Lunes a Viernes</div>
                     </div>
                 </div>
 
@@ -252,120 +209,19 @@
                     <!-- Bot cards will be injected dynamically or updated here -->
                 </div>
 
-                <!-- TAB: Historial de Bots -->
-                <div style="margin-top: 30px;">
-                    <div class="section-header">
-                        <h2>📖 Historial Acumulado (Logouts y Números)</h2>
-                    </div>
-                    <div style="background: #111b21; border-radius: 12px; border: 1px solid #2f3b43; overflow: hidden;">
-                        <table style="width: 100%; border-collapse: collapse; color: #e9edef;">
-                            <thead style="background: #202c33;">
-                                <tr style="text-align: left;">
-                                    <th style="padding: 15px;">Instancia</th>
-                                    <th style="padding: 15px;">Logouts (Total)</th>
-                                    <th style="padding: 15px;">Msj Totales</th>
-                                    <th style="padding: 15px;">Números Usados (WIDs)</th>
-                                    <th style="padding: 15px;">Motivos (Logs)</th>
-                                    <th style="padding: 15px;">Última Conexión</th>
-                                </tr>
-                            </thead>
-                            <tbody id="botHistoryTableBody">
-                                <!-- Data injected dynamically -->
-                                <tr>
-                                    <td colspan="4" style="padding: 20px; text-align: center; color: #666;">Cargando
-                                        historial...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="dashboard-content" style="margin-top: 20px;">
-                    <div class="dashboard-panel">
-                        <h2>Actividad Reciente</h2>
+                <!-- ACTIVIDAD RECIENTE -->
+                <div class="dashboard-content" style="margin-top: 25px;">
+                    <div class="dashboard-panel" style="background: #111b21; border: 1px solid #2f3b43; border-radius: 14px; padding: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h2 style="font-size: 16px; color: #e9edef; margin: 0; display: flex; align-items: center; gap: 8px;">
+                                <span class="material-icons" style="color: #00a884; font-size: 20px;">notifications_active</span>
+                                Actividad y Envíos en Vivo
+                            </h2>
+                            <span style="font-size: 11px; color: #8696a0;">Registro de prospección y respuestas</span>
+                        </div>
                         <ul class="activity-list" id="activityList">
                             <li style="text-align:center; color:#888;">Cargando actividad...</li>
                         </ul>
-                    </div>
-                </div>
-
-                <!-- BOT STATISTICS PANEL -->
-                <div class="bot-stats-section" style="margin-top: 30px;">
-                    <!-- Time Remaining Counter -->
-                    <div class="time-counter-card"
-                        style="background: linear-gradient(135deg, #1a2e38 0%, #0d1b21 100%); border: 1px solid #2f3b43; border-radius: 16px; padding: 30px; margin-bottom: 25px; text-align: center;">
-                        <h2
-                            style="color: #8696a0; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 15px;">
-                            <span class="material-icons"
-                                style="vertical-align: middle; font-size: 18px;">schedule</span>
-                            Tiempo Estimado Restante
-                        </h2>
-                        <div id="timeCounterDisplay"
-                            style="font-size: 64px; font-weight: 700; color: #00a884; font-family: 'Consolas', monospace; text-shadow: 0 0 30px rgba(0, 168, 132, 0.5);">
-                            --:--:--
-                        </div>
-                        <div
-                            style="margin-top: 15px; display: flex; justify-content: center; gap: 30px; color: #8696a0; font-size: 13px;">
-                            <span><span id="pendingLeadsCount">-</span> leads pendientes</span>
-                            <span><span id="activeBotsCount">-</span> bots activos</span>
-                            <span><span id="queuedLeadsCount">-</span> en cola</span>
-                        </div>
-                    </div>
-
-                    <!-- Bot Stats Grid -->
-                    <h3 style="color: #e9edef; margin-bottom: 15px; font-size: 16px;">
-                        <span class="material-icons" style="vertical-align: middle; margin-right: 8px;">smart_toy</span>
-                        Mensajes por Bot
-                    </h3>
-                    <div class="bot-stats-grid" id="botStatsGrid"
-                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-bottom: 25px;">
-                        <!-- Bot cards will be rendered here -->
-                        <div style="color: #8696a0; text-align: center; padding: 20px;">Cargando estadísticas...</div>
-                    </div>
-
-                    <!-- Rejections Section -->
-                    <div class="rejections-section"
-                        style="background: #111b21; border: 1px solid #2f3b43; border-radius: 12px; padding: 20px;">
-                        <h3
-                            style="color: #e9edef; margin-bottom: 15px; font-size: 16px; display: flex; align-items: center; justify-content: space-between;">
-                            <span>
-                                <span class="material-icons"
-                                    style="vertical-align: middle; margin-right: 8px; color: #ef5350;">block</span>
-                                Leads Rechazados
-                            </span>
-                            <span id="totalRejections"
-                                style="background: #ef5350; color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px;">-</span>
-                        </h3>
-                        <div class="rejection-stats-grid"
-                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
-                            <div class="rejection-stat-item"
-                                style="background: #1a2e38; padding: 15px; border-radius: 8px; text-align: center;">
-                                <div style="font-size: 24px; font-weight: 700; color: #ff9800;" id="rejPhoneBounced">-
-                                </div>
-                                <div style="font-size: 11px; color: #8696a0; margin-top: 5px;">Números Rebotados</div>
-                            </div>
-                            <div class="rejection-stat-item"
-                                style="background: #1a2e38; padding: 15px; border-radius: 8px; text-align: center;">
-                                <div style="font-size: 24px; font-weight: 700; color: #f44336;" id="rejPhoneInvalid">-
-                                </div>
-                                <div style="font-size: 11px; color: #8696a0; margin-top: 5px;">Números Inválidos</div>
-                            </div>
-                            <div class="rejection-stat-item"
-                                style="background: #1a2e38; padding: 15px; border-radius: 8px; text-align: center;">
-                                <div style="font-size: 24px; font-weight: 700; color: #9c27b0;" id="rejNoWhatsApp">-
-                                </div>
-                                <div style="font-size: 11px; color: #8696a0; margin-top: 5px;">Sin WhatsApp</div>
-                            </div>
-                            <div class="rejection-stat-item"
-                                style="background: #1a2e38; padding: 15px; border-radius: 8px; text-align: center;">
-                                <div style="font-size: 24px; font-weight: 700; color: #2196f3;" id="rejWithWebsite">-
-                                </div>
-                                <div style="font-size: 11px; color: #8696a0; margin-top: 5px;">Con Sitio Web</div>
-                            </div>
-                        </div>
-                        <!-- Detailed Rejection Reasons -->
-                        <div id="rejectionReasonsList" style="margin-top: 15px; max-height: 150px; overflow-y: auto;">
-                        </div>
                     </div>
                 </div>
             </section>

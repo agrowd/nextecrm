@@ -830,6 +830,13 @@ docker compose logs -f
      - Actualizado código a `HEAD` (`git pull origin master`).
      - Recompilado y levantado contenedor `rascafull-crm` con Docker Compose.
      - Verificado estado saludable: `nexte-backend` (puerto 8484) y `nexte-frontend` (puerto 8485) online, MongoDB conectado, 9.4 GB de disco libre.
+  6. **Limpieza Radical del Dashboard & Enfoque 100% en Bot 1:**
+     - Eliminadas tablas y secciones obsoletas del Dashboard: `Historial Acumulado (Logouts y Números)`, `Tiempo Estimado Restante`, `Mensajes por Bot`, `Leads Rechazados` y `scraperStatusCard`.
+     - Unificada la barra superior en 6 KPIs ejecutivos sin duplicidades.
+     - Mapeados los nombres de soluciones del Agente 1 a etiquetas humanas legibles (`⚙️ Sistema de Turnos & Gestión Online`, `🌐 Web Express`, etc.).
+     - Corregido el cálculo de combinaciones de cuadrículas (390 posibles) y cobertura de BD en `geoGridScanner.js`.
+     - Creado endpoint `POST /api/leads/auto-qualify-all` y ajustado `qualification-stats` para auditar y calificar automáticamente leads preexistentes en la cola.
+     - Transformada la vista de bots en una tarjeta Hero dedicada a **Bot 1** con botón directo de vinculación WhatsApp / QR y flota secundaria (Bots 2-4) colapsada en reserva.
 
 
 

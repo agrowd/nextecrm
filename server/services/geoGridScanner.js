@@ -286,16 +286,36 @@ class GeoGridScanner {
 
             const totalScanned = await ScannedZone.countDocuments({});
             const totalValidLeads = history.reduce((sum, h) => sum + (h.validLeadsIngested || 0), 0);
+            const totalSubZones = SUB_ZONES.length;
+            const totalRubros = RUBROS_CATALOG.length;
+            const totalPossibleCombinations = totalSubZones * totalRubros;
+            const totalScannedCombinations = totalScanned;
+            const coveragePercent = totalPossibleCombinations > 0 
+                ? Math.round((totalScanned / totalPossibleCombinations) * 100) 
+                : 0;
 
             return {
                 success: true,
                 totalScanned,
+                totalScannedCombinations,
+                totalSubZones,
+                totalRubros,
+                totalPossibleCombinations,
+                coveragePercent,
                 totalValidLeads,
                 history
             };
         } catch (error) {
             console.error('Error obteniendo historial de zonas:', error);
-            return { success: false, error: error.message, history: [] };
+            return { 
+                success: false, 
+                error: error.message, 
+                totalScanned: 0,
+                totalScannedCombinations: 0,
+                totalPossibleCombinations: SUB_ZONES.length * RUBROS_CATALOG.length,
+                coveragePercent: 0,
+                history: [] 
+            };
         }
     }
 
