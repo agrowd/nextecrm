@@ -840,3 +840,20 @@ docker compose logs -f
 
 
 
+
+## Current Session: 2026-10-28 (14:15 Argentina)
+- **Objective:** Auditoría técnica exhaustiva de extremo a extremo (Scrapeo en Extensión Chrome, Motor de Envío de Mensajes en Bot y Arquitectura Backend/CRM).
+- **Status:** ✅ AUDIT COMPLETED
+- **Hallazgos Documentados:** Registrados en `testing_qa.md` (ISSUE-09) cubriendo 8 falencias en la Extensión Chrome, 9 en el Bot de WhatsApp y 5 en el Servidor Central.
+
+
+## [2026-10-28 15:14] - Ejecución Completa de Remediación (Extensión, Bot y Backend)
+- **Extensión Chrome (`extension/` v2.0.0 rev-26):**
+  - `background.js`: URL default `http://149.50.128.73:8484`, eliminado `chrome.tabs.onActivated`, reintentos en `postLead`, y bucle autónomo `startAgent1Auto` + `zoneFinished` conectado a `/api/scraper/next-target` y `/api/scraper/mark-scanned`.
+  - `popup.html` & `popup.js`: Botones `🤖 Auto-Raspar Zonas GPS (Agente 1)` y `📍 Raspar Vista Actual de Maps`, más producto cartesiano completo en `queue(k, l)`.
+  - `content.js`: Reset `stopRequested = false`, `getUpdatedTitleText()` anti-Stale-DOM, corte inteligente en `scrollFeed()` tras 3 scrolls sin cambios, y micro-scroll en panel de detalle para extraer reseñas reales.
+- **Bots WhatsApp (`bot/` sincronizado a `bot_1`..`bot_4`):**
+  - Aborto real en `/lead/check-messages`, eliminada inyección de 5to mensaje legacy, preservación de estado en vivo (`sequenceAbortedByReply`), corte si falla Msg 1, fix `message.getContact()`, eliminada doble llamada a `client.initialize()`, `log()` unificado con `instanceId`, `syncOfflineMessages()` con `fromMe` real y `onlyExistingLead: true`, e integración de `rateLimiter.getSmartDelay()`.
+- **Backend (`server/index.js`):**
+  - Auto-recuperación de leads en `processing` >15m y garantía sincrónica de `webAudit` + `dossier` en `GET /next`.
+  - Resolución inteligente de `zoneId` y `rubro` en `POST /ingest`, acceso público a `/api/scraper/*` para la extensión, eliminación de rutas duplicadas, protección `SAFE_RESET_GUARD` en resets masivos, y middleware 404 movido al final.

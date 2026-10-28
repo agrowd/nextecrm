@@ -56,3 +56,23 @@ After VPS rebuild, verify:
 1. [ ] bot_1 starts sending at 08:00 Argentina (not skipping)
 2. [ ] bot_2 reaches "ready" state (no WAPhoneUtils error)
 3. [ ] Dashboard shows correct status for all bots
+
+### ISSUE-09: Auditoría Integral Extensión, Bot y Backend (2026-10-28)
+- **Hallazgos en Extensión (`extension/`):**
+  1. `background.js` (L78): `chrome.tabs.onActivated` detiene el scrapeo si el usuario cambia de pestaña.
+  2. `content.js` (L502/584): `stopRequested` nunca se resetea a `false` al iniciar una nueva cola (`startScrapingQueue`).
+  3. `content.js` (L382): `openAndExtract` lee el `h1` de la tarjeta anterior porque el DOM de Maps tarda en actualizar tras el click, descartando tarjetas nuevas como falsos duplicados.
+  4. `popup.js` (L62): `queue(k, l)` no realiza producto cartesiano entre rubros y ubicaciones.
+  5. Falta botón en `popup.html` para "Raspar Vista Actual" y "Sincronizar con Agente 1 (VPS)" enviando `zoneId`.
+- **Hallazgos en Envío de Mensajes (`bot/index.js`):**
+  1. `L1366`: El doble-check `/lead/check-messages` detecta mensajes previos pero NO aborta el envío.
+  2. `L1467`: Inyección de un 5to mensaje legacy (`salesPitches`) cuando detecta auto-respuesta, rompiendo la secuencia de 4 mensajes IA.
+  3. `L1608`: Al terminar el loop `for` (incluso tras `break` por respuesta/rechazo en vivo), sobrescribe el estado del lead a `'contacted'`, pisando `'interested'` o `'not_interested'`.
+  4. `L1594`: Si falla el envío de un mensaje de la secuencia (ej. Msg 1), hace `continue` y envía el Msg 2 sin saludo previo.
+  5. `L2216`: `ReferenceError: msg is not defined` (debe ser `message.getContact()`) al resolver LIDs.
+  6. `L677 & L728`: Doble llamada a `this.client.initialize()` y doble definición de `log()` (`L274 & L926`).
+- **Hallazgos en Backend (`server/index.js`):**
+  1. Rutas duplicadas (`/next`, `/ingest`, `/logs`, `/lead/by-phone/:phone`, `/api/bot/:id/start`) y rutas declaradas después del middleware 404 (`L4665`).
+  2. `POST /send-message` (`L4001`) guarda en BD pero no emite a Socket.io hacia el bot.
+  3. Falta watchdog para liberar leads atascados en `status: 'processing'` (>15 min) y condición de carrera entre `/ingest` (Dossier background) y `/next`.
+- **Status:** ✅ RESOLVED & DEPLOYED (2026-10-28)

@@ -2,49 +2,62 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>GMaps Leads Scraper</title>
+  <title>GMaps Leads Scraper - Nexte AI</title>
   <style>
-    * { box-sizing:border-box;font-family:system-ui,Arial,sans-serif }
-    body { margin:0;background:#f4f6f8;color:#222 }
-    .wrap { width:360px;padding:16px }
-    h1 { margin:0 0 12px;font-size:1.15rem;font-weight:600 }
-    label { display:block;margin:8px 0 4px;font-size:.9rem;font-weight:600 }
-    input { width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px }
-    button { width:100%;padding:10px;margin-top:12px;border:0;border-radius:4px;background:#1976d2;color:#fff;font-weight:700;cursor:pointer }
-    button[disabled] { opacity:.5;cursor:not-allowed }
-    #stopBtn { background:#e74c3c;display:none }
-    #logArea { margin-top:14px;height:160px;padding:8px;background:#111;color:#ddd;font-size:.8rem;border-radius:4px;overflow-y:auto;white-space:pre-line }
-    .card { background:#fff;border-radius:8px;padding:10px;border:1px solid #e0e0e0 }
+    * { box-sizing:border-box;font-family:system-ui,-apple-system,Arial,sans-serif }
+    body { margin:0;background:#0f172a;color:#f1f5f9 }
+    .wrap { width:370px;padding:14px }
+    h1 { margin:0 0 10px;font-size:1.05rem;font-weight:700;color:#38bdf8;display:flex;align-items:center;gap:6px }
+    label { display:block;margin:7px 0 3px;font-size:.8rem;font-weight:600;color:#94a3b8 }
+    input { width:100%;padding:7px 9px;border:1px solid #334155;border-radius:6px;background:#1e293b;color:#f8fafc;font-size:.85rem }
+    input:focus { outline:none;border-color:#38bdf8 }
+    button { width:100%;padding:9px 10px;margin-top:8px;border:0;border-radius:6px;background:#0284c7;color:#fff;font-weight:700;font-size:.85rem;cursor:pointer;transition:opacity .15s }
+    button:hover { opacity:.92 }
+    button[disabled] { opacity:.45;cursor:not-allowed }
+    #agent1Btn { background:linear-gradient(135deg,#7c3aed,#2563eb);margin-top:10px;padding:11px;font-size:.9rem }
+    #currentViewBtn { background:#0d9488;margin-top:7px }
+    #stopBtn { background:#ef4444;display:none;margin-top:10px;padding:11px;font-size:.9rem }
+    #logArea { margin-top:12px;height:150px;padding:8px;background:#020617;color:#cbd5e1;font-size:.76rem;border-radius:6px;border:1px solid #1e293b;overflow-y:auto;white-space:pre-line;font-family:monospace }
+    .card { background:#1e293b;border-radius:8px;padding:9px 11px;border:1px solid #334155;margin-bottom:8px }
     .row { display:flex;align-items:center;gap:8px }
-    .dot { width:10px;height:10px;border-radius:50%;background:#e74c3c;flex:0 0 10px }
-    .dot.ok { background:#2ecc71 }
-    .status-text { font-size:.85rem;color:#555 }
-    .refresh { margin-left:auto;width:36px;height:32px;padding:0;border-radius:6px;background:#2ecc71;color:#fff;font-weight:700 }
-    .subtle { background:#4caf50 }
+    .dot { width:10px;height:10px;border-radius:50%;background:#ef4444;flex:0 0 10px }
+    .dot.ok { background:#10b981;box-shadow:0 0 8px #10b981 }
+    .status-text { font-size:.8rem;color:#94a3b8 }
+    .refresh { margin-left:auto;width:34px;height:30px;margin-top:0;padding:0;border-radius:6px;background:#10b981;color:#fff;font-weight:700 }
+    .subtle { background:#334155;margin-top:6px;padding:6px;font-size:.78rem }
+    .divider { margin:12px 0 6px;border-top:1px solid #334155;padding-top:8px;font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>GMaps Leads Scraper</h1>
+    <h1>⚡ Nexte Agente 1 — GMaps Scraper</h1>
     <div class="card">
       <div class="row">
         <div id="backendDot" class="dot"></div>
         <div>
-          <div><strong>Backend</strong></div>
-          <div id="backendStatus" class="status-text">Desconectado</div>
+          <div style="font-size:.85rem"><strong>Servidor VPS / CRM</strong></div>
+          <div id="backendStatus" class="status-text">Verificando...</div>
         </div>
-        <button id="backendRefresh" class="refresh" title="Refrescar">R</button>
+        <button id="backendRefresh" class="refresh" title="Refrescar conexión">↻</button>
+      </div>
+      <label style="margin-top:8px">URL del Backend:</label>
+      <div class="row">
+        <input id="backendUrl" placeholder="http://149.50.128.73:8484" />
+        <button id="saveBackendBtn" class="subtle" style="width:90px;margin-top:0;padding:7px">Guardar</button>
       </div>
     </div>
-    <label>URL del Backend:</label>
-    <input id="backendUrl" placeholder="http://127.0.0.1:3001" />
-    <button id="saveBackendBtn" class="subtle">Guardar URL</button>
-    <label>Rubros (coma):</label>
-    <input id="keywords" placeholder="panadería, peluquería" />
-    <label>Ubicaciones (coma):</label>
-    <input id="locations" placeholder="palermo, belgrano" />
-    <button id="startBtn">Iniciar scraping</button>
-    <button id="stopBtn">Detener scraping</button>
+
+    <button id="agent1Btn" title="Pide zonas GPS no escaneadas al VPS, abre Google Maps y raspa automáticamente">🤖 Auto-Raspar Zonas GPS (Agente 1)</button>
+    <button id="currentViewBtn" title="Raspa las tarjetas que están visibles ahora mismo en la pestaña de Google Maps">📍 Raspar Vista Actual de Maps</button>
+
+    <div class="divider">Búsqueda Manual por Cola</div>
+    <label>Rubros (separados por coma):</label>
+    <input id="keywords" placeholder="odontología, estética, inmobiliaria" />
+    <label>Ubicaciones (separadas por coma):</label>
+    <input id="locations" placeholder="Palermo, Belgrano, Caballito" />
+    <button id="startBtn">🔍 Iniciar Cola Manual</button>
+    <button id="stopBtn">⏹️ Detener Scraping</button>
+
     <div id="logArea"></div>
   </div>
   <script src="popup.js"></script>

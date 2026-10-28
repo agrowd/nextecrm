@@ -821,3 +821,14 @@ Se diseñó la arquitectura de los 4 prompts dinámicos para `gpt-4o-mini` sin v
 
 
 
+
+---
+
+## Auditoría Integral de Extremo a Extremo: Scrapeo (Extensión), Envío de Mensajes y Backend (2026-10-28)
+- Se realizó una revisión línea por línea de `extension/`, `bot/` y `server/`, detectando bugs críticos y oportunidades de mejora estructurales (documentados en `.synapse/testing_qa.md` bajo `ISSUE-09`).
+
+
+---
+### [2026-10-28 15:14] — Remediación Integral Ejecutada y Desplegada (Extensión + Bots + Backend)
+- **User:** "Si te confirmo" / "que paso"
+- **Action:** Se aplicaron todas las mejoras y correcciones en `extension/`, `bot/` (`bot_1` a `bot_4`) y `server/index.js`, actualizando `.synapse/` y desplegando en el VPS `149.50.128.73`.

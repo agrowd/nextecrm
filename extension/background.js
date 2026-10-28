@@ -1,9 +1,12 @@
-// background.js - GMaps Leads Scraper (rev-17, julio 2025)
-const DEFAULT_BACKEND = 'http://localhost:3001';
+// background.js - GMaps Leads Scraper (rev-26, Ariadne Agent 1 GPS Sync)
+const DEFAULT_BACKEND = 'http://149.50.128.73:8484';
 
 // Estado global del scraping
 let scrapingActive = false;
+let autoAgentMode = false;
+let autoAgentCity = '';
 let currentTabId = null;
+let awaitingTabLoad = false;
 
 const safeRuntimeSend = (msg) => {
   chrome.runtime.sendMessage(msg, () => {
@@ -13,11 +16,13 @@ const safeRuntimeSend = (msg) => {
   });
 };
 
-const safeTabSend = (tabId, msg) => {
-  chrome.tabs.sendMessage(tabId, msg, () => {
+const safeTabSend = (tabId, msg, cb) => {
+  chrome.tabs.sendMessage(tabId, msg, (res) => {
     if (chrome.runtime.lastError) {
-      // Ignore when the content script is not available.
+      if (cb) cb(null, chrome.runtime.lastError);
+      return;
     }
+    if (cb) cb(res, null);
   });
 };
 
@@ -39,34 +44,138 @@ const getBackendUrl = async () => {
   }
 };
 
-async function postLead(lead) {
+const emitLog = (message, level = 'info') => {
+  console.log(`[background][${level}] ${message}`);
+  safeRuntimeSend({ type: 'scraper-log', level, message });
+};
+
+async function postLead(lead, retries = 3) {
+  const baseUrl = await getBackendUrl();
+  let lastErr = null;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const r = await fetch(`${baseUrl}/ingest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lead)
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      console.log(`Lead enviado al backend: ${lead.name}`);
+      return await r.json();
+    } catch (err) {
+      lastErr = err;
+      console.warn(`Intento ${attempt}/${retries} fallido enviando lead ${lead.name}: ${err.message}`);
+      if (attempt < retries) {
+        await new Promise(res => setTimeout(res, 1500 * attempt));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+async function fetchNextAgentTarget(city = '') {
+  const baseUrl = await getBackendUrl();
+  const query = city ? `?city=${encodeURIComponent(city)}` : '';
+  const r = await fetch(`${baseUrl}/api/scraper/next-target${query}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return await r.json();
+}
+
+async function markZoneScannedInBackend(zoneId, keyword, leadsFound = 0) {
+  if (!zoneId || !keyword) return;
   try {
     const baseUrl = await getBackendUrl();
-    const r = await fetch(`${baseUrl}/ingest`, {
+    await fetch(`${baseUrl}/api/scraper/mark-scanned`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(lead)
+      body: JSON.stringify({ zoneId, keyword, leadsFound })
     });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    console.log(`Lead enviado al backend: ${lead.name}`);
-    return r.json();
+    emitLog(`🗺️ Zona marcada como escaneada: ${zoneId} (${keyword}) -> ${leadsFound} leads`, 'success');
   } catch (err) {
-    console.error(`Error enviando lead: ${err.message}`);
-    throw err;
+    emitLog(`⚠️ No se pudo marcar zona en backend: ${err.message}`, 'warn');
+  }
+}
+
+// Lanzar siguiente objetivo de Agente 1
+async function launchNextAgentTarget() {
+  if (!scrapingActive || !autoAgentMode || !currentTabId) return;
+  try {
+    emitLog('🤖 Consultando próximo objetivo GPS a Agente 1...', 'info');
+    const data = await fetchNextAgentTarget(autoAgentCity);
+    if (!data?.success || !data?.target) {
+      emitLog('🏁 Agente 1 completó todas las zonas disponibles.', 'success');
+      stopScraping();
+      safeRuntimeSend({ action: 'scrapingFinished' });
+      return;
+    }
+
+    const { zone, rubro, googleMapsUrl } = data.target;
+    emitLog(`🎯 Objetivo Agente 1: ${rubro.label} en ${zone.name} (${zone.city})`, 'success');
+
+    awaitingTabLoad = true;
+    await chrome.tabs.update(currentTabId, { url: googleMapsUrl });
+
+    // Esperar a que la pestaña termine de cargar y enviar orden a content.js
+    const waitAndStart = (attempts = 0) => {
+      if (!scrapingActive || !currentTabId) return;
+      chrome.tabs.get(currentTabId, (tab) => {
+        if (chrome.runtime.lastError || !tab) {
+          stopScraping();
+          return;
+        }
+        if (tab.status === 'complete') {
+          awaitingTabLoad = false;
+          setTimeout(() => {
+            if (!scrapingActive || !currentTabId) return;
+            safeTabSend(currentTabId, {
+              action: 'scrapeCurrentView',
+              keyword: rubro.id,
+              searchQuery: `${rubro.query} ${zone.name}`,
+              location: zone.name,
+              zoneId: zone.id,
+              zoneName: zone.name,
+              isAgent1Auto: true
+            }, (resp, err) => {
+              if (err || !resp?.success) {
+                if (attempts < 8) {
+                  setTimeout(() => waitAndStart(attempts + 1), 1500);
+                } else {
+                  emitLog('❌ No se pudo conectar con content.js tras cargar Maps', 'error');
+                  stopScraping();
+                }
+              }
+            });
+          }, 2500);
+        } else if (attempts < 20) {
+          setTimeout(() => waitAndStart(attempts + 1), 1000);
+        }
+      });
+    };
+
+    setTimeout(() => waitAndStart(0), 2000);
+  } catch (err) {
+    emitLog(`❌ Error obteniendo objetivo de Agente 1: ${err.message}`, 'error');
+    stopScraping();
+    safeRuntimeSend({ action: 'scrapingFinished' });
   }
 }
 
 // Función para detener el scraping
 function stopScraping() {
-  if (scrapingActive && currentTabId) {
+  if (currentTabId) {
     safeTabSend(currentTabId, { action: 'stopScraping' });
-    scrapingActive = false;
-    currentTabId = null;
-    console.log('🛑 Scraping detenido desde background');
   }
+  scrapingActive = false;
+  autoAgentMode = false;
+  awaitingTabLoad = false;
+  currentTabId = null;
+  console.log('🛑 Scraping detenido desde background');
 }
 
-// Detectar cuando se cierra una pestaña
+// Detectar cuando se cierra la pestaña donde corre el scraper
 chrome.tabs.onRemoved.addListener((tabId) => {
   if (tabId === currentTabId) {
     console.log('📑 Pestaña cerrada, deteniendo scraping');
@@ -74,46 +183,83 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   }
 });
 
-// Detectar cuando se cambia de pestaña
-chrome.tabs.onActivated.addListener((activeInfo) => {
-  if (scrapingActive && activeInfo.tabId !== currentTabId) {
-    console.log('🔄 Cambio de pestaña detectado, deteniendo scraping');
-    stopScraping();
-  }
-});
+// NOTA: Se eliminó chrome.tabs.onActivated para permitir trabajar en otras pestañas sin cortar el scraping.
 
-// Detectar cuando se actualiza una pestaña
+// Detectar solo si la pestaña del scraper sale de Google Maps
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (scrapingActive && tabId === currentTabId && changeInfo.status === 'loading') {
-    console.log('🔄 Pestaña actualizada, deteniendo scraping');
-    stopScraping();
+  if (scrapingActive && !awaitingTabLoad && tabId === currentTabId && changeInfo.url) {
+    if (!changeInfo.url.includes('google.com/maps')) {
+      console.log('🔄 La pestaña salió de Google Maps, deteniendo scraping');
+      stopScraping();
+    }
   }
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === 'lead') {
     postLead(msg.lead)
-      .then(() => sendResponse({ ok: true }))
+      .then((res) => sendResponse({ ok: true, data: res }))
       .catch(err => sendResponse({ ok: false, error: err.message }));
-    return true;               // puerto abierto
+    return true; // puerto abierto
   }
-  
-  if (msg.action === 'startScrapingQueue') {
-    // Marcar que el scraping está activo
+
+  if (msg.action === 'getScrapingStatus') {
+    sendResponse({ scrapingActive, autoAgentMode, currentTabId });
+    return false;
+  }
+
+  if (msg.action === 'startScrapingQueue' || msg.action === 'scrapeCurrentView') {
     scrapingActive = true;
-    currentTabId = sender.tab.id;
-    console.log(`🚀 Scraping iniciado en pestaña ${currentTabId}`);
+    autoAgentMode = Boolean(msg.isAgent1Auto);
+    currentTabId = msg.tabId || sender.tab?.id || currentTabId;
+    console.log(`🚀 Scraping activo en pestaña ${currentTabId}`);
   }
-  
+
+  if (msg.action === 'startAgent1Auto') {
+    scrapingActive = true;
+    autoAgentMode = true;
+    autoAgentCity = msg.city || '';
+    currentTabId = msg.tabId;
+    sendResponse({ success: true });
+    launchNextAgentTarget();
+    return false;
+  }
+
+  if (msg.action === 'zoneFinished') {
+    (async () => {
+      await markZoneScannedInBackend(msg.zoneId, msg.keyword, msg.leadsFound || 0);
+      if (scrapingActive && autoAgentMode && !msg.stopped) {
+        emitLog('⏭️ Avanzando automáticamente a la siguiente zona GPS...', 'info');
+        setTimeout(() => launchNextAgentTarget(), 2500);
+      } else {
+        scrapingActive = false;
+        autoAgentMode = false;
+        currentTabId = null;
+        safeRuntimeSend({ action: 'scrapingFinished' });
+      }
+    })();
+    sendResponse({ ok: true });
+    return false;
+  }
+
   if (msg.action === 'scrapingFinished') {
-    // Marcar que el scraping terminó
-    scrapingActive = false;
-    currentTabId = null;
-    console.log('✅ Scraping finalizado');
+    if (!autoAgentMode) {
+      scrapingActive = false;
+      currentTabId = null;
+      console.log('✅ Scraping finalizado');
+      safeRuntimeSend(msg);
+    }
   }
-  
-  if (msg.type === 'scraper-log' || msg.action === 'scrapingFinished' || msg.action === 'stopScraping') {
-    safeRuntimeSend(msg);  // reenvío al popup
+
+  if (msg.action === 'stopScraping') {
+    stopScraping();
+    safeRuntimeSend(msg);
+    sendResponse({ stopped: true });
+    return false;
+  }
+
+  if (msg.type === 'scraper-log') {
+    safeRuntimeSend(msg); // reenvío al popup
   }
 });
 
@@ -122,4 +268,4 @@ self.addEventListener('fetch', e => {
   if (e.preloadResponse) e.waitUntil(e.preloadResponse);
 });
 
-console.log('🟢 GMaps Leads Scraper background.js cargado (rev-17)');
+console.log('🟢 GMaps Leads Scraper background.js cargado (rev-26)');

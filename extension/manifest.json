@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "GMaps Leads Scraper",
-  "description": "Scrapea Google Maps Business y envía leads al backend",
-  "version": "1.0.6",
+  "name": "Nexte Agente 1 — GMaps Leads Scraper",
+  "description": "Scrapea Google Maps con memoria de zonas GPS (Agente 1) y envía leads al CRM Nexte",
+  "version": "2.0.0",
   "permissions": [
     "activeTab",
     "storage",
@@ -10,7 +10,8 @@
     "tabs"
   ],
   "host_permissions": [
-    "https://www.google.com/maps/*",
+    "https://*.google.com/maps/*",
+    "https://*.google.com.ar/maps/*",
     "http://localhost:3001/*",
     "http://*/*",
     "https://*/*"
@@ -20,7 +21,11 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://www.google.com/maps/*"],
+      "matches": [
+        "https://www.google.com/maps/*",
+        "https://*.google.com/maps/*",
+        "https://*.google.com.ar/maps/*"
+      ],
       "js": ["content.js"],
       "run_at": "document_end"
     }

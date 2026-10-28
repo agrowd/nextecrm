@@ -226,54 +226,51 @@ app.get('/next', async (req, res) => {
     const { instanceId } = req.query; // Bot que solicita el lead
     console.log(`🔔 /next HIT from ${instanceId} (Localhost Bypass)`);
 
+    // 0. AUTO-RECUPERACIÓN DE LEADS ATASCADOS EN 'processing' (> 15 minutos)
+    const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const stuckRecovered = await Lead.updateMany(
+      {
+        status: 'processing',
+        $or: [
+          { lastContactAt: { $lt: fifteenMinsAgo } },
+          { lastContactAt: { $exists: false }, updatedAt: { $lt: fifteenMinsAgo } }
+        ]
+      },
+      { $set: { status: 'pending' } }
+    );
+    if (stuckRecovered.modifiedCount > 0) {
+      console.log(`♻️ Recuperados ${stuckRecovered.modifiedCount} leads atascados en 'processing' -> 'pending'`);
+    }
+
     // 1. Estadísticas de cola
     const pendingCount = await Lead.countDocuments({ status: 'pending' });
     const totalCount = await Lead.countDocuments({});
 
     // 2. ESTRATEGIA DE DISTRIBUCIÓN "SOFT SHARDING" (Modulo-based)
-    // Extraer número de bot (ej: "bot_3" -> 3)
-    let instanceNum = 1; // Default a 1
+    let instanceNum = 1;
     if (instanceId && instanceId.match(/bot_(\d+)/)) {
       instanceNum = parseInt(instanceId.match(/bot_(\d+)/)[1], 10);
     }
 
-    /*
-      Lógica de Sharding:
-      Total Bots (Asumidos): 4
-      Bot 1 prefiere: ...1, ...5, ...9 (mod 4 == 0) -> Ajustamos (instanceNum - 1)
-      Bot 2 prefiere: ...2, ...6, ...0 (mod 4 == 1)
-      Bot 3 prefiere: ...3, ...7       (mod 4 == 2)
-      Bot 4 prefiere: ...4, ...8       (mod 4 == 3)
-    */
     const TOTAL_BOTS = 4;
     const targetRemainder = (instanceNum - 1) % TOTAL_BOTS;
 
     let lead = null;
 
-    // A) INTENTO 1: Buscar lead PREFERIDO (Sticky/Shard)
-    // Regex para terminar en dígito que cumpla condicion MOD
-    // No es trivial hacer MOD en query regex, así que usamos terminación simple aproximada
-    // Para simplificar y ser rápidos, usamos $regex con terminaciones específicas
     let suffixes = [];
     for (let i = 0; i <= 9; i++) {
       if (i % TOTAL_BOTS === targetRemainder) {
         suffixes.push(i.toString());
       }
     }
-    // Ej Bot 1 (target 0): [0, 4, 8]
-    // Ej Bot 3 (target 2): [2, 6] ... espera, mod 4:
-    // 0%4=0, 1%4=1, 2%4=2, 3%4=3, 4%4=0, 5%4=1...
-    // Bot 1 (num-1=0): 0, 4, 8
-    // Bot 2 (num-1=1): 1, 5, 9
-    // Bot 3 (num-1=2): 2, 6
-    // Bot 4 (num-1=3): 3, 7
 
-    const regexSuffix = `(${suffixes.join('|')})$`; // Ej: "(1|5|9)$"
+    const regexSuffix = `(${suffixes.join('|')})$`;
 
     console.log(`🤖 Bot ${instanceId} buscando preferencia (terminados en ${suffixes.join(',')})...`);
 
     const labelExclusion = {
       botPaused: { $ne: true },
+      isQualified: { $ne: false },
       $and: [
         {
           $or: [
@@ -309,7 +306,6 @@ app.get('/next', async (req, res) => {
     );
 
     // B) INTENTO 2: FALLBACK (Cualquier lead)
-    // Si no encontró "su" lead, toma cualquiera para no quedarse quieto
     if (!lead) {
       console.log(`⚠️ Bot ${instanceId} no encontró leads preferidos. Usando Fallback...`);
       lead = await Lead.findOneAndUpdate(
@@ -336,7 +332,39 @@ app.get('/next', async (req, res) => {
       });
     }
 
-    console.log(`📤 Asignando lead ${lead.businessName || lead.phone} a ${instanceId}`);
+    // 3. GARANTÍA SINCRÓNICA DE DOSSIER E INTELIGENCIA WEB (Evita Race Condition con /ingest)
+    try {
+      if (lead.hasWebsite && lead.website && (!lead.webAudit || !lead.webAudit.auditedAt)) {
+        console.log(`🔍 [/next] Ejecutando auditoría web express para ${lead.name} antes de entregar al bot...`);
+        const auditResult = await Promise.race([
+          auditWebsite(lead.website),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout auditWebsite')), 7000))
+        ]);
+        if (auditResult) {
+          lead = await Lead.findByIdAndUpdate(lead._id, {
+            websiteValid: !auditResult.error,
+            webAudit: auditResult,
+            pixelFacebook: auditResult?.hasMetaPixel || false,
+            pixelGoogle: auditResult?.hasGA4 || false
+          }, { new: true });
+        }
+      }
+
+      if (!lead.dossier || !lead.dossier.primaryPain) {
+        console.log(`🧠 [/next] Generando Dossier IA para ${lead.name} antes de entregar al bot...`);
+        const dossier = await Promise.race([
+          analyzeLeadPains(lead),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout analyzeLeadPains')), 7000))
+        ]);
+        if (dossier) {
+          lead = await Lead.findByIdAndUpdate(lead._id, { dossier }, { new: true });
+        }
+      }
+    } catch (syncIntelErr) {
+      console.warn(`⚠️ [/next] Inteligencia pre-envío demorada para ${lead.name}: ${syncIntelErr.message}`);
+    }
+
+    console.log(`📤 Asignando lead ${lead.businessName || lead.name || lead.phone} a ${instanceId}`);
 
     res.json({
       success: true,
@@ -518,15 +546,43 @@ app.post('/ingest', async (req, res) => {
       if (global.io) global.io.emit('new_lead', newLead.toObject());
     }
 
-    // Registrar memoria de zona si se envió metadata de ubicación/keyword
+    // Registrar memoria de zona (resolviendo inteligentemente contra el catálogo de zonas GPS si viene de búsqueda manual)
     if (leads.length > 0) {
       const first = leads[0];
-      const zId = first.zoneId || (first.location ? first.location.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'zona_desconocida');
-      const kw = first.keyword || first.category || 'general';
+      let zId = first.zoneId || '';
+      let zName = first.zoneName || first.location || '';
+      if (!zId && first.location) {
+        const locNorm = first.location.toLowerCase().trim();
+        const allZones = geoGridScanner.getAllSubZones ? geoGridScanner.getAllSubZones() : [];
+        const matchedZone = allZones.find(z =>
+          z.id.toLowerCase() === locNorm ||
+          z.name.toLowerCase().includes(locNorm) ||
+          locNorm.includes(z.name.toLowerCase().split('(')[0].trim())
+        );
+        if (matchedZone) {
+          zId = matchedZone.id;
+          zName = matchedZone.name;
+        } else {
+          zId = locNorm.replace(/[^a-z0-9]/g, '_');
+        }
+      }
+
+      let kw = first.keyword || first.category || 'general';
+      if (geoGridScanner.RUBROS_CATALOG && kw) {
+        const kwNorm = kw.toLowerCase().trim();
+        const matchedRubro = geoGridScanner.RUBROS_CATALOG.find(r =>
+          r.id.toLowerCase() === kwNorm ||
+          r.label.toLowerCase().includes(kwNorm) ||
+          r.query.toLowerCase().includes(kwNorm) ||
+          kwNorm.includes(r.id.toLowerCase())
+        );
+        if (matchedRubro) kw = matchedRubro.id;
+      }
+
       if (zId && kw) {
         geoGridScanner.recordZoneScan({
           zoneId: zId,
-          zoneName: first.zoneName || first.location || zId,
+          zoneName: zName || zId,
           keyword: kw,
           totalLeadsFound: leads.length,
           validLeadsIngested: added,
@@ -553,7 +609,7 @@ app.post('/ingest', async (req, res) => {
 // POST /messages - Guardar mensajes (chat history)
 app.post('/messages', async (req, res) => {
   try {
-    const { phone, content, fromMe, type, timestamp, instanceId, senderName, whatsappMessageId, metadata } = req.body;
+    const { phone, content, fromMe, type, timestamp, sentAt, instanceId, senderName, whatsappMessageId, onlyExistingLead, metadata } = req.body;
 
     if (!phone) {
       return res.status(400).json({ success: false, error: 'Phone is required' });
@@ -587,11 +643,17 @@ app.post('/messages', async (req, res) => {
       lead = await Lead.findOne({ phone: phone });
     }
 
+    // Si es una sincronización offline y el contacto no es un lead del CRM, no contaminar la BD con chats personales
+    if (onlyExistingLead && !lead) {
+      return res.json({ success: true, skipped: true });
+    }
+
     // 3. Crear Mensaje
-    const isOutboundType = type === 'oferta_servicio' || type === 'respuesta_automatica' || type === 'mensaje_manual' || (req.body.messageNumber && Number(req.body.messageNumber) > 0);
-    const resolvedFromMe = (fromMe === true || fromMe === 'true') ? true : (isOutboundType ? true : false);
+    const isOutboundType = type === 'oferta_servicio' || type === 'respuesta_automatica' || type === 'mensaje_manual' || type === 'manual_outbound' || type === 'manual_crm' || (req.body.messageNumber && Number(req.body.messageNumber) > 0);
+    const resolvedFromMe = (fromMe === true || fromMe === 'true') ? true : (fromMe === false || fromMe === 'false' ? false : (isOutboundType ? true : false));
     const resolvedDirection = resolvedFromMe ? 'outbound' : 'inbound';
     const resolvedStatus = resolvedFromMe ? (req.body.status || 'sent') : 'received';
+    const effectiveDate = sentAt ? new Date(sentAt) : (timestamp ? new Date(timestamp) : new Date());
 
     const newMessage = new Message({
       phone: cleanPhone,
@@ -600,7 +662,8 @@ app.post('/messages', async (req, res) => {
       direction: resolvedDirection,
       status: resolvedStatus,
       type: type || 'text',
-      timestamp: timestamp || new Date(),
+      sentAt: effectiveDate,
+      timestamp: effectiveDate,
       instanceId,
       leadId: lead ? lead._id : null,
       leadName: lead ? lead.name : (senderName || cleanPhone),
@@ -792,9 +855,9 @@ app.get('/', (req, res) => {
 app.use('/dashboard', requireAuth, express.static(path.join(__dirname, '../crm-dashboard')));
 app.use('/crm', requireAuth, express.static(path.join(__dirname, '../crm-dashboard')));
 
-// Proteger todas las rutas API excepto login
+// Proteger todas las rutas API excepto login y endpoints de sincronización de la extensión (Agente 1)
 app.use('/api/*', (req, res, next) => {
-  if (req.path === '/api/login') return next();
+  if (req.path === '/api/login' || req.originalUrl.startsWith('/api/scraper/')) return next();
   requireAuth(req, res, next);
 });
 
@@ -1469,138 +1532,7 @@ app.post('/data/leads.json', async (req, res) => {
   }
 });
 
-// POST /ingest - Recibir leads de la extensión
-app.post('/ingest', validateLead, async (req, res) => {
-  try {
-    const leads = req.body;
-    const leadsArray = Array.isArray(leads) ? leads : [leads];
-
-    // Solo loggear si hay múltiples leads o si es un lead nuevo
-    if (leadsArray.length > 1) {
-      console.log(`📥 Recibiendo ${leadsArray.length} leads...`);
-    }
-
-    const inserted = [];
-    const errors = [];
-    const duplicates = [];
-
-    for (let i = 0; i < leadsArray.length; i++) {
-      const lead = leadsArray[i];
-
-      try {
-        // Validar que tenga al menos nombre
-        if (!lead.name || typeof lead.name !== 'string' || lead.name.trim().length === 0) {
-          errors.push({ index: i, error: 'Sin nombre válido' });
-          continue;
-        }
-
-        // Limpiar y validar datos
-        const cleanLead = {
-          name: lead.name.trim(),
-          phone: (lead.phone || '').trim(),
-          address: (lead.address || '').trim(),
-          website: (lead.website || '').trim(),
-          mapsUrl: (lead.mapsUrl || '').trim(),
-          category: (lead.category || '').trim(),
-          rating: typeof lead.rating === 'number' ? lead.rating : null,
-          reviewCount: typeof lead.reviewCount === 'number' ? lead.reviewCount : null,
-          lat: typeof lead.lat === 'number' ? lead.lat : null,
-          lng: typeof lead.lng === 'number' ? lead.lng : null,
-          keyword: (lead.keyword || '').trim(),
-          location: (lead.location || '').trim(),
-          ip: (lead.ip || '').trim(),
-          ua: (lead.ua || '').trim(),
-          hasWebsite: !!(lead.website && lead.website.trim()),
-          createdAt: new Date(),
-          status: 'pending'
-        };
-
-        // Verificar que la dirección no sea un rating (como "4,9(620)")
-        if (cleanLead.address && cleanLead.address.match(/^\d+[,.]?\d*\s*\(\d+\)$/)) {
-          cleanLead.address = '';
-        }
-
-        // Verificar si ya existe un lead con el mismo nombre Y teléfono (más estricto)
-        const existingLead = await Lead.findOne({
-          name: cleanLead.name,
-          phone: cleanLead.phone // Solo verificar por nombre Y teléfono exacto
-        });
-
-        if (existingLead) {
-          duplicates.push(cleanLead.name);
-
-          // Actualizar contador de veces que se ha scraped
-          await Lead.findByIdAndUpdate(existingLead._id, {
-            $inc: { scrapedCount: 1 },
-            lastScrapedAt: new Date()
-          });
-
-          console.log(`⏭️ Lead duplicado detectado: ${cleanLead.name} (${cleanLead.phone})`);
-        } else {
-          // Insertar nuevo lead
-          const newLead = new Lead(cleanLead);
-          await newLead.save();
-
-          inserted.push({ name: cleanLead.name, id: newLead._id });
-          console.log(`✅ Lead insertado: ${cleanLead.name} (${cleanLead.phone})`);
-
-          // MongoDB es la fuente principal de datos
-
-          // Loggear solo leads nuevos
-          log(`Nuevo lead insertado: ${cleanLead.name}`, 'success', 'backend', {
-            keyword: cleanLead.keyword,
-            location: cleanLead.location
-          }, newLead._id);
-        }
-
-      } catch (e) {
-        console.error(`❌ Error procesando lead:`, e.message);
-        errors.push({ index: i, error: e.message });
-      }
-    }
-
-    // Loggear resumen eficiente solo si hay actividad
-    if (inserted.length > 0) {
-      console.log(`📊 Resumen: ${inserted.length} nuevos, ${duplicates.length} duplicados`);
-    } else if (duplicates.length > 0 && duplicates.length > 5) {
-      console.log(`⏭️ Muchos duplicados (${duplicates.length})`);
-    }
-
-    // Obtener información de la cola
-    const pendingLeads = await Lead.countDocuments({ status: 'pending' });
-    const totalLeads = await Lead.countDocuments();
-
-    const response = {
-      success: true,
-      inserted: inserted.length,
-      errors: errors.length,
-      duplicates: duplicates.length,
-      queue: {
-        pending: pendingLeads,
-        total: totalLeads
-      },
-      message: `${inserted.length} leads nuevos insertados`
-    };
-
-    if (errors.length > 0) {
-      response.errorDetails = errors;
-    }
-
-    // Solo loggear si hay leads nuevos o múltiples
-    if (inserted.length > 0 || leadsArray.length > 1) {
-      console.log('📤 Respuesta:', response);
-    }
-
-    res.json(response);
-
-  } catch (error) {
-    console.error('❌ Error procesando leads:', error);
-    res.status(500).json({
-      error: 'Error interno del servidor',
-      message: error.message
-    });
-  }
-});
+// NOTA: POST /ingest consolidado en la línea 415 con calificación móvil, auditoría web y Dossier IA.
 
 // GET /messages/by-phone/:phone - Buscar mensajes por número de teléfono
 app.get('/messages/by-phone/:phone', async (req, res) => {
@@ -1682,7 +1614,7 @@ app.put(['/lead/by-phone/:phone', '/api/lead/by-phone/:phone'], async (req, res)
     const cleanDigits = rawPhone.replace('@c.us', '').replace(/\D/g, '');
     const suffix = cleanDigits.length >= 8 ? cleanDigits.slice(-8) : cleanDigits;
 
-    const updateData = req.body || {};
+    const updateData = { ...(req.body || {}), lastContactAt: new Date() };
     const lead = await Lead.findOneAndUpdate(
       {
         $or: [
@@ -2220,45 +2152,7 @@ app.put('/lead/:id/status', async (req, res) => {
   }
 });
 
-// PUT /lead/by-phone/:phone - Actualizar lead por número de teléfono (usado por el bot)
-app.put('/lead/by-phone/:phone', async (req, res) => {
-  try {
-    const { phone } = req.params;
-    const { status, whatsappResponse, contactedByNumber, contactedByInstance, rejectionReason, rejectionConfidence, templateVariantUsed, respondedToTemplate, aiIntent, aiConfidence, aiReason } = req.body;
-
-    const cleanPhone = phone.replace(/\D/g, '');
-    const lead = await Lead.findOne({
-      $or: [
-        { phone: cleanPhone },
-        { phone: new RegExp(cleanPhone + '$') }
-      ]
-    });
-
-    if (!lead) {
-      return res.status(404).json({ success: false, error: 'Lead no encontrado por teléfono' });
-    }
-
-    if (status) lead.status = status;
-    if (whatsappResponse) lead.whatsappResponse = whatsappResponse;
-    if (contactedByNumber) lead.contactedByNumber = contactedByNumber;
-    if (contactedByInstance) lead.contactedByInstance = contactedByInstance;
-    if (rejectionReason) lead.rejectionReason = rejectionReason;
-    if (rejectionConfidence !== undefined) lead.rejectionConfidence = rejectionConfidence;
-    if (templateVariantUsed !== undefined && templateVariantUsed !== null) lead.templateVariantUsed = templateVariantUsed;
-    if (respondedToTemplate !== undefined) lead.respondedToTemplate = respondedToTemplate;
-    if (aiIntent) lead.aiIntent = aiIntent;
-    if (aiConfidence !== undefined) lead.aiConfidence = aiConfidence;
-    if (aiReason) lead.aiReason = aiReason;
-
-    lead.lastContactAt = new Date();
-    await lead.save();
-
-    res.json({ success: true, lead });
-  } catch (error) {
-    console.error('Error actualizando lead por teléfono:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+// NOTA: PUT /lead/by-phone/:phone consolidado arriba en línea 1605.
 
 // GET /api/stats - Obtener estadísticas del sistema
 app.get('/api/stats', async (req, res) => {
@@ -2620,110 +2514,7 @@ call pm2 start ecosystem.config.js
   }
 });
 
-// DELETE /api/bot/:instanceId - Eliminar una instancia de bot
-app.delete('/api/bot/:instanceId', async (req, res) => {
-  try {
-    const { instanceId } = req.params;
-    const folderName = instanceId === 'bot_1' ? 'bot' : instanceId;
-    const baseDir = path.resolve(__dirname, '..');
-    const botPath = path.join(baseDir, folderName);
-
-    // No permitir eliminar bot_1 (template)
-    if (instanceId === 'bot' || instanceId === 'bot_1') {
-      return res.status(400).json({
-        error: 'No se puede eliminar el bot template',
-        message: 'bot_1 es el template principal y no puede ser eliminado'
-      });
-    }
-
-    // Intentar detener en PM2 primero
-    exec(`npx pm2 stop ${instanceId} && npx pm2 delete ${instanceId}`, (err) => {
-      if (err) console.warn(`Aviso: No se pudo detener ${instanceId} en PM2 (quizás no estaba corriendo)`);
-    });
-
-    // Verificar que existe
-    try {
-      await fs.access(botPath);
-    } catch (e) {
-      return res.status(404).json({ error: 'Bot no encontrado' });
-    }
-
-    // Eliminar recursivamente
-    await fs.rm(botPath, { recursive: true, force: true });
-
-    // Remover del registro de bots
-    connectedBots.delete(instanceId);
-    botStatuses.delete(instanceId);
-
-    // Notificar
-    io.emit('bot_deleted', { instanceId });
-
-    res.json({
-      success: true,
-      message: `Bot ${instanceId} eliminado`
-    });
-  } catch (error) {
-    console.error('Error eliminando bot:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// --- PM2 BOT CONTROL ---
-
-// POST /api/bot/:instanceId/start - Iniciar bot
-app.post('/api/bot/:instanceId/start', async (req, res) => {
-  const { instanceId } = req.params;
-  const folderName = instanceId === 'bot_1' ? 'bot' : instanceId;
-  const baseDir = path.resolve(__dirname, '..');
-  const botPath = path.join(baseDir, folderName);
-  const configPath = path.join(botPath, 'ecosystem.config.js');
-
-  console.log(`🚀 Iniciando bot ${instanceId}...`);
-
-  try {
-    const hasEcosystem = await fs.access(configPath).then(() => true).catch(() => false);
-
-    let command;
-    if (hasEcosystem) {
-      command = `npx pm2 start ${configPath} --name ${instanceId}`;
-    } else {
-      // Fallback: Iniciar index.js directo
-      // IMPORTANTE: Asegurar que se pasan las variables de entorno si no están en ecosystem
-      const indexPath = path.join(botPath, 'index.js');
-      // Usamos --name para que PM2 lo reconozca
-      command = `npx pm2 start ${indexPath} --name ${instanceId} -- --colors`;
-      console.log(`⚠️ Ecosystem no encontrado para ${instanceId}, usando fallback manual: ${command}`);
-    }
-
-    // Usar pm2 start or restart si ya existe
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        // Si falla (ej: ya existe), intentar restart
-        console.warn(`Error inicio ${instanceId}: ${error.message}. Intentando restart...`);
-        exec(`npx pm2 restart ${instanceId}`, (err2) => {
-          if (err2) return res.status(500).json({ success: false, error: err2.message });
-          res.json({ success: true, message: `Bot ${instanceId} reiniciado (Recovered)` });
-        });
-        return;
-      }
-      res.json({ success: true, message: `Bot ${instanceId} iniciado` });
-    });
-  } catch (e) {
-    // Catch genérico (aunque manejado arriba con hasEcosystem)
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-// POST /api/bot/:instanceId/stop - Detener bot
-app.post('/api/bot/:instanceId/stop', async (req, res) => {
-  const { instanceId } = req.params;
-  console.log(`⏹️ Deteniendo bot ${instanceId}...`);
-
-  exec(`npx pm2 stop ${instanceId}`, (error, stdout, stderr) => {
-    // No devolvemos error 500 si falla el stop (puede estar ya parado)
-    res.json({ success: true, message: `Bot ${instanceId} detenido o ya inactivo` });
-  });
-});
+// NOTA: DELETE/POST start/stop de /api/bot/:instanceId consolidados en las líneas 1065-1340.
 
 // GET /api/bot/:instanceId/status - Ver estado real en PM2
 app.get('/api/bot/:instanceId/status', (req, res) => {
@@ -4024,19 +3815,44 @@ app.post('/send-message', async (req, res) => {
       });
     }
 
+    // Buscar bot activo para enviar por WhatsApp real
+    let targetInstanceId = lead.contactedByInstance;
+    if (!targetInstanceId || !connectedBots.has(targetInstanceId)) {
+      for (const [id, status] of botStatuses.entries()) {
+        if (status.status === 'ready' && connectedBots.has(id)) {
+          targetInstanceId = id;
+          break;
+        }
+      }
+    }
+    if (!targetInstanceId && connectedBots.size > 0) {
+      targetInstanceId = connectedBots.keys().next().value;
+    }
+
+    if (targetInstanceId && connectedBots.has(targetInstanceId)) {
+      const botSocketId = connectedBots.get(targetInstanceId);
+      io.to(botSocketId).emit('bot_command', {
+        command: 'send_whatsapp_message',
+        payload: { phone: lead.phone, message }
+      });
+    }
+
     // Crear mensaje en base de datos
     const messageData = {
       leadId: lead._id,
       leadName: lead.name,
-      phone: lead.phone,
+      phone: lead.phone.replace(/\D/g, ''),
       messageNumber: (lead.messagesSent || 0) + 1,
       content: message,
+      fromMe: true,
+      direction: 'outbound',
       status: 'sent',
       sentAt: new Date(),
-      botInstance: 'manual',
+      instanceId: targetInstanceId || 'manual',
       metadata: {
         sentBy: 'dashboard',
-        manual: true
+        manual: true,
+        fromMe: true
       }
     };
 
@@ -4047,7 +3863,8 @@ app.post('/send-message', async (req, res) => {
     await Lead.findByIdAndUpdate(leadId, {
       $inc: { messagesSent: 1 },
       lastMessageAt: new Date(),
-      status: 'contacted'
+      lastContactAt: new Date(),
+      status: lead.status === 'pending' ? 'contacted' : lead.status
     });
 
     console.log(`✅ Mensaje manual enviado a ${lead.name}: ${message}`);
@@ -4372,54 +4189,39 @@ app.get('/logs', async (req, res) => {
   }
 });
 
-// POST /logs - Crear nuevo log
-app.post('/logs', async (req, res) => {
-  try {
-    const { level, component, message, details, leadId } = req.body;
+// NOTA: POST /logs consolidado en la línea 382 con soporte de instanceId y emisión Socket.io.
 
-    const logEntry = new Log({
-      level: level || 'info',
-      component: component || 'crm',
-      message,
-      details,
-      leadId
-    });
+// Filtro de seguridad para NO resetear contactos etiquetados, pausados o descartados
+const SAFE_RESET_GUARD = {
+  botPaused: { $ne: true },
+  isQualified: { $ne: false },
+  $and: [
+    { $or: [{ tags: { $exists: false } }, { tags: { $size: 0 } }, { tags: null }] },
+    { $or: [{ labels: { $exists: false } }, { labels: { $size: 0 } }, { labels: null }] }
+  ]
+};
 
-    await logEntry.save();
-
-    res.json({
-      success: true,
-      log: logEntry
-    });
-  } catch (error) {
-    console.error('Error creando log:', error);
-    res.status(500).json({
-      error: 'Error interno del servidor',
-      message: error.message
-    });
-  }
-});
-
-// POST /leads/reset-status - Resetear estado de todos los leads a 'pending'
+// POST /leads/reset-status - Resetear estado de leads seguros a 'pending'
 app.post('/leads/reset-status', async (req, res) => {
   try {
-    console.log('🔄 Reseteando estado de leads...');
+    console.log('🔄 Reseteando estado de leads (respetando etiquetas y pausas)...');
 
-    // Resetear todos los leads a 'pending'
     const result = await Lead.updateMany(
-      { status: { $in: ['contacted', 'interested', 'not_interested', 'completed'] } },
+      {
+        status: { $in: ['contacted', 'interested', 'not_interested', 'completed'] },
+        ...SAFE_RESET_GUARD
+      },
       { status: 'pending' }
     );
 
     console.log(`✅ ${result.modifiedCount} leads reseteados a 'pending'`);
 
-    // Obtener estadísticas actualizadas
     const pendingLeads = await Lead.countDocuments({ status: 'pending' });
     const totalLeads = await Lead.countDocuments();
 
     res.json({
       success: true,
-      message: `${result.modifiedCount} leads reseteados a 'pending'`,
+      message: `${result.modifiedCount} leads reseteados a 'pending' (etiquetados protegidos)`,
       stats: {
         pending: pendingLeads,
         total: totalLeads
@@ -4440,13 +4242,12 @@ app.post('/leads/reset', async (req, res) => {
   try {
     const { leadIds, status = 'all' } = req.body;
 
-    let filter = {};
+    let filter = { ...SAFE_RESET_GUARD };
 
     // Si se proporcionan IDs específicos
     if (leadIds && Array.isArray(leadIds) && leadIds.length > 0) {
       filter._id = { $in: leadIds };
     } else {
-      // Si no se especifican IDs, resetear por estado
       if (status === 'all') {
         filter.status = { $in: ['contacted', 'interested', 'not_interested', 'completed'] };
       } else if (status === 'contacted') {
@@ -4460,7 +4261,6 @@ app.post('/leads/reset', async (req, res) => {
       }
     }
 
-    // Actualizar leads
     const result = await Lead.updateMany(filter, {
       $set: {
         status: 'pending',
@@ -4481,8 +4281,6 @@ app.post('/leads/reset', async (req, res) => {
       }
     });
 
-    // MongoDB es la fuente principal de datos
-
     log(`Leads reseteados: ${result.modifiedCount} leads`, 'info', 'crm', {
       leadIds,
       status,
@@ -4491,7 +4289,7 @@ app.post('/leads/reset', async (req, res) => {
 
     res.json({
       success: true,
-      message: `${result.modifiedCount} leads reseteados correctamente`,
+      message: `${result.modifiedCount} leads reseteados correctamente (etiquetados protegidos)`,
       modifiedCount: result.modifiedCount,
       filter: filter
     });
@@ -4505,11 +4303,14 @@ app.post('/leads/reset', async (req, res) => {
   }
 });
 
-// POST /leads/reset-all - Resetear todos los leads contactados
+// POST /leads/reset-all - Resetear todos los leads contactados (protegiendo etiquetados)
 app.post('/leads/reset-all', async (req, res) => {
   try {
     const result = await Lead.updateMany(
-      { status: { $in: ['contacted', 'interested', 'not_interested', 'completed'] } },
+      {
+        status: { $in: ['contacted', 'interested', 'not_interested', 'completed'] },
+        ...SAFE_RESET_GUARD
+      },
       {
         $set: {
           status: 'pending',
@@ -4531,13 +4332,11 @@ app.post('/leads/reset-all', async (req, res) => {
       }
     );
 
-    // MongoDB es la fuente principal de datos
-
     log(`Todos los leads contactados reseteados: ${result.modifiedCount} leads`, 'info', 'crm');
 
     res.json({
       success: true,
-      message: `${result.modifiedCount} leads reseteados correctamente`,
+      message: `${result.modifiedCount} leads reseteados correctamente (etiquetados protegidos)`,
       modifiedCount: result.modifiedCount
     });
 
@@ -4591,7 +4390,7 @@ app.put('/leads/mark-all-contacted', async (req, res) => {
   }
 });
 
-// PUT /api/leads/reset-today - Resetear leads scrapeados hoy
+// PUT /api/leads/reset-today - Resetear leads scrapeados hoy (protegiendo etiquetados)
 app.put('/api/leads/reset-today', async (req, res) => {
   try {
     const { date } = req.body;
@@ -4600,11 +4399,11 @@ app.put('/api/leads/reset-today', async (req, res) => {
 
     console.log(`🔄 Reseteando leads scrapeados desde: ${today.toISOString()}`);
 
-    // Resetear leads creados hoy
     const result = await Lead.updateMany(
       {
         createdAt: { $gte: today },
-        status: { $in: ['contacted', 'interested', 'not_interested', 'completed'] }
+        status: { $in: ['contacted', 'interested', 'not_interested', 'completed'] },
+        ...SAFE_RESET_GUARD
       },
       {
         $set: {
@@ -4629,13 +4428,12 @@ app.put('/api/leads/reset-today', async (req, res) => {
 
     console.log(`✅ ${result.modifiedCount} leads de hoy reseteados a "pending"`);
 
-    // Obtener estadísticas actualizadas
     const pendingLeads = await Lead.countDocuments({ status: 'pending' });
     const totalLeads = await Lead.countDocuments();
 
     res.json({
       success: true,
-      message: `${result.modifiedCount} leads de hoy reseteados a "pending"`,
+      message: `${result.modifiedCount} leads de hoy reseteados a "pending" (etiquetados protegidos)`,
       modifiedCount: result.modifiedCount,
       stats: {
         pending: pendingLeads,
@@ -4650,23 +4448,6 @@ app.put('/api/leads/reset-today', async (req, res) => {
       message: error.message
     });
   }
-});
-
-// Middleware de manejo de errores
-app.use((error, req, res, next) => {
-  console.error('Error no manejado:', error);
-  res.status(500).json({
-    error: 'Error interno del servidor',
-    message: 'Algo salió mal'
-  });
-});
-
-// Middleware para rutas no encontradas
-app.use('*', (req, res) => {
-  res.status(404).json({
-    error: 'Ruta no encontrada',
-    message: `La ruta ${req.originalUrl} no existe`
-  });
 });
 
 
@@ -5135,79 +4916,7 @@ ${keywordList || '• Sin datos'}`;
 // Endpoint moved to line 1648
 
 
-// GET /next - Obtener siguiente lead para procesar (Endpoint crítico para el bot)
-app.get('/next', async (req, res) => {
-  try {
-    const { instanceId } = req.query; // Bot que solicita el lead
-
-    // 1. Estadísticas de cola
-    const pendingCount = await Lead.countDocuments({ status: 'pending' });
-    const totalCount = await Lead.countDocuments({});
-
-    // 2. Buscar siguiente lead pendiente (FIFO)
-    const labelExclusion = {
-      botPaused: { $ne: true },
-      $and: [
-        {
-          $or: [
-            { tags: { $exists: false } },
-            { tags: { $size: 0 } },
-            { tags: null }
-          ]
-        },
-        {
-          $or: [
-            { labels: { $exists: false } },
-            { labels: { $size: 0 } },
-            { labels: null }
-          ]
-        }
-      ]
-    };
-
-    const lead = await Lead.findOneAndUpdate(
-      {
-        status: 'pending',
-        ...labelExclusion
-      },
-      {
-        $set: {
-          status: 'processing',
-          contactedByInstance: instanceId || 'unknown',
-          lastContactAt: new Date()
-        }
-      },
-      { sort: { createdAt: 1 }, new: true } // El más antiguo primero
-    );
-
-    if (!lead) {
-      return res.json({
-        success: true,
-        message: 'No hay leads pendientes',
-        queue: {
-          pending: pendingCount,
-          total: totalCount
-        }
-      });
-    }
-
-    console.log(`📤 Asignando lead ${lead.businessName || lead.phone} a ${instanceId}`);
-
-    res.json({
-      success: true,
-      lead,
-      queue: {
-        pending: pendingCount, // Restamos 1 porque acabamos de tomar uno? No, count fue antes.
-        total: totalCount
-      }
-    });
-
-  } catch (error) {
-    console.error('Error en /next:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
+// NOTA: GET /next consolidado al inicio del archivo (línea 224) con auto-recuperación y garantía de Dossier IA.
 
 // POST /api/admin/migrate-leadnames - Migrar nombres de leads en mensajes
 app.post('/api/admin/migrate-leadnames', async (req, res) => {
@@ -5283,6 +4992,23 @@ app.post('/api/admin/migrate-leadnames', async (req, res) => {
     console.error('❌ Error en migración:', error);
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+// Middleware de manejo de errores (al final de todas las rutas)
+app.use((error, req, res, next) => {
+  console.error('Error no manejado:', error);
+  res.status(500).json({
+    error: 'Error interno del servidor',
+    message: 'Algo salió mal'
+  });
+});
+
+// Middleware para rutas no encontradas (al final de todas las rutas)
+app.use('*', (req, res) => {
+  res.status(404).json({
+    error: 'Ruta no encontrada',
+    message: `La ruta ${req.originalUrl} no existe`
+  });
 });
 
 // Iniciar servidor

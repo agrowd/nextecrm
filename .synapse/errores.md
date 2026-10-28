@@ -385,3 +385,37 @@ Posteriormente `docker compose up -d` falla con `no space left on device`.
 2. En el VPS: limpiar el cache de build acumulado (`docker builder prune -a -f` y `docker system prune -f`), purgar caches temporales de Chromium en `*/sessions/*/Default/Service Worker/ScriptCache` y `Cache`, y liberar espacio en disco.
 3. Hacer commit y push a GitHub para que `git pull` descargue los cambios y el nuevo `.dockerignore`.
 **Estado:** ✅ FIXED
+
+---
+
+## ERR-20: Extensión abortaba al cambiar de pestaña, descartaba leads por Stale DOM (`h1` anterior) y no reseteaba `stopRequested` (2026-10-28)
+**Síntoma:**
+1. Cambiar de pestaña en Chrome detenía inmediatamente el scraping.
+2. Si se presionaba "Detener" una vez, no volvía a funcionar hasta recargar Google Maps (F5).
+3. Entre el 30% y 50% de las tarjetas de Google Maps se saltaban como "Lead duplicado en sesión" a pesar de ser comercios distintos.
+**Root Cause:**
+1. `background.js` tenía un listener en `chrome.tabs.onActivated` que llamaba a `stopScraping()`.
+2. `content.js` nunca reseteaba `stopRequested = false` al iniciar una nueva cola.
+3. Al hacer click en una tarjeta nueva, `getTitleEl()` leía inmediatamente el `h1` de la tarjeta anterior antes de que React/Maps actualizara el panel lateral.
+**Solución:**
+1. Eliminado `chrome.tabs.onActivated` en `background.js` y agregado modo autónomo GPS (`startAgent1Auto`) + `scrapeCurrentView`.
+2. Reseteo de `stopRequested = false` al inicio de cada ejecución en `content.js`.
+3. Nuevo `getUpdatedTitleText(prevTitle, expectedLabel)` en `content.js` que espera a que el `h1` coincida con el `aria-label` de la tarjeta clickeada o cambie respecto al `prevTitle`, más micro-scroll en el panel de detalle para cargar reseñas.
+**Estado:** ✅ FIXED
+
+---
+
+## ERR-21: Sobrescritura de estado de leads respondidos en vivo, 5to mensaje legacy y `ReferenceError: msg is not defined` en Bot (2026-10-28)
+**Síntoma:**
+1. Cuando un lead respondía en vivo a mitad de secuencia (pasando a `interested` o `not_interested`), al salir del bucle `sendMessageSequence` el bot lo pisaba con `status: 'contacted'`.
+2. Cuando un lead tenía auto-respuesta de WhatsApp Business, el bot inyectaba un 5to mensaje genérico (`salesPitches`) encima de los 4 mensajes de IA.
+3. Si un contacto `@lid` respondía durante la secuencia, `msg.getContact()` lanzaba `ReferenceError: msg is not defined`.
+**Root Cause:**
+1. `updateLeadStatus(lead.id, 'contacted')` se ejecutaba incondicionalmente después del bucle `for` en `sendMessageSequence`.
+2. Bloque legacy de `salesPitches.splice` seguía activo en `bot/index.js`.
+3. Variable mal nombrada (`msg` en vez de `message`) en `handleIncomingMessage`.
+**Solución:**
+1. Flag `sequenceAbortedByReply` y contador `actualMessagesSent` para preservar el estado si la secuencia se interrumpió por respuesta o etiqueta en vivo.
+2. Eliminado el bloque de inyección de 5to mensaje y activado aborto real cuando `/lead/check-messages` devuelve `safeToSend: false`.
+3. Corregido `await message.getContact()`, eliminada doble llamada a `this.client.initialize()` y sincronizados `bot/`, `bot_1/`, `bot_2/`, `bot_3/`, `bot_4/`.
+**Estado:** ✅ FIXED

@@ -1,9 +1,10 @@
-// content.js – GMaps Leads Scraper (rev-25, 2025-07-14)
+// content.js – GMaps Leads Scraper (rev-26, Ariadne Agent 1 GPS + Anti-Stale-DOM)
 //  • mantiene todo lo que ya funcionaba (título, scroll, logs etc.)
 //  • agrega pausa "humana" de 3-10 s entre tarjetas
-//  • la señal stopScraping detiene ambos bucles de inmediato
-//  • extrae título, teléfono, dirección y web con CSS y XPath
-//  • FILTRA DUPLICADOS en sesión para evitar envíos innecesarios
+//  • la señal stopScraping detiene ambos bucles de inmediato y se resetea al iniciar
+//  • espera cambio real de h1 para evitar falsos duplicados (Stale DOM)
+//  • micro-scroll en panel de detalle para cargar reseñas reales de Google Maps
+//  • soporta scrapeCurrentView y modo autónomo GPS de Agente 1
 
 (() => {
   /* ───── helpers básicos ───── */
@@ -15,15 +16,10 @@
     const C = { info: '#3498db', warn: '#f39c12', error: '#e74c3c', success: '#2ecc71' }[l] || '#3498db';
     console.log(`%c[scraper] ${m}`, `color:${C};font-weight:bold`);
     try {
-      chrome.runtime.sendMessage({ type: 'scraper-log', level: l, message: m }, (response) => {
-        // Ignorar errores de conexión silenciosamente
-        if (chrome.runtime.lastError) {
-          // El mensaje no se pudo enviar, pero continuamos sin interrumpir el flujo
-        }
+      chrome.runtime.sendMessage({ type: 'scraper-log', level: l, message: m }, () => {
+        if (chrome.runtime.lastError) {}
       });
-    } catch (e) {
-      // Ignorar errores de envío de mensajes
-    }
+    } catch (e) {}
   };
 
   async function waitFor(fn, timeout = 15000, poll = 200) {
@@ -43,11 +39,13 @@
     return rect.width > 0 && rect.height > 0;
   };
 
+  const xp = (path, ctx = document) =>
+    document.evaluate(path, ctx, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+
   // Función mejorada para esperar un elemento usando CSS o XPath
   async function waitForInput(timeout = 20000) {
     const t0 = Date.now();
     while (Date.now() - t0 < timeout) {
-      // Estrategia 1: Selectores CSS comunes
       const cssSelectors = [
         '#searchboxinput',
         'form#searchboxform input',
@@ -66,12 +64,10 @@
       for (const sel of cssSelectors) {
         const el = document.querySelector(sel);
         if (isVisible(el)) {
-          log(`✅ Input encontrado con selector: ${sel}`, 'success');
           return el;
         }
       }
 
-      // Estrategia 2: XPath proporcionado por el usuario
       const xpathSelectors = [
         '/html/body/div[1]/div[2]/div[9]/div[3]/div[1]/div[1]/div/div[2]/form/input',
         '//*[@id="searchboxinput"]',
@@ -89,21 +85,15 @@
         try {
           const el = xp(xpath);
           if (isVisible(el)) {
-            log(`✅ Input encontrado con XPath`, 'success');
             return el;
           }
-        } catch (e) {
-          // Continuar con el siguiente selector
-        }
+        } catch (e) {}
       }
 
       await delay(200);
     }
     throw new Error('Timeout: No se pudo encontrar el input de búsqueda');
   }
-
-  const xp = (path, ctx = document) =>
-    document.evaluate(path, ctx, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
 
   /* ───── notificación de finalización ───── */
   function notifyScrapingDone() {
@@ -128,12 +118,12 @@
       try {
         const beep = new Audio(chrome.runtime.getURL('notification.mp3'));
         beep.play();
-      } catch { }
+      } catch {}
     }
   }
 
   /* ───── filtro de duplicados ───── */
-  const sentLeads = new Set(); // leads ya enviados en esta sesión
+  const sentLeads = new Set();
   const getLeadKey = lead => `${lead.name}|${lead.phone}|${lead.address}`.toLowerCase().trim();
 
   const isDuplicate = lead => {
@@ -170,21 +160,50 @@
   const CAT_CSS = ['button.DkEaL', 'button[jsaction*="category"]'];
   const CAT_XP = ['//button[contains(@class, "DkEaL")]'];
 
-  async function getTitleEl(timeout = 20000) {
-    const t0 = Date.now();
-    while (Date.now() - t0 < timeout) {
-      for (const s of TITLE_CSS) {
-        const el = document.querySelector(s);
-        if (el?.innerText.trim()) return el;
-      }
-      for (const p of TITLE_XP) {
-        const el = xp(p);
-        if (el?.textContent.trim()) return el;
-      }
-      await delay(250);
+  function readCurrentTitleText() {
+    for (const s of TITLE_CSS) {
+      const el = document.querySelector(s);
+      if (el?.innerText?.trim()) return el.innerText.trim();
     }
+    for (const p of TITLE_XP) {
+      const el = xp(p);
+      if (el?.textContent?.trim()) return el.textContent.trim();
+    }
+    return '';
+  }
+
+  async function getUpdatedTitleText(prevTitle, expectedLabel, timeout = 8000) {
+    const t0 = Date.now();
+    const normExpected = (expectedLabel || '').toLowerCase().trim();
+    const normPrev = (prevTitle || '').toLowerCase().trim();
+
+    while (Date.now() - t0 < timeout) {
+      const cur = readCurrentTitleText();
+      if (cur) {
+        const normCur = cur.toLowerCase().trim();
+        // Si coincide con el aria-label de la tarjeta clickeada, es el título nuevo
+        if (normExpected && (normCur === normExpected || normCur.includes(normExpected) || normExpected.includes(normCur))) {
+          return cur;
+        }
+        // Si cambió respecto al título anterior del panel, ya se actualizó el DOM
+        if (!normPrev || normCur !== normPrev) {
+          return cur;
+        }
+        // Si pasaron más de 4.2s y el título sigue igual (caso raro de 2 sucursales seguidas con igual nombre), aceptarlo
+        if (Date.now() - t0 > 4200) {
+          return cur;
+        }
+      }
+      await delay(200);
+    }
+    const fallback = readCurrentTitleText();
+    if (fallback) return fallback;
     throw new Error('Título no cargado');
   }
+
+  /* ───── control de parada ───── */
+  let stopRequested = false;
+  const checkStop = () => stopRequested;
 
   /* ───── feed y tarjetas ───── */
   const FEED_SELECTORS = [
@@ -212,11 +231,13 @@
   async function scrollFeed() {
     const feed = await waitForFeed(20000);
     let scrollCount = 0;
-    const maxScrolls = 50; // Aumentar significativamente para casos con muchos resultados
+    const maxScrolls = 45;
+    let lastScrollHeight = 0;
+    let lastCardsCount = 0;
+    let unchangedCount = 0;
 
-    log('📜 Iniciando scroll del feed...', 'info');
+    log('📜 Iniciando scroll inteligente del feed...', 'info');
 
-    // Selectores para el texto "Has llegado al final de la lista"
     const END_TEXT_CSS = [
       'p.fontBodyMedium span.HlvSq',
       'p.fontBodyMedium span span',
@@ -228,46 +249,55 @@
       '//p[contains(@class,"fontBodyMedium")]//span[contains(text(),"final de la lista")]'
     ];
 
-    // Función para verificar si llegamos al final
     const checkEndReached = () => {
-      const endTexts = ['Has llegado al final de la lista', "You've reached the end of the list"];
-      // Buscar con CSS selectors
+      const endTexts = ['Has llegado al final de la lista', "You've reached the end of the list", 'No hay más resultados'];
       for (const selector of END_TEXT_CSS) {
         const el = document.querySelector(selector);
         if (el?.textContent && endTexts.some(t => el.textContent.includes(t))) {
           return true;
         }
       }
-
-      // Buscar con XPath
       for (const xpath of END_TEXT_XP) {
         const el = xp(xpath);
         if (el?.textContent && endTexts.some(t => el.textContent.includes(t))) {
           return true;
         }
       }
-
       return false;
     };
 
-    while (scrollCount < maxScrolls) {
+    while (scrollCount < maxScrolls && !checkStop()) {
       feed.scrollTo({ top: feed.scrollHeight, behavior: 'smooth' });
       scrollCount++;
 
-      // Esperar para que carguen más resultados
-      await delay(rand(2000, 3500));
+      await delay(rand(1800, 3000));
+      if (checkStop()) break;
 
-      // Verificar si llegamos al final
       if (checkEndReached()) {
         log(`🏁 Scroll ${scrollCount}: ¡Llegamos al final de la lista!`, 'success');
         break;
       }
 
-      log(`📈 Scroll ${scrollCount}: Continuando...`, 'info');
+      const currentHeight = feed.scrollHeight;
+      const currentCards = cardsList().length;
+
+      if (currentHeight === lastScrollHeight && currentCards === lastCardsCount) {
+        unchangedCount++;
+        if (unchangedCount >= 3) {
+          log(`🏁 Scroll ${scrollCount}: Sin nuevos resultados tras 3 intentos (${currentCards} tarjetas).`, 'success');
+          break;
+        }
+      } else {
+        unchangedCount = 0;
+        lastScrollHeight = currentHeight;
+        lastCardsCount = currentCards;
+      }
+
+      log(`📈 Scroll ${scrollCount}: ${currentCards} tarjetas cargadas...`, 'info');
     }
 
     const totalCards = cardsList().length;
-    log(`✅ Feed scrolleado completamente - ${totalCards} tarjetas encontradas`, 'success');
+    log(`✅ Feed listo - ${totalCards} tarjetas encontradas`, 'success');
   }
 
   /* ───── búsqueda ───── */
@@ -282,16 +312,10 @@
 
   async function doSearch(q) {
     try {
-      log(`🔍 Buscando input para: "${q}"`, 'info');
-
-      // Buscar el input con múltiples estrategias
+      log(`🔍 Buscando: "${q}"`, 'info');
       const input = await waitForInput(25000);
+      if (!input) throw new Error('Input no encontrado');
 
-      if (!input) {
-        throw new Error('Input no encontrado después de múltiples intentos');
-      }
-
-      // Limpiar el input primero
       input.focus();
       input.click();
       setInputValue(input, '');
@@ -299,19 +323,16 @@
       input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
       await delay(200);
 
-      // Escribir la búsqueda
       setInputValue(input, q);
       input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
       input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
       await delay(500);
 
-      // Disparar eventos de teclado
       ['keydown', 'keyup', 'keypress'].forEach(e =>
         input.dispatchEvent(new KeyboardEvent(e, { key: 'Enter', keyCode: 13, bubbles: true, cancelable: true }))
       );
       await delay(300);
 
-      // Buscar y hacer click en el botón de búsqueda con múltiples estrategias
       const buttonSelectors = [
         '#searchbox-searchbutton',
         'button[aria-label*="Buscar"]',
@@ -326,37 +347,23 @@
         if (isVisible(btn)) {
           btn.click();
           buttonClicked = true;
-          log(`✅ Botón de búsqueda encontrado y clickeado con: ${sel}`, 'success');
           break;
         }
       }
 
-      // Si no se encontró el botón, intentar presionar Enter en el input
       if (!buttonClicked) {
         const form = input.closest('form');
         if (form?.requestSubmit) {
           form.requestSubmit();
           buttonClicked = true;
-          log('OK: form submit via requestSubmit()', 'info');
         } else if (form) {
           form.submit();
           buttonClicked = true;
-          log('OK: form submit()', 'info');
         }
       }
 
-      if (!buttonClicked) {
-        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
-        await delay(100);
-        input.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
-        await delay(100);
-        input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
-        log(`?o. Enter presionado en input (bot??n no encontrado)`, 'info');
-      }
-
       log(`🔎 Búsqueda enviada → ${q}`, 'success');
-      await delay(2000); // Esperar a que la búsqueda se procese
-
+      await delay(2000);
     } catch (error) {
       log(`❌ Error en doSearch: ${error.message}`, 'error');
       throw error;
@@ -365,8 +372,8 @@
 
   /* ───── utilidades de extracción ───── */
   const getText = (css, xpArr, scope) => {
-    for (const s of css) { const el = scope.querySelector(s); if (el?.innerText.trim()) return el.innerText.trim(); }
-    for (const p of xpArr) { const el = xp(p, scope); if (el?.textContent.trim()) return el.textContent.trim(); }
+    for (const s of css) { const el = scope.querySelector(s); if (el?.innerText?.trim()) return el.innerText.trim(); }
+    for (const p of xpArr) { const el = xp(p, scope); if (el?.textContent?.trim()) return el.textContent.trim(); }
     return '';
   };
   const getHref = (css, xpArr, scope) => {
@@ -376,24 +383,40 @@
   };
 
   /* ───── abrir tarjeta y sacar datos ───── */
-  async function openAndExtract(card, kw, loc, tries = 3) {
+  async function openAndExtract(card, kw, loc, zoneMeta = {}, tries = 3) {
     for (let at = 0; at < tries; at++) {
+      if (checkStop()) return null;
       try {
+        const prevTitle = readCurrentTitleText();
         const anchor = card.querySelector('a[href*="/maps/place/"]') || card;
+        const expectedLabel = (
+          card.getAttribute('aria-label') ||
+          anchor.getAttribute('aria-label') ||
+          card.querySelector('.qBF1Pd, .fontHeadlineSmall')?.textContent ||
+          ''
+        ).trim();
+
         anchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await rwait(); anchor.click();
+        await rwait();
+        anchor.click();
 
         await waitForSel('[role="main"]', 15000);
+        const titleText = await getUpdatedTitleText(prevTitle, expectedLabel, 8000);
+        // Pausa breve para asegurar que teléfono, web y dirección del nuevo panel hayan renderizado
+        await delay(450);
+
         const main = document.querySelector('[role="main"]');
-        const title = await getTitleEl();
+        if (!main) throw new Error('Panel principal no disponible');
 
         const lead = {
-          name: title.textContent.trim(),
+          name: titleText,
           phone: getText(PHONE_CSS, PHONE_XP, main),
           address: getText(ADDR_CSS, ADDR_XP, main),
           website: getHref(WEB_CSS, WEB_XP, main),
           keyword: kw,
           location: loc,
+          zoneId: zoneMeta.zoneId || undefined,
+          zoneName: zoneMeta.zoneName || undefined,
           mapsUrl: location.href.split(/[?#]/)[0],
           category: getText(CAT_CSS, CAT_XP, main)
         };
@@ -415,6 +438,15 @@
           const val = parseInt(reviewsStr.replace(/\D/g, ''), 10);
           if (!isNaN(val)) lead.reviewCount = val;
         }
+
+        // Micro-scroll en el panel de detalle para que Google Maps cargue los snippets de reseñas (lazy load)
+        try {
+          const scrollablePane = main.querySelector('div.m6QErb.DxyBCb') || main;
+          if (scrollablePane) {
+            scrollablePane.scrollBy({ top: 650, behavior: 'smooth' });
+            await delay(500);
+          }
+        } catch {}
 
         // Extraer Reseñas visibles (Review Snippets para minería de dolores)
         lead.reviews = [];
@@ -443,7 +475,6 @@
             });
           }
 
-          // Fallback a cualquier span de reseña visible
           if (lead.reviews.length === 0) {
             const snippetEls = main.querySelectorAll('span.wiI7pd');
             snippetEls.forEach(snip => {
@@ -456,19 +487,15 @@
             });
           }
           if (lead.reviews.length > 0) {
-            log(`⭐ Extraídas ${lead.reviews.length} opiniones públicas para ${lead.name}`, 'info');
+            log(`⭐ Extraídas ${lead.reviews.length} reseñas para ${lead.name}`, 'info');
           }
-        } catch (revErr) {
-          // Ignorar silenciosamente
-        }
+        } catch {}
 
-        // Verificar si es duplicado antes de enviar
         if (isDuplicate(lead)) {
-          log(`⏭️ Saltando lead duplicado: ${lead.name}`, 'warn');
           return null;
         }
 
-        log(`📇 Lead extraído → ${lead.name}`, 'success');
+        log(`📇 Lead extraído → ${lead.name} ${lead.phone ? '(' + lead.phone + ')' : '(sin tel)'}`, 'success');
         return lead;
       } catch (e) {
         log(`⚠️ Intento ${at + 1} fallido: ${e.message}`, 'warn');
@@ -476,6 +503,7 @@
         await delay(rand(800, 1200));
       }
     }
+    return null;
   }
 
   /* ───── backend via background.js ───── */
@@ -484,32 +512,132 @@
       chrome.runtime.sendMessage({ action: 'lead', lead: l }, res => {
         if (chrome.runtime.lastError) {
           log(`❌ Error de conexión al enviar lead: ${chrome.runtime.lastError.message}`, 'error');
-          r();
+          r(false);
           return;
         }
-        res?.ok
-          ? log(`✅ Lead enviado: ${l.name}`, 'success')
-          : log(`❌ Error envío backend: ${res?.error}`, 'error');
-        r();
+        if (res?.ok) {
+          log(`✅ Lead enviado al CRM: ${l.name}`, 'success');
+          r(true);
+        } else {
+          log(`❌ Error envío backend: ${res?.error}`, 'error');
+          r(false);
+        }
       });
     } catch (e) {
       log(`❌ Excepción al enviar lead: ${e.message}`, 'error');
-      r();
+      r(false);
     }
   });
 
-  /* ───── control de parada ───── */
-  let stopRequested = false;
-  const checkStop = () => stopRequested;
+  // Inferir rubro y ubicación de la URL o input si el usuario usó "Raspar Vista Actual" sin llenar campos
+  function inferQueryFromPage(defaultKw, defaultLoc) {
+    let kw = defaultKw || '';
+    let loc = defaultLoc || '';
+    if (kw && loc) return { kw, loc };
 
-  /* ───── listener desde el popup ───── */
+    const inputEl = document.querySelector('#searchboxinput, form[role="search"] input');
+    const rawSearch = inputEl?.value?.trim() || '';
+    if (rawSearch) {
+      if (!kw) kw = rawSearch;
+      if (!loc) loc = 'Vista Maps';
+      return { kw, loc };
+    }
+
+    const m = decodeURIComponent(window.location.pathname).match(/\/maps\/search\/([^/]+)/);
+    if (m && m[1]) {
+      const cleaned = m[1].replace(/\+/g, ' ').trim();
+      if (!kw) kw = cleaned;
+      if (!loc) loc = 'Vista GPS';
+      return { kw, loc };
+    }
+
+    return { kw: kw || 'General', loc: loc || 'Zona Actual' };
+  }
+
+  /* ───── listener desde el popup / background ───── */
   chrome.runtime.onMessage.addListener((msg, _, reply) => {
-    /* --- iniciar cola --- */
+    /* --- 1. Raspar Vista Actual o Objetivo GPS de Agente 1 --- */
+    if (msg.action === 'scrapeCurrentView') {
+      stopRequested = false;
+      reply?.({ success: true });
+
+      (async () => {
+        const { kw, loc } = inferQueryFromPage(msg.keyword, msg.location);
+        const zoneMeta = { zoneId: msg.zoneId, zoneName: msg.zoneName };
+        let leadsSent = 0;
+
+        log(`📍 Raspando vista GPS: "${kw}" en "${loc}"`, 'info');
+
+        try {
+          // Esperar a que haya tarjetas en la vista actual (o buscar si la URL no abrió el feed)
+          let hasCards = false;
+          try {
+            await waitFor(() => cardsList().length > 0, 14000);
+            hasCards = true;
+          } catch {
+            if (msg.searchQuery || (kw && kw !== 'General')) {
+              const q = msg.searchQuery || `${kw} ${loc}`.trim();
+              log(`🔍 Feed no detectado en vista directa, ejecutando búsqueda: "${q}"`, 'info');
+              await doSearch(q);
+              await waitFor(() => cardsList().length > 0, 20000);
+              hasCards = true;
+            }
+          }
+
+          if (hasCards && !checkStop()) {
+            await delay(1500);
+            await scrollFeed();
+            const cards = cardsList();
+            log(`📋 ${cards.length} negocios encontrados en esta zona`, 'info');
+
+            for (let i = 0; i < cards.length; i++) {
+              if (checkStop()) break;
+              log(`➡️ Procesando negocio (${i + 1}/${cards.length})`, 'info');
+              const lead = await openAndExtract(cards[i], kw, loc, zoneMeta);
+              if (lead) {
+                const ok = await sendLead(lead);
+                if (ok) leadsSent++;
+              }
+              await delay(rand(2500, 6500));
+            }
+          } else if (!hasCards) {
+            log(`⚠️ No se encontraron negocios en esta zona`, 'warn');
+          }
+        } catch (err) {
+          log(`❌ Error raspando vista: ${err.message}`, 'error');
+        }
+
+        if (msg.isAgent1Auto || msg.zoneId) {
+          try {
+            chrome.runtime.sendMessage({
+              action: 'zoneFinished',
+              zoneId: msg.zoneId,
+              keyword: kw,
+              leadsFound: leadsSent,
+              isAgent1Auto: Boolean(msg.isAgent1Auto),
+              stopped: checkStop()
+            });
+          } catch {}
+        } else {
+          checkStop()
+            ? log('⏹️ Scraping detenido por usuario', 'warn')
+            : log(`🏁 Vista actual finalizada (${leadsSent} leads enviados)`, 'success');
+          notifyScrapingDone();
+          try {
+            chrome.runtime.sendMessage({ action: 'scrapingFinished' });
+          } catch {}
+        }
+      })();
+      return true;
+    }
+
+    /* --- 2. Iniciar Cola Manual --- */
     if (msg.action === 'startScrapingQueue' && Array.isArray(msg.queue)) {
+      stopRequested = false;
       reply?.({ success: true, total: msg.queue.length });
       (async () => {
         log(`🚦 Scraping iniciado – total búsquedas: ${msg.queue.length}`, 'info');
-        sentLeads.clear(); // Limpiar duplicados al iniciar nueva sesión
+        sentLeads.clear();
         log(`🧹 Filtro de duplicados reiniciado`, 'info');
 
         outer:
@@ -522,44 +650,31 @@
 
             await doSearch(searchQuery);
 
-            // Esperar a que aparezcan las tarjetas con más tiempo y mejor manejo
             log(`⏳ Esperando resultados de búsqueda...`, 'info');
             try {
-              await waitFor(() => {
-                const cards = cardsList();
-                return cards.length > 0;
-              }, 25000);
-
-              // Dar tiempo adicional para que se carguen más elementos
+              await waitFor(() => cardsList().length > 0, 25000);
               await delay(2000);
-
             } catch (e) {
               log(`⚠️ No se encontraron tarjetas para "${searchQuery}": ${e.message}`, 'warn');
-              log(`⏭️ Continuando con la siguiente búsqueda...`, 'info');
-              continue; // Continuar con la siguiente búsqueda
+              continue;
             }
 
             await scrollFeed();
             const cards = cardsList();
             log(`📋 ${cards.length} tarjetas encontradas para "${searchQuery}"`, 'info');
 
-            if (cards.length === 0) {
-              log(`⚠️ No hay tarjetas para procesar en "${searchQuery}"`, 'warn');
-              continue;
-            }
+            if (cards.length === 0) continue;
 
             for (let i = 0; i < cards.length; i++) {
               if (checkStop()) break outer;
               log(`➡️ Procesando tarjeta (${i + 1}/${cards.length})`, 'info');
               const lead = await openAndExtract(cards[i], keyword, location);
               if (lead) await sendLead(lead);
-              /* pausa "humana" de 3-10 s */
-              await delay(rand(3000, 10000));
+              await delay(rand(3000, 8000));
             }
           } catch (searchError) {
             log(`❌ Error procesando búsqueda "${keyword} ${location}": ${searchError.message}`, 'error');
-            log(`⏭️ Continuando con la siguiente búsqueda...`, 'info');
-            continue; // Continuar con la siguiente búsqueda en lugar de detener todo
+            continue;
           }
         }
         checkStop()
@@ -568,19 +683,15 @@
 
         notifyScrapingDone();
         try {
-          chrome.runtime.sendMessage({ action: 'scrapingFinished' }, (response) => {
-            if (chrome.runtime.lastError) {
-              console.warn('Error al notificar finalización:', chrome.runtime.lastError.message);
-            }
+          chrome.runtime.sendMessage({ action: 'scrapingFinished' }, () => {
+            if (chrome.runtime.lastError) {}
           });
-        } catch (e) {
-          console.warn('Excepción al notificar finalización:', e.message);
-        }
+        } catch {}
       })();
-      return true; // keep port open
+      return true;
     }
 
-    /* --- detener --- */
+    /* --- 3. Detener --- */
     if (msg.action === 'stopScraping') {
       stopRequested = true;
       reply?.({ stopped: true });
@@ -588,5 +699,5 @@
     }
   });
 
-  log('🟢 GMaps Leads Scraper cargado (rev-25) - Filtro de duplicados activo');
+  log('🟢 GMaps Leads Scraper cargado (rev-26) - Agente 1 GPS & Anti-Stale-DOM activo');
 })();
