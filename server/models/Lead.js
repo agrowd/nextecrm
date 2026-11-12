@@ -66,6 +66,8 @@ const LeadSchema = new mongoose.Schema({
   webAudit: {
     auditedAt: { type: Date, default: null },
     hasWebsite: { type: Boolean, default: false },
+    isSocialOnly: { type: Boolean, default: false },
+    externalPlatform: { type: String, default: '' },
     url: { type: String, default: '' },
     ssl: { type: Boolean, default: false },
     cms: { type: String, default: '' },
@@ -74,9 +76,19 @@ const LeadSchema = new mongoose.Schema({
     hasGTM: { type: Boolean, default: false },
     hasGoogleAds: { type: Boolean, default: false },
     hasWhatsAppWidget: { type: Boolean, default: false },
+    hasBookingSystem: { type: Boolean, default: false },
+    hasChatWidget: { type: Boolean, default: false },
+    isMobileResponsive: { type: Boolean, default: true },
+    loadTimeMs: { type: Number, default: null },
+    instagramUrl: { type: String, default: '' },
+    facebookUrl: { type: String, default: '' },
     title: { type: String, default: '' },
     insights: { type: [String], default: [] }
   },
+  // 📸 Redes Sociales y Plataformas Externas detectadas en Maps o Web
+  instagramUrl: { type: String, default: '', trim: true },
+  facebookUrl: { type: String, default: '', trim: true },
+  externalPlatform: { type: String, default: '', trim: true },
   // ⭐ Reseñas de Google Maps para minería de dolores (Agent 2)
   reviews: [{
     text: { type: String, default: '' },
@@ -84,18 +96,22 @@ const LeadSchema = new mongoose.Schema({
     time: { type: String, default: '' },
     author: { type: String, default: '' }
   }],
-  // 🎯 Dossier de Diagnóstico y Estrategia de Venta (Agent 3)
+  // 🎯 Dossier de Diagnóstico y Estrategia de Venta (Agent 3 - NatoH Systems)
   dossier: {
     analyzedAt: { type: Date, default: null },
     primaryPain: { type: String, default: '' },
     painPoints: { type: [String], default: [] },
-    targetService: { type: String, default: '' }, // 'software_turnero', 'web_express', 'rediseño_web', 'ecommerce', 'ia_natoh'
+    targetService: { type: String, default: '' }, // 'software_custom_erp', 'software_turnero', 'web_express', 'rediseño_web', 'ecommerce', 'gastronomia_pedidos', 'ia_natoh'
     targetServiceLabel: { type: String, default: '' },
     consultativeHook: { type: String, default: '' },
     suggestedPitch: { type: String, default: '' },
     suggestedOffer: { type: String, default: '' },
     confidence: { type: Number, default: null }
   },
+  // 🔥 Lead Scoring & Priorización B2B NatoH Systems (0 - 100)
+  leadScore: { type: Number, default: 50, index: true },
+  priorityTier: { type: String, enum: ['hot', 'warm', 'cold'], default: 'warm', index: true },
+  scoreBreakdown: { type: [String], default: [] },
   // 🗺️ Zona de Escaneo GPS (Agente 1)
   scannedZoneId: { type: String, default: '', trim: true },
   scannedZoneName: { type: String, default: '', trim: true },
@@ -112,16 +128,16 @@ const LeadSchema = new mongoose.Schema({
 // Índices para optimizar consultas
 LeadSchema.index({ name: 1, phone: 1 }, { unique: true });
 LeadSchema.index({ hasWebsite: 1, status: 1 });
+LeadSchema.index({ status: 1, leadScore: -1, createdAt: 1 });
 LeadSchema.index({ status: 1, createdAt: 1 });
 
-// Método estático para obtener el siguiente lead disponible
 // Método estático para obtener el siguiente lead disponible (ATÓMICO para evitar duplicados)
 LeadSchema.statics.getNextLead = function (instanceId) {
-  // Solo tomar leads que NO estén asignados o que estén pendientes
   return this.findOneAndUpdate(
     {
-      status: 'pending', // Solo tomar pending, NO queued (para evitar robar leads en proceso)
+      status: 'pending',
       botPaused: { $ne: true },
+      isQualified: { $ne: false },
       $and: [
         {
           $or: [
@@ -149,11 +165,11 @@ LeadSchema.statics.getNextLead = function (instanceId) {
     {
       status: 'queued',
       nextActionAt: new Date(),
-      assignedToInstance: instanceId, // 🔒 LOCK: Asignado exclusivamente a este bot
+      assignedToInstance: instanceId,
       lastContactAt: new Date()
     },
     {
-      sort: { createdAt: 1 },
+      sort: { leadScore: -1, createdAt: 1 },
       new: true
     }
   );
@@ -225,4 +241,4 @@ LeadSchema.statics.cleanDuplicates = function () {
   ]);
 };
 
-module.exports = mongoose.model('Lead', LeadSchema); 
+module.exports = mongoose.model('Lead', LeadSchema);

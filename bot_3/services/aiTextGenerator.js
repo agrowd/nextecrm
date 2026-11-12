@@ -1,659 +1,204 @@
+const OpenAI = require('openai');
 const axios = require('axios');
-const AdvancedTemplateGenerator = require('./advancedTemplateGenerator');
 
-/**
- * AI Text Generator con OpenAI ChatGPT (gpt-4o-mini)
- * 100% compatible y optimizado para velocidad y costo.
- */
 class AITextGenerator {
     constructor() {
-        if (!process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
-            try {
-                const path = require('path');
-                require('dotenv').config({ path: path.join(__dirname, '../../../.env') });
-                require('dotenv').config({ path: path.join(__dirname, '../../server/.env') });
-                require('dotenv').config({ path: path.join(__dirname, '../.env') });
-            } catch (e) {}
-        }
-        this.apiKey = process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
-        this.model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+        this.openai = null;
+        this.backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8484';
+        this.cachedConfig = null;
+        this.lastConfigFetch = 0;
 
-        // Cache de mensajes generados
-        this.messageCache = new Map();
-
-        // Advanced Template Generator como fuente principal (30+ variantes)
-        this.templateGenerator = new AdvancedTemplateGenerator();
-
-        // Plantillas por tipo de negocio
-        this.templates = {
-            odontologia: {
-                context: "Eres Juan Cruz de Nexte Marketing contactando clínicas dentales en Argentina",
-                tone: "profesional pero cercano",
-                focus: "modernización digital, pack dental 360°, captación de pacientes online, sistema de turnos a medida",
-                keywords: ["consultorio", "pacientes", "turnos", "odontología"],
-                softwareNeed: "high"
-            },
-            belleza: {
-                context: "Eres Juan Cruz de Nexte Marketing contactando salones de belleza y estética",
-                tone: "creativo y moderno",
-                focus: "presencia online, redes sociales, marketing de belleza, sistema de reservas",
-                keywords: ["salón", "clientes", "estética", "belleza"],
-                softwareNeed: "medium"
-            },
-            salud: {
-                context: "Eres Juan Cruz de Nexte Marketing contactando centros de salud",
-                tone: "profesional y confiable",
-                focus: "presencia digital médica, captación de pacientes, CRM médico, análisis de datos",
-                keywords: ["centro médico", "pacientes", "consultas", "salud"],
-                softwareNeed: "high"
-            },
-            restaurante: {
-                context: "Eres Juan Cruz de Nexte Marketing contactando restaurantes",
-                tone: "cálido y profesional",
-                focus: "delivery online, presencia en redes, reservas digitales, sistema de pedidos",
-                keywords: ["restaurante", "clientes", "reservas", "menú"],
-                softwareNeed: "medium"
-            },
-            empresa: {
-                context: "Eres Juan Cruz de Nexte Marketing contactando empresas y negocios B2B",
-                tone: "ejecutivo y estratégico",
-                focus: "software a medida, CRM, sistemas de gestión, análisis de datos, automatización",
-                keywords: ["empresa", "negocio", "gestión", "empresa"],
-                softwareNeed: "very_high"
-            },
-            default: {
-                context: "Eres Juan Cruz de Nexte Marketing",
-                tone: "profesional y amigable",
-                focus: "servicios de marketing digital, presencia online, desarrollo de software",
-                keywords: ["negocio", "clientes", "ventas", "marketing"],
-                softwareNeed: "low"
-            }
-        };
-
-        // Estadísticas
-        this.stats = {
-            messagesGenerated: 0,
-            cacheHits: 0,
-            apiCalls: 0,
-            errors: 0,
-            tokensUsed: 0
-        };
-    }
-
-    async checkHealth() {
-        try {
-            if (!this.apiKey) return false;
-            const res = await this.generateViaOpenAI('Ping');
-            return !!res;
-        } catch (e) {
-            console.error('❌ OpenAI Health Check Failed:', e.message);
-            return false;
-        }
-    }
-
-    /**
-     * Helper para llamar a la API de OpenAI mediante HTTP directo con Axios
-     */
-    async generateViaOpenAI(prompt, systemPrompt = '') {
-        const apiKey = this.apiKey || process.env.OPENAI_API_KEY;
-        if (!apiKey) {
-            throw new Error('OPENAI_API_KEY no configurada en .env');
+        if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your-api-key') {
+            this.openai = new OpenAI({
+                apiKey: process.env.OPENAI_API_KEY
+            });
+            console.log('🤖 [AI Generator] OpenAI inicializado correctamente (Modo Consultivo NatoH Systems + Nexte)');
+        } else {
+            console.log('⚠️ [AI Generator] OPENAI_API_KEY no configurada. Se usarán secuencias dinámicas por Dossier NatoH.');
         }
 
-        const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-            model: this.model || 'gpt-4o-mini',
-            messages: [
-                { role: 'system', content: systemPrompt || 'Eres Juan Cruz de Nexte Marketing. Ayudas a automatizar y hacer crecer negocios digitalmente.' },
-                { role: 'user', content: prompt }
+        // Secuencias Dinámicas por Solución NatoH Systems (Fallback Inteligente sin sonar a robot)
+        this.serviceFallbacks = {
+            software_custom_erp: (lead, city, hook) => [
+                hook || `Hola! ¿Cómo estás? Vi a *${lead.name}* en Google Maps en ${city} y la excelente trayectoria que tienen. ¿Hoy están manejando los pedidos, listas de precios y seguimiento de clientes con algún sistema a medida o mayormente por WhatsApp y planillas?`,
+                `Te consulto porque en *NatoH Systems* (https://natohsystems.com) desarrollamos *Sistemas de Gestión a Medida (Stock, Pedidos Mayoristas, Cotizadores y CRM)* integrados con *Agentes de IA en WhatsApp* que cotizan y cargan pedidos automáticamente las 24 hs.`,
+                `Estamos con la *Promo Otoño 2026* para PyMEs:\n⚙️ *Sistema de Gestión / Pedidos a Medida:* *$350.000* (precio regular $600.000)\n🤖 *Agente IA WhatsApp 24/7:* *$180.000*\nSe abona 50% al iniciar y 50% contra entrega funcionando.`,
+                `Podés ver nuestros desarrollos y sistemas en https://natohsystems.com y https://nextemarketing.com.\n\n¿Te sirve si te muestro en 5 minutos una demo de cómo automatizaría la operatoria de *${lead.name}*?`
             ],
-            temperature: 0.5,
-            max_tokens: 1200
-        }, {
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            },
-            timeout: 15000 // 15 segundos timeout
-        });
-
-        const content = response.data?.choices?.[0]?.message?.content;
-        if (!content) {
-            throw new Error('Respuesta inválida desde la API de OpenAI');
-        }
-        return content.trim();
-    }
-
-    /**
-     * Analizar datos del lead para personalización
-     */
-    analyzeLeadInsights(lead) {
-        const insights = {
-            hasHighRating: (lead.rating || 0) >= 4.5,
-            hasLowRating: (lead.rating || 0) < 3.5,
-            ratingLabel: (lead.rating || 0) >= 4.5 ? 'excelente' :
-                (lead.rating || 0) >= 4.0 ? 'muy buena' :
-                    (lead.rating || 0) >= 3.5 ? 'buena' : 'mejorable',
-
-            hasLowVisibility: (lead.reviewCount || 0) < 20,
-            hasMediumVisibility: (lead.reviewCount || 0) >= 20 && (lead.reviewCount || 0) < 100,
-            hasHighVisibility: (lead.reviewCount || 0) >= 100,
-
-            isPremiumLocation: lead.location && ['palermo', 'recoleta', 'belgrano', 'puerto madero', 'caballito']
-                .some(zone => lead.location.toLowerCase().includes(zone)),
-
-            opportunities: []
+            software_turnero: (lead, city, hook) => [
+                hook || `Hola! ¿Cómo estás? Vi el perfil de *${lead.name}* en Google Maps en ${city}${lead.rating ? ` (¡muy buenas las ${lead.rating}⭐!)` : ''} y noté que hoy coordinan los turnos de forma manual. ¿Les pasa que pierden bastante tiempo respondiendo por horarios disponibles en WhatsApp?`,
+                `En *NatoH Systems* (https://natohsystems.com) implementamos un *Sistema de Turnos Online y Gestión de Clientes/Pacientes* conectado a WhatsApp: tus clientes reservan solos 24/7, reciben recordatorios automáticos y reducís un 40% el ausentismo.`,
+                `Por la *Promo Otoño 2026* lo implementamos llave en mano con 45% OFF:\n📅 *Sistema de Turnos & Gestión Online:* *$350.000* (antes $600.000)\n🤖 *Asistente IA WhatsApp 24/7:* *$180.000*\nSe abona en 2 pagos (50% al iniciar y 50% al entregar).`,
+                `En https://natohsystems.com podés ver nuestras soluciones de software.\n\n¿Te gustaría que te pase una demo interactiva por acá para que veas cómo quedaría la agenda de *${lead.name}*?`
+            ],
+            gastronomia_pedidos: (lead, city, hook) => [
+                hook || `Hola! ¿Cómo va? Vi a *${lead.name}* en Google Maps en ${city} y noté que ${lead.externalPlatform === 'pedidosya' ? 'hoy el link deriva a una app con comisión' : 'no tienen cargada una Carta Digital interactiva propia para pedidos directos por WhatsApp'}.`,
+                `Desde *NatoH Systems* (https://natohsystems.com) armamos tu propia *Carta Digital QR + Sistema de Pedidos y Reservas*: el cliente elige del menú desde el celular, calcula el envío y el pedido entra armado directo a tu WhatsApp con *0% de comisión por venta*.`,
+                `Con la *Promo Otoño 2026* te queda todo el sistema propio configurado por *$350.000* (pago único en 2 veces, sin comisiones ni alquileres mensuales). También podemos sumar el *Bot IA de atención 24/7* por *$180.000*.`,
+                `¿Te interesa que te mande por acá un link de ejemplo en vivo para que pruebes cómo entran los pedidos al WhatsApp?`
+            ],
+            ecommerce: (lead, city, hook) => [
+                hook || `Hola! ¿Cómo estás? Estuve viendo a *${lead.name}* en Google Maps en ${city} y noté que hoy no cuentan con un catálogo/tienda web propia donde los clientes vean productos y armen su pedido directo a tu WhatsApp.`,
+                `En *NatoH Systems & Nexte* (https://natohsystems.com) desarrollamos *Catálogos y Tiendas Online autogestionables* integradas con un *Asistente de IA en WhatsApp* que responde precios, talles y stock las 24 hs sin que tengas que estar pegado al teléfono.`,
+                `Con la *Promo Otoño 2026* tenés:\n🛒 *Catálogo / Tienda Web Profesional:* *$250.000* (antes $500.000)\n🤖 *Agente IA de Ventas WhatsApp 24/7:* *$180.000*\nPagando 50% al comenzar y 50% contra entrega.`,
+                `Podés chusmear nuestro trabajo en https://natohsystems.com y https://nextemarketing.com.\n\n¿Te mando 2 ejemplos de tiendas que armamos para que veas la velocidad y el diseño?`
+            ],
+            ia_natoh: (lead, city, hook) => [
+                hook || `Hola! ¿Cómo estás? Estuve visitando el perfil de *${lead.name}* en Google Maps en ${city} y vi que tienen muy buena presencia, pero noté que aún no tienen un Agente con Inteligencia Artificial filtrando y respondiendo consultas 24/7 en WhatsApp.`,
+                `En *NatoH Systems* (https://natohsystems.com) entrenamos *Agentes de IA en WhatsApp* con toda la info de tu empresa: atiende al instante a cualquier hora, presupuesta, califica al interesado y te deriva o agenda solo a los clientes listos para avanzar.`,
+                `Por la *Promo Otoño 2026* la implementación completa del *Agente IA NatoH 24/7* está en *$180.000* (precio regular $350.000), o el *Combo con Sistema CRM a Medida* en *$450.000*, en 2 pagos.`,
+                `¿Te gustaría probar una demo en vivo desde tu celular o que coordinemos 5 minutos para mostrarte cómo atiende?`
+            ],
+            rediseño_web: (lead, city, hook) => [
+                hook || `Hola! ¿Cómo estás? Entré al sitio web de *${lead.name}* desde Google Maps y noté un par de detalles técnicos (como la falta de automatización directa a WhatsApp y píxeles de medición) que hoy hacen que varias visitas se vayan sin consultar.`,
+                `En *NatoH Systems & Nexte* (https://natohsystems.com) ayudamos a negocios de ${city} modernizando su web para que cargue volando en celulares y sumando nuestro *Agente de IA en WhatsApp 24/7* que capta y responde cada consulta en segundos.`,
+                `Estamos con la *Promo Otoño 2026*:\n🌐 *Renovación Web Profesional + Píxeles:* *$250.000* (antes $500.000)\n🤖 *Agente IA WhatsApp 24/7:* *$180.000*\nSe abona 50% al iniciar y 50% al entregar finalizado.`,
+                `Podés ver nuestro portfolio en https://natohsystems.com y https://nextemarketing.com.\n\n¿Te parece si te paso sin cargo un mini diagnóstico de lo que vimos en la web de *${lead.name}*?`
+            ],
+            web_express: (lead, city, hook) => [
+                hook || `Hola! ¿Cómo estás? Encontramos a *${lead.name}* en Google Maps en ${city}${lead.rating ? ` con excelentes reseñas (${lead.rating}⭐)` : ''}, pero notamos que ${lead.externalPlatform === 'instagram' ? 'hoy solo tienen cargado Instagram y aún no cuentan con su propio sitio web oficial' : 'figuran sin sitio web propio'}.`,
+                `Hoy la mayoría de los clientes que buscan en Google Maps entran a la web para validar el negocio antes de escribir. En *NatoH Systems & Nexte* (https://natohsystems.com) creamos *Sitios Web Profesionales y Sistemas a Medida* listos en 7 días, pensados para convertir visitas en mensajes de WhatsApp.`,
+                `Con la *Promo Otoño 2026* tenés 50% OFF:\n🌐 *Sitio Web Profesional Completo:* *$250.000* (antes $500.000)\n🤖 *Opcional Agente IA WhatsApp 24/7:* *$180.000*\nEn 2 pagos (50% al iniciar y 50% contra entrega).`,
+                `Podés ver ejemplos reales en https://natohsystems.com y https://nextemarketing.com.\n\n¿Querés que te muestre 2 modelos de cómo podría quedar la web de *${lead.name}*?`
+            ]
         };
-
-        if (insights.hasHighRating && insights.hasLowVisibility) {
-            insights.opportunities.push('rating_alto_visibilidad_baja');
-        }
-        if (insights.hasLowRating) {
-            insights.opportunities.push('reputacion_mejorable');
-        }
-        if (insights.isPremiumLocation && insights.hasLowVisibility) {
-            insights.opportunities.push('ubicacion_premium_sin_explotar');
-        }
-        if (!lead.website || lead.website === '') {
-            insights.opportunities.push('sin_web');
-        }
-
-        return insights;
     }
 
-    /**
-     * Generador rápido de Dossier Heurístico (cuando no viene pre-calculado de BD)
-     */
-    generateQuickDossier(lead) {
-        const category = (lead.category || '').toLowerCase();
-        const hasWeb = !!(lead.website && lead.website.trim().length > 0);
-        const webAudit = lead.webAudit || {};
-
-        if (!hasWeb) {
-            return {
-                primaryPain: 'Sin presencia web oficial en Google para captar clientes en su zona',
-                targetService: 'web_express',
-                targetServiceLabel: 'Sitio Web Profesional & SEO Maps',
-                consultativeHook: `Estuve viendo su ficha en Google Maps (${lead.rating ? lead.rating + '⭐' : 'muy buenas opiniones'}), pero noté que aún no cuentan con un sitio web oficial donde mostrar todos sus servicios.`,
-                suggestedPitch: 'Sitio web profesional con dominio propio, hosting y botón directo de WhatsApp.'
-            };
-        } else if (webAudit.hasWhatsAppWidget === false) {
-            return {
-                primaryPain: 'Sitio web sin canal directo de conversión a WhatsApp',
-                targetService: 'rediseño_web',
-                targetServiceLabel: 'Rediseño Web & Botón WhatsApp',
-                consultativeHook: `Estuve mirando su web (${lead.website}) y noté que no tienen botón flotante de WhatsApp directo para que les escriban rápido desde el celular.`,
-                suggestedPitch: 'Optimización web de alta conversión con botón flotante directo.'
-            };
-        } else if (['odontol', 'dental', 'clinic', 'medic', 'salud', 'estet', 'peluquer', 'belleza', 'spa', 'veterin', 'consultorio'].some(k => category.includes(k))) {
-            return {
-                primaryPain: 'Cuello de botella en la coordinación manual de turnos por WhatsApp',
-                targetService: 'software_turnero',
-                targetServiceLabel: 'Sistema de Turnos & Asistente IA 24/7',
-                consultativeHook: `Muchos consultorios y centros de salud nos comentan lo desgastante que es coordinar turnos a mano por chat; ayudamos a automatizar la agenda con confirmación automática.`,
-                suggestedPitch: 'Sistema de turnos interactivo con recordatorios y asistente IA 24/7.'
-            };
-        } else if (['tienda', 'ropa', 'indumentaria', 'calzado', 'mayorista', 'distribuidor', 'repuesto', 'bazar'].some(k => category.includes(k))) {
-            return {
-                primaryPain: 'Atención manual de precios y stock por mensaje',
-                targetService: 'ecommerce',
-                targetServiceLabel: 'Tienda Online E-Commerce',
-                consultativeHook: `Vemos que muchos locales pierden ventas pasando fotos y precios por mensaje en vez de tener catálogo digital con cobro automático.`,
-                suggestedPitch: 'Tienda online completa con catálogo y cobros con Mercado Pago.'
-            };
+    async getAiConfig() {
+        const now = Date.now();
+        if (this.cachedConfig && (now - this.lastConfigFetch < 60000)) {
+            return this.cachedConfig;
         }
-
+        try {
+            const res = await axios.get(`${this.backendUrl}/api/ai-config`, { timeout: 5000 });
+            if (res.data && res.data.success && res.data.config) {
+                this.cachedConfig = res.data.config;
+                this.lastConfigFetch = now;
+                return this.cachedConfig;
+            }
+        } catch (err) {
+            // Silencioso si usa default local
+        }
         return {
-            primaryPain: 'Atención y agendamiento manual de consultas',
-            targetService: 'ia_natoh',
-            targetServiceLabel: 'Software de Gestión & Asistente IA 24/7',
-            consultativeHook: `Vi su perfil en Google Maps con muy buena reputación en la zona y me llamó la atención su potencial para automatizar consultas directas.`,
-            suggestedPitch: 'Software a medida y asistente virtual de WhatsApp 24/7.'
+            enabled: true,
+            model: 'gpt-4o-mini',
+            temperature: 0.65,
+            agencyName: 'NatoH Systems & Nexte Marketing',
+            basePrompt: ''
         };
     }
 
+    buildDynamicFallbackSequence(lead) {
+        const city = lead.location ? lead.location.split(',')[0].trim() : 'tu zona';
+        const targetSvc = lead.dossier?.targetService || (lead.hasWebsite && !lead.webAudit?.isSocialOnly ? 'rediseño_web' : 'web_express');
+        const hook = lead.dossier?.consultativeHook || null;
+
+        const builder = this.serviceFallbacks[targetSvc] || this.serviceFallbacks.web_express;
+        return builder(lead, city, hook);
+    }
+
     /**
-     * Generar secuencia de ENGANCHE (4 mensajes 100% personalizados y COHERENTES con ChatGPT)
+     * Genera una secuencia de 4 mensajes de WhatsApp consultivos y humanos basados en el Dossier del Agente 3
+     * @param {Object} lead - Objeto lead con name, category, location, hasWebsite, webAudit, dossier, reviews, etc.
+     * @returns {Promise<string[]>} Array de 4 mensajes personalizados
      */
     async generatePersonalizedSequence(lead) {
-        console.log(`🤖 [GENERADOR] Generando secuencia de 4 mensajes 100% IA para ${lead.name}`);
+        const aiConfig = await this.getAiConfig();
+
+        if (!this.openai || aiConfig.enabled === false) {
+            return this.buildDynamicFallbackSequence(lead);
+        }
+
+        const businessName = lead.name || lead.businessName || 'tu negocio';
+        const category = lead.category || lead.keyword || 'tu rubro';
+        const location = lead.location || lead.address || 'tu zona';
+        const isSocialOnly = Boolean(lead.webAudit?.isSocialOnly || ['instagram', 'facebook', 'linktree', 'pedidosya', 'whatsapp_link'].includes(lead.externalPlatform));
+        const hasWebsite = Boolean((lead.hasWebsite || (lead.website && lead.website.trim().length > 0)) && !isSocialOnly);
+
+        let webAuditContext = '';
+        if (hasWebsite && lead.webAudit && lead.webAudit.auditedAt) {
+            const wa = lead.webAudit;
+            const insightsList = Array.isArray(wa.insights) && wa.insights.length > 0
+                ? wa.insights.join(' | ')
+                : 'Sin hallazgos críticos';
+            webAuditContext = `\n- AUDITORÍA TÉCNICA DE SU WEB (${lead.website}):
+  * Plataforma/CMS: ${wa.cms || 'Estándar'}
+  * Tiene botón de WhatsApp en la web: ${wa.hasWhatsAppWidget ? 'SÍ' : 'NO'}
+  * Tiene sistema de turnos online: ${wa.hasBookingSystem ? 'SÍ' : 'NO'}
+  * Tiene Google Analytics 4 (GA4): ${wa.hasGA4 ? 'SÍ' : 'NO'}
+  * Tiene Meta Pixel (Facebook Ads): ${wa.hasMetaPixel ? 'SÍ' : 'NO'}
+  * Observaciones técnicas: ${insightsList}`;
+        } else if (isSocialOnly) {
+            webAuditContext = `\n- ESTADO DIGITAL: NO tiene sitio web propio. En Google Maps puso un enlace a ${lead.externalPlatform || lead.website}.`;
+        } else {
+            webAuditContext = `\n- ESTADO DIGITAL: NO tiene sitio web en su ficha de Google Maps.`;
+        }
+
+        let dossierContext = '';
+        if (lead.dossier && lead.dossier.primaryPain) {
+            const d = lead.dossier;
+            dossierContext = `\n- DOSSIER ESTRATÉGICO (AGENTE 3 - NATOH SYSTEMS):
+  * Dolor Principal Detectado: ${d.primaryPain}
+  * Puntos de Dolor: ${(d.painPoints || []).join(' | ')}
+  * Solución NatoH a Ofrecer: ${d.targetServiceLabel || d.targetService}
+  * Gancho Consultivo Base: "${d.consultativeHook || ''}"
+  * Propuesta de Valor: ${d.suggestedPitch || ''}
+  * Oferta Específica: ${d.suggestedOffer || ''}`;
+        }
+
+        const systemPrompt = `Sos un consultor comercial B2B argentino súper humano, empático y directo de "${aiConfig.agencyName || 'NatoH Systems & Nexte'}" (https://natohsystems.com y https://nextemarketing.com).
+Tu objetivo es escribir una secuencia de 4 mensajes cortos de WhatsApp para iniciar una conversación genuina con el dueño o encargado de un negocio que encontramos en Google Maps.
+
+REGLAS DE ORO (ESTILO HUMANO NO-ROBOT):
+1. Español Rioplatense natural (voseo profesional: "vimos", "notamos", "te escribo", "¿cómo estás?"). Cero frases cliché de telemarketer o traducciones neutras.
+2. Sé hiper-específico: mencioná el nombre real del negocio (*${businessName}*), un dato real que vimos en su ficha de Google Maps (ej: su calificación de ${lead.rating || 'buenas'}⭐, que solo tienen Instagram/Linktree, que su web no tiene botón de WhatsApp/turnero, o el dolor típico de su rubro *${category}*).
+3. NO ofrezcas una lista interminable de cosas: ofrecé LA SOLUCIÓN EXACTA indicada en el Dossier de NatoH Systems:
+   - Si es Distribuidora, Mayorista, Corralón, Logística, Fábrica: ofrecé el *Sistema de Gestión ERP/Pedidos a Medida ($350.000)* + *Agente IA Cotizador en WhatsApp ($180.000)* de NatoH Systems.
+   - Si es Clínica, Odontología, Estética, Veterinaria, Taller, Gimnasio, Hotel: ofrecé el *Sistema de Turnos/Reservas Online + Recordatorios por WhatsApp ($350.000)* y el *Agente IA 24/7 ($180.000)*.
+   - Si es Gastronomía (Restaurante, Bar, Café): ofrecé la *Carta Digital QR + Sistema de Pedidos directos al WhatsApp sin comisiones ($350.000)*.
+   - Si es Comercio / Indumentaria / Mueblería: ofrecé *Catálogo / Tienda Online E-commerce ($250.000)* + *Agente IA de Ventas ($180.000)*.
+   - Si NO tiene web (o solo tiene Instagram/Linktree): ofrecé *Sitio Web Profesional de Alta Conversión ($250.000, antes $500.000)* listo en 7 días.
+   - Si YA tiene web: ofrecé *Agente de IA 24/7 en WhatsApp ($180.000)* o *Modernización Web / Sistema a Medida ($250.000-$350.000)*.
+4. Estructura de los 4 mensajes (se envían seguidos en 2 minutos simulando escritura real en WhatsApp):
+   - Mensaje 1 (Gancho Consultivo): Saludo natural, mención concreta de lo que vimos en su ficha de Google Maps o web y una pregunta breve que toque su cuello de botella (máx 40 palabras).
+   - Mensaje 2 (Solución NatoH Systems): Contale de forma simple cómo lo resolvemos desde *NatoH Systems* (mencioná https://natohsystems.com) con la solución puntual (máx 45 palabras).
+   - Mensaje 3 (Propuesta Promo 2026): Presentá el valor promocional exacto de esa solución (ej: $180.000 Agente IA / $250.000 Web / $350.000 Sistema a Medida o Turnero, abonando 50% al iniciar y 50% contra entrega) (máx 45 palabras).
+   - Mensaje 4 (Cierre Suave & Portfolio): Dejale el link de nuestro portfolio (https://natohsystems.com o https://nextemarketing.com) y preguntale sin presión si le gustaría ver una demo de 5 minutos o un ejemplo aplicado a su rubro (máx 35 palabras).
+
+${aiConfig.basePrompt ? `\nINSTRUCCIONES ADICIONALES:\n${aiConfig.basePrompt}\n` : ''}
+Respondé ÚNICAMENTE con un JSON válido: {"messages": ["msg1", "msg2", "msg3", "msg4"]}`;
+
+        const userPrompt = `Generá los 4 mensajes para este prospecto:
+- Nombre del negocio: ${businessName}
+- Rubro: ${category}
+- Ubicación: ${location}
+- Calificación Maps: ${lead.rating ? `${lead.rating} ⭐ (${lead.reviewCount || 0} reseñas)` : 'Sin datos'}${webAuditContext}${dossierContext}`;
 
         try {
-            const template = this.getTemplateForBusiness(lead.category);
-            const activeApiKey = this.apiKey || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
+            const response = await this.openai.chat.completions.create({
+                model: aiConfig.model || process.env.OPENAI_MODEL || 'gpt-4o-mini',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                response_format: { type: 'json_object' },
+                temperature: typeof aiConfig.temperature === 'number' ? aiConfig.temperature : 0.65,
+                max_tokens: 750
+            });
 
-            if (!lead.dossier || !lead.dossier.primaryPain) {
-                lead.dossier = this.generateQuickDossier(lead);
+            const content = response.choices[0].message.content;
+            const parsed = JSON.parse(content);
+
+            if (parsed.messages && Array.isArray(parsed.messages) && parsed.messages.length === 4) {
+                console.log(`✨ [AI Generator] Secuencia NatoH Systems generada para "${businessName}" (${lead.dossier?.targetService || 'custom'})`);
+                return parsed.messages;
+            } else {
+                throw new Error('Formato de respuesta inválido de OpenAI');
             }
-
-            if (this.stats.errors < 3 && activeApiKey) {
-                this.apiKey = activeApiKey;
-                const cleanName = this.getCleanBusinessName(lead.name);
-                const webAuditInfo = (lead.webAudit && lead.webAudit.insights && lead.webAudit.insights.length > 0)
-                    ? `Observaciones en su web (${lead.website}): ${lead.webAudit.insights.join(', ')}`
-                    : '';
-
-                const dossier = lead.dossier || {};
-                const targetService = dossier.targetService || 'software_turnero';
-                const dossierInfo = (dossier.consultativeHook || dossier.primaryPain)
-                    ? `\n🎯 DIAGNÓSTICO AUDITADO (AGENTES 2 Y 3):\n- Dolor/Fricción operativa: ${dossier.primaryPain || 'Atención manual de clientes'}\n- Gancho consultivo recomendado: "${dossier.consultativeHook || ''}"\n- Solución técnica recomendada: ${dossier.targetServiceLabel || 'Software a medida / IA NatoH'}\n- Enfoque de venta sugerido: ${dossier.suggestedPitch || ''}`
-                    : '';
-
-                let serviceProposalGuideline = '';
-                if (targetService === 'web_express') {
-                    serviceProposalGuideline = `
-- El negocio NO tiene página web oficial. La propuesta en el Mensaje 3 DEBE CENTRARSE DIRECTAMENTE en el SITIO WEB PROFESIONAL:
-  🌐 *SITIO WEB PROFESIONAL & PRESENCIA DIGITAL*
-  Precio regular $500.000 → *Promo Otoño: $250.000* (o 2 cuotas de $125.000).
-  Incluye: Diseño a medida 100% adaptado a celulares, dominio propio .com, hosting por 1 año, certificado SSL y botón directo a WhatsApp para convertir búsquedas de Google en clientes.
-  (Menciona brevemente que si desean automatizar atención, también implementamos el Asistente IA NatoH en promo a $180.000).
-  PROHIBIDO listar servicios que no tienen que ver con su necesidad principal.`;
-                } else if (targetService === 'rediseño_web') {
-                    serviceProposalGuideline = `
-- El negocio tiene web pero está desactualizada o sin canal directo de WhatsApp. La propuesta en el Mensaje 3 DEBE CENTRARSE en REDISEÑO & CONVERSIÓN:
-  🚀 *REDISEÑO WEB DE ALTA CONVERSIÓN & CANAL DE RESPUESTA*
-  Precio regular $500.000 → *Promo Otoño: $250.000* en 2 pagos.
-  Renovamos su sitio para que cargue en menos de 2 segundos en celulares, con llamadas a la acción directas y botón flotante de WhatsApp para no perder visitantes.
-  (Menciona que también podemos sumar el Asistente Virtual IA NatoH 24/7 en promo a $180.000).
-  PROHIBIDO listar servicios ajenos a esta solución.`;
-                } else if (targetService === 'software_turnero') {
-                    serviceProposalGuideline = `
-- El negocio es centro de salud, estética, odontología, veterinaria, taller o citas. La propuesta en el Mensaje 3 DEBE CENTRARSE en el SISTEMA DE TURNOS & GESTIÓN A MEDIDA:
-  ⚙️ *SISTEMA DE GESTIÓN & TURNOS ONLINE A MEDIDA*
-  Precio regular $650.000 → *Promo Otoño: $350.000* en 2 pagos de $175.000.
-  Permite administrar agendas por profesional/servicio, enviar confirmaciones y recordatorios automáticos por WhatsApp y reducir más del 40% las ausencias de pacientes/clientes.
-  (Menciona que también se puede integrar con el Asistente IA NatoH para agendar 24/7).
-  PROHIBIDO listar servicios no solicitados.`;
-                } else if (targetService === 'gastronomia_pedidos' || targetService === 'gastronomia') {
-                    serviceProposalGuideline = `
-- El negocio es gastronómico (restaurante, bar, pizzería). La propuesta en el Mensaje 3 DEBE CENTRARSE en CARTA QR & PEDIDOS DIRECTOS:
-  🍕 *CARTA DIGITAL QR + SISTEMA DE PEDIDOS A WHATSAPP*
-  Precio regular $650.000 → *Promo Otoño: $350.000* en 2 pagos.
-  Menú interactivo con fotos y precios, cálculo de montos y recepción de pedidos directo a su WhatsApp sin comisiones a terceros.
-  (Opcional breve: Asistente IA NatoH para reservas y consultas 24/7 a $180.000).
-  PROHIBIDO listar servicios no solicitados.`;
-                } else if (targetService === 'ecommerce' || targetService === 'ecommerce_tienda') {
-                    serviceProposalGuideline = `
-- El negocio es una tienda o comercio de productos. La propuesta en el Mensaje 3 DEBE CENTRARSE en TIENDA E-COMMERCE:
-  🛒 *TIENDA ONLINE E-COMMERCE CON MERCADO PAGO*
-  Precio regular $800.000 → *Promo Otoño: $500.000*.
-  Catálogo autogestionable, carrito de compras y cobros directos integrados con Mercado Pago sin intermediarios.`;
-                } else {
-                    serviceProposalGuideline = `
-- La propuesta en el Mensaje 3 debe enfocarse en SOFTWARE A MEDIDA & ASISTENTE IA:
-  🤖 *ASISTENTE VIRTUAL IA NATOH (WHATSAPP 24/7)*
-  Precio regular $350.000 → *Promo Otoño: $180.000*.
-  Atiende consultas de clientes las 24 hs, responde dudas frecuentes y agenda citas en el acto.
-  ⚙️ *SOFTWARE & SISTEMAS A MEDIDA:* Promo $350.000 en 2 pagos según requerimiento.`;
-                }
-
-                const prompt = `
-Contexto: Escribes por WhatsApp como Juan Cruz de Nexte Marketing contactando al dueño o encargado de ${cleanName} (${lead.category || 'su rubro'}) en ${lead.location || 'la zona'}.
-${dossierInfo}
-
-Misión: Generar UNA SECUENCIA CONTINUA DE 4 MENSAJES que se enviarán uno tras otro en el mismo chat de WhatsApp.
-LA SECUENCIA DEBE TENER COHERENCIA PERFECTA COMO UNA SOLA CONVERSACIÓN FLUIDA Y SONAR A UN CONSULTOR HUMANO REAL (NUNCA A UN BOT NI SPAM).
-
-⚠️ REGLAS OBLIGATORIAS DE ESTRUCTURA Y FLUIDEZ:
-1. MENSAJE 1 (Saludo + Enganche Consultivo):
-   - DEBE empezar con saludo natural ("¡Hola! Te escribe Juan Cruz de Nexte Marketing..." o "¡Buenas! Soy Juan Cruz de Nexte Marketing...").
-   - Mencioná ${cleanName} de forma muy orgánica.
-   ${dossier.consultativeHook ? `- INCLUYE O ADAPTA ESTE GANCHO CONSULTIVO DE APERTURA: "${dossier.consultativeHook}"` : ''}
-   - Si hay observaciones web (${webAuditInfo}), mencioná de forma sutil un detalle técnico real.
-   - PROHIBIDO DESPEDIRSE en el mensaje 1 (NUNCA digas "Un abrazo", "Saludos", ni hagas preguntas de cierre aquí). Es solo la apertura.
-
-2. MENSAJE 2 (Presentación de experiencia y valor):
-   - CONTINÚA el pensamiento sin volver a saludar.
-   - PROHIBIDO repetir "¡Hola!", "Soy Juan Cruz" o "Buenas".
-   - Mencioná cómo en Nexte (más de 10 años de trayectoria) ayudan a negocios como ${cleanName} con soluciones concretas para desahogar la atención${dossier.primaryPain ? ` (atacando directamente: ${dossier.primaryPain})` : ''}.
-
-3. MENSAJE 3 (Propuesta Comercial A MEDIDA según lo que realmente necesita):
-   - PROHIBIDO saludar de nuevo.
-   - PROHIBIDO enviar un folleto masivo o lista genérica de 6 servicios desconectados. DEBE SER UNA PROPUESTA PRECISA Y PERSONALIZADA.
-   - USA ÚNICAMENTE UN SOLO ASTERISCO (*texto*) PARA NEGRITAS EN WHATSAPP. PROHIBIDO USAR DOBLE ASTERISCO (**).
-   - Utiliza saltos de línea dobles entre puntos clave.
-   ${serviceProposalGuideline}
-
-4. MENSAJE 4 (Cierre y Llamado a la Acción):
-   - Mencioná que en Nexte se adaptan 100% a la escala de ${cleanName}.
-   - Ofrecé enviar ejemplos reales de sistemas/webs desarrollados o agendar una breve charla de 5 minutos sin compromiso.
-   - AQUÍ Y SOLO AQUÍ va la despedida final ("Quedo a tu disposición. ¡Saludos!").
-
-FORMATO DE RESPUESTA REQUERIDO (Devuelve ÚNICAMENTE un JSON válido con 4 elementos):
-[
-  "Texto del Mensaje 1",
-  "Texto del Mensaje 2",
-  "Texto del Mensaje 3",
-  "Texto del Mensaje 4"
-]
-`;
-
-                try {
-                    console.log(`✨ Generando secuencia atómica de 4 mensajes coherentes con ChatGPT...`);
-                    const rawResponse = await this.generateViaOpenAI(prompt, template.context);
-                    
-                    // Extraer JSON array de la respuesta
-                    const jsonMatch = rawResponse.match(/\[[\s\S]*\]/);
-                    if (jsonMatch) {
-                        const parsedMessages = JSON.parse(jsonMatch[0]);
-                        if (Array.isArray(parsedMessages) && parsedMessages.length === 4 && parsedMessages.every(m => typeof m === 'string' && m.trim().length > 10)) {
-                            console.log(`✅ [CHATGPT] Secuencia atómica de 4 mensajes generada con coherencia fluida`);
-                            this.stats.messagesGenerated += 4;
-                            return parsedMessages;
-                        }
-                    }
-                } catch (openAiError) {
-                    console.log(`⚠️ Falló generación atómica con OpenAI: ${openAiError.message}. Usando sistema de plantillas...`);
-                    this.stats.errors++;
-                }
-            }
-
-            // 3. FALLBACK: Usar plantillas avanzadas si OpenAI falla o no está configurado
-            console.log(`📋 Usando plantillas avanzadas como fallback...`);
-            const templateMessages = this.templateGenerator.generatePersonalizedSequence(lead);
-            this.stats.messagesGenerated += templateMessages.length;
-            return templateMessages;
-
         } catch (error) {
-            console.error(`❌ Error crítico en generación:`, error.message);
-            this.stats.errors++;
-
-            // FALLBACK FINAL DE EMERGENCIA (4 mensajes personalizados al dolor)
-            const targetService = lead.dossier?.targetService || 'software_turnero';
-            let fallbackOffer = `⚙️ *SISTEMA DE GESTIÓN & TURNOS A MEDIDA*\nPrecio regular $650.000 → *Promo Otoño: $350.000* en 2 pagos.\n\n🤖 *ASISTENTE VIRTUAL IA NATOH (WHATSAPP 24/7):* Promo $180.000 para responder y agendar 24/7.`;
-            if (targetService === 'web_express') {
-                fallbackOffer = `🌐 *SITIO WEB PROFESIONAL & PRESENCIA DIGITAL*\nPrecio de lista $500.000 → *Promo Otoño: $250.000* (o 2 cuotas de $125.000).\nIncluye diseño mobile, dominio propio .com, hosting 1 año, SSL y botón directo a WhatsApp.`;
-            } else if (targetService === 'rediseño_web') {
-                fallbackOffer = `🚀 *REDISEÑO WEB & CANAL DE RESPUESTA DIRECTA*\nPrecio regular $500.000 → *Promo: $250.000* en 2 pagos.\nOptimizamos la velocidad en celulares y sumamos botón flotante de WhatsApp para no perder consultas.`;
-            } else if (targetService === 'gastronomia_pedidos' || targetService === 'gastronomia') {
-                fallbackOffer = `🍕 *CARTA DIGITAL QR + PEDIDOS A WHATSAPP*\nPrecio regular $650.000 → *Promo: $350.000* en 2 pagos.\nMenú interactivo con fotos y pedidos directo a su WhatsApp sin comisiones a terceros.`;
-            } else if (targetService === 'ecommerce') {
-                fallbackOffer = `🛒 *TIENDA ONLINE E-COMMERCE CON MERCADO PAGO*\nPrecio regular $800.000 → *Promo: $500.000*.\nCatálogo autogestionable con cobros directos integrados.`;
-            }
-
-            const fallbackMsgs = [
-                `¡Hola! Soy Juan Cruz de Nexte Marketing. Estuve revisando la presencia digital de ${lead.name} y me llamó la atención su potencial en la zona.`,
-                `En Nexte llevamos más de 10 años desarrollando soluciones tecnológicas para desahogar la atención de negocios y optimizar la captación de clientes.`,
-                fallbackOffer,
-                `Nos adaptamos a la escala de tu negocio. Si querés te envío algunos ejemplos reales de sistemas o webs desarrolladas, o coordinamos una llamada breve. ¡Saludos!`
-            ];
-            return fallbackMsgs;
+            console.error(`❌ [AI Generator] Error con OpenAI (${error.message}). Usando secuencia dinámica Dossier NatoH.`);
+            return this.buildDynamicFallbackSequence(lead);
         }
-    }
-
-    getCleanBusinessName(name) {
-        if (!name) return 'tu negocio';
-        let clean = String(name).split('|')[0].split('-')[0].split('–')[0].split('/')[0].trim();
-        clean = clean.replace(/\b(SA|SRL|Inc|LLC|Sucursal|Oficial|CABA|GBA)\b/gi, '').trim();
-        return clean || name.split('|')[0].trim();
-    }
-
-    /**
-     * Mensaje 1: Saludo + Enganche ultra personalizado con datos reales de Google Maps
-     */
-    async generateMessage1(lead, template) {
-        const cacheKey = `msg1_${lead.id}`;
-        if (this.messageCache.has(cacheKey)) {
-            this.stats.cacheHits++;
-            return this.messageCache.get(cacheKey);
-        }
-
-        const insights = this.analyzeLeadInsights(lead);
-        const cleanName = this.getCleanBusinessName(lead.name);
-
-        const webAuditInfo = (lead.webAudit && lead.webAudit.insights && lead.webAudit.insights.length > 0)
-            ? `- Hallazgos técnicos web (${lead.website}): ${lead.webAudit.insights.join(', ')}`
-            : '';
-
-        const dossierHook = lead.dossier?.consultativeHook
-            ? `- Gancho consultivo auditado: "${lead.dossier.consultativeHook}"`
-            : '';
-
-        const prompt = `
-Contexto: Escribes por WhatsApp como Juan Cruz de Nexte Marketing.
-Misión: Redactar un primer mensaje super natural, fluido, 100% humano y conversacional para el dueño o encargado de ${cleanName}.
-
-REGLAS DE ORO DE ESTILO (OBLIGATORIO):
-1. NUNCA leas la ficha técnica de Google Maps como un robot (PROHIBIDO decir "noté que aún no tienen rating", "estaba viendo sobre X en Y" o "contar con pocas opiniones").
-2. Saludá de forma natural y cercana (ej: "¡Hola! Soy Juan Cruz de Nexte Marketing...").
-3. Mencioná ${cleanName} de forma orgánica y fluida.
-${dossierHook ? `4. INCLUYE O ADAPTA ESTA OBSERVACIÓN CONSULTIVA: "${lead.dossier.consultativeHook}"` : (webAuditInfo ? `4. Observación técnica sutil: ${webAuditInfo}` : '')}
-5. Tono argentino conversacional, profesional y directo ("vos", "te comento", "un abrazo"). Sin excesos de emojis.
-6. Extensión: entre 30 y 50 palabras máximo.
-
-Escribe ÚNICAMENTE el texto final del mensaje 1:
-`;
-
-        try {
-            const message = await this.generateViaOpenAI(prompt, template.context);
-            const cleanMessage = message.replace(/^["']|["']$/g, '');
-
-            this.stats.apiCalls++;
-            this.stats.tokensUsed += this.estimateTokens(prompt + cleanMessage);
-            this.messageCache.set(cacheKey, cleanMessage);
-
-            return cleanMessage;
-        } catch (error) {
-            console.error('Error OpenAI mensaje 1:', error.message);
-            if (lead.dossier?.consultativeHook) {
-                return `¡Hola! Soy Juan Cruz de Nexte Marketing. ${lead.dossier.consultativeHook}`;
-            }
-            if (!lead.website) {
-                return `¡Hola! Soy Juan Cruz de Nexte Marketing. Estuve revisando el perfil de ${lead.name} en Google Maps y noté que no cuentan con un sitio web oficial. Hoy en día en ${lead.location || 'tu zona'}, muchos clientes buscan primero en Google antes de contactar y terminan yéndose a otros negocios.`;
-            }
-            return `¡Hola! Soy Juan Cruz de Nexte Marketing. Vi el perfil de ${lead.name} en Google Maps con ${lead.rating || 'excelente'} rating en ${lead.location || 'tu zona'} y me llamó la atención su potencial para captar aún más clientes directos.`;
-        }
-    }
-
-    async generateMessage2(lead, template) {
-        const cacheKey = `msg2_${lead.id}`;
-        if (this.messageCache.has(cacheKey)) {
-            this.stats.cacheHits++;
-            return this.messageCache.get(cacheKey);
-        }
-
-        const cleanName = this.getCleanBusinessName(lead.name);
-
-        const prompt = `
-Contexto: Eres Juan Cruz de Nexte Marketing enviando el segundo mensaje a ${cleanName} (${lead.category || 'su rubro'}).
-
-Misión: Escribir una breve presentación de Nexte adaptada al sector de ${lead.category || 'su negocio'}, ultra natural y conversacional.
-
-Datos institucionales de Nexte:
-- Más de 10 años de trayectoria (2015-2026).
-- Especialización en desarrollo de software a medida, sistemas de gestión/turnos, asistentes virtuales con IA (IA NatoH) y posicionamiento digital.
-- Enfoque directo en resultados medibles y ahorro de horas de atención.
-
-Requisitos del mensaje:
-1. Explica brevemente quiénes son en Nexte de forma muy fluida y humana (más de 10 años de trayectoria).
-2. Mencioná cómo ayudan a lugares como ${cleanName} a implementar software a medida, turneros automáticos o asistentes de WhatsApp con IA para desahogar la atención.
-3. Tono argentino conversacional, profesional y directo ("vos", "te comento"). Sin sonar robótico ni corporativo acartonado.
-4. NO pongas títulos ni variables.
-5. Extensión: entre 35 y 55 palabras.
-
-Escribe ÚNICAMENTE el texto final del mensaje 2:
-`;
-
-        try {
-            const message = await this.generateViaOpenAI(prompt, template.context);
-            const cleanMessage = message.replace(/^["']|["']$/g, '');
-
-            this.stats.apiCalls++;
-            this.stats.tokensUsed += this.estimateTokens(prompt + cleanMessage);
-            this.messageCache.set(cacheKey, cleanMessage);
-
-            return cleanMessage;
-        } catch (error) {
-            console.error('Error OpenAI mensaje 2:', error.message);
-            return `En Nexte llevamos más de 10 años desarrollando tecnología y software a medida para negocios. Nos especializamos en crear portales web, sistemas de gestión/turnos a medida y asistentes inteligentes por WhatsApp que atienden consultas y agendan solos 24/7.`;
-        }
-    }
-
-    /**
-     * Mensaje 3: Propuesta Comercial a medida (Enfoque Software, IA NatoH, Web, SEO - SIN ADS)
-     */
-    async generateMessage3(lead, template) {
-        const cacheKey = `msg3_${lead.id}`;
-        if (this.messageCache.has(cacheKey)) {
-            this.stats.cacheHits++;
-            return this.messageCache.get(cacheKey);
-        }
-
-        const cleanName = this.getCleanBusinessName(lead.name);
-        const isEcommerceCandidate = ['tienda', 'indumentaria', 'ropa', 'distribuidora', 'mayorista', 'calzado', 'local', 'comercio'].some(kw =>
-            (lead.category || '').toLowerCase().includes(kw));
-
-        const prompt = `
-Contexto: Eres Juan Cruz de Nexte Marketing enviando la propuesta comercial detallada (Mensaje 3) a ${cleanName}.
-
-Misión: Escribir una propuesta comercial atractiva, clara y adaptada a su rubro con formato WhatsApp enriquecido (*negritas*, emojis limpios, separadores).
-
-Reglas y Oferta a Incluir:
-1. ⚙️ **SISTEMA DE GESTIÓN & SOFTWARE A MEDIDA**: Elevar el protagonismo y valor. Mostrar Precio regular: $650.000 → Promo: $350.000 en 2 pagos. Describir cómo ayuda a su rubro (gestión de turnos, agendas, fichas de clientes/pacientes, control de stock o procesos).
-2. 🤖 **ASISTENTE VIRTUAL CON IA NATOH (WHATSAPP 24/7)**: Precio regular: $350.000 → Promo: $180.000. Empleado virtual entrenado con sus datos que atiende 24/7, agenda turnos y valida comprobantes de pago.
-3. 🌐 **PÁGINA WEB PROFESIONAL** o **TIENDA ONLINE (E-COMMERCE)**: Si aplica e-commerce (venta de productos), ofrecer E-Commerce por $500.000 (regular $800.000). Si no, ofrecer Sitio Web Profesional por $250.000 (regular $500.000) con dominio, hosting y SSL.
-4. 📸 **GENERACIÓN DE CONTENIDO EDITORIAL & MULTIMEDIA**: Precio regular: $250.000/mes → Promo: $140.000/mes. (Piezas gráficas y contenido institucional, NO manejo genérico básico de redes).
-5. 📍 **OPTIMIZACIÓN DE GOOGLE MAPS & SEO LOCAL**: Precio regular: $300.000 → Promo: $150.000 para liderar las búsquedas locales.
-6. 🚫 **PROHIBIDO INCLUIR PUBLICIDAD/ADS**: NO menciones Google Ads ni Meta Ads. Está 100% excluido.
-7. 🎁 **COMBO INTEGRAL CON DESCUENTO**: Crear un paquete con sus servicios clave (ej. Sistema + IA NatoH + Web + SEO Maps) por un precio final de $690.000 (Regular $1.800.000) destacando un ahorro gigante de $1.110.000.
-
-Escribe ÚNICAMENTE el texto de la propuesta comercial final con formato WhatsApp:
-`;
-
-        try {
-            const message = await this.generateViaOpenAI(prompt, template.context);
-            const cleanMessage = message.replace(/^["']|["']$/g, '');
-
-            this.stats.apiCalls++;
-            this.stats.tokensUsed += this.estimateTokens(prompt + cleanMessage);
-            this.messageCache.set(cacheKey, cleanMessage);
-
-            return cleanMessage;
-        } catch (error) {
-            console.error('Error OpenAI mensaje 3:', error.message);
-            return `🏢 *SOLUCIONES DIGITALES NEXTE 2026*\n\n⚙️ *SISTEMA DE GESTIÓN & SOFTWARE A MEDIDA*\nPrecio regular: *$650.000* → 🔥 *$350.000 en 2 pagos*\nSoftware a medida para tu negocio: gestión de turnos, agendas médicas o comerciales y control de procesos.\n\n🤖 *ASISTENTE VIRTUAL CON IA NATOH (WHATSAPP 24/7)*\nPrecio regular: *$350.000* → 🔥 *$180.000*\nEmpleado virtual entrenado con tus datos que atiende consultas 24/7, agendando solo y validando pagos.\n\n🌐 *PÁGINA WEB PROFESIONAL & INSTITUCIONAL*\nPrecio regular: *$500.000* → 🔥 *$250.000*\nSitio web profesional hecho a medida con dominio (.com / .ar), hosting por 1 año y SSL.\n\n📸 *GENERACIÓN DE CONTENIDO EDITORIAL*\nPrecio regular: *$250.000/mes* → 🔥 *$140.000/mes*\nDiseño multimedia e identidad visual profesional.\n\n📍 *SEO GOOGLE MAPS & POSICIONAMIENTO*\nPrecio regular: *$300.000* → 🔥 *$150.000*\nOptimización local para liderar las búsquedas de tu zona.\n\n🎁 *COMBO SOLUCIÓN INTEGRAL (Sistema + IA NatoH + Web + SEO)*\nPrecio regular: *$1.800.000* → 🔥 *$690.000* *(Ahorro de $1.110.000)*.`;
-        }
-    }
-
-    /**
-     * Mensaje 4: Cierre natural expresando adaptación 100% al negocio, ejemplos y agendamiento
-     */
-    async generateMessage4(lead, template) {
-        const cacheKey = `msg4_${lead.id}`;
-        if (this.messageCache.has(cacheKey)) {
-            this.stats.cacheHits++;
-            return this.messageCache.get(cacheKey);
-        }
-
-        const prompt = `
-Contexto: Eres Juan Cruz de Nexte Marketing cerrando la secuencia (Mensaje 4) para ${lead.name} (${lead.category || 'negocio'}).
-
-Misión: Escribir un cierre sumamente natural, directo y servicial por WhatsApp que exprese claramente que nos adaptamos 100% a la realidad de su negocio.
-
-Requisitos del mensaje:
-1. Mencioná explícitamente que en Nexte **nos adaptamos 100% a la realidad, escala y necesidades de su negocio (${lead.name})**, armando propuestas y módulos a medida según lo que requiera.
-2. Ofrece de manera proactiva enviar **ejemplos reales de trabajos realizados, sistemas y sitios web** desarrollados por Nexte para otros negocios.
-3. Invita de forma relajada y sin presión a agendar una breve conversación o responder cualquier duda si le interesa saber algo más.
-4. Tono conversacional argentino, amable y accesible ("nos adaptamos a lo que necesites", "si te parece", "quedo a disposición").
-5. Extensión: entre 30 y 50 palabras.
-
-Escribe ÚNICAMENTE el texto final del mensaje 4:
-`;
-
-        try {
-            const message = await this.generateViaOpenAI(prompt, template.context);
-            const cleanMessage = message.replace(/^["']|["']$/g, '');
-
-            this.stats.apiCalls++;
-            this.stats.tokensUsed += this.estimateTokens(prompt + cleanMessage);
-            this.messageCache.set(cacheKey, cleanMessage);
-
-            return cleanMessage;
-        } catch (error) {
-            console.error('Error OpenAI mensaje 4:', error.message);
-            return `Nos adaptamos 100% a la realidad y necesidades de tu negocio, armando propuestas a medida según lo que requieras. Si querés te puedo enviar algunos ejemplos de trabajos realizados y sistemas reales, y si te interesa agendar o saber algo más quedo a tu entera disposición. 😊`;
-        }
-    }
-
-    /**
-     * Detectar si un mensaje es auto-respuesta de bot
-     */
-    async detectAutoReply(messageText) {
-        if (!messageText) return false;
-
-        const botKeywords = ['menú', 'opción', 'marcar', 'bienvenido', 'horario', 'automático', 'autorespuesta', 'asistente virtual'];
-        if (botKeywords.some(kw => messageText.toLowerCase().includes(kw))) return true;
-
-        try {
-            const responseText = await this.generateViaOpenAI(`
-                Analiza si el siguiente mensaje es una respuesta automática de un bot de WhatsApp.
-                Responde SOLO "SI" o "NO".
-                
-                Mensaje: "${messageText}"
-            `);
-            return responseText.toUpperCase().includes('SI');
-        } catch (e) {
-            console.error('Error OpenAI detectAutoReply:', e.message);
-            return false;
-        }
-    }
-
-    /**
-     * Generar pitch de venta específico para dueños con bots malos
-     */
-    async generateBotSalesPitch(lead, botMessage) {
-        const prompt = `
-            Contexto: El negocio "${lead.name}" tiene un bot de autorespuesta que dice: "${botMessage.substring(0, 50)}...".
-            
-            Tu objetivo: Venderle una MEJORA de su bot.
-            
-            Escribe un mensaje corto (max 30 palabras) que diga:
-            1. Que notaste su respuesta automática.
-            2. Que podemos hacer que su bot responda preguntas reales y venda solo (usando IA), no solo saludar.
-            3. Pregunta si le interesa ver una demo.
-            
-            Tono: Constructivo, "te ayudo a vender más".
-        `;
-
-        try {
-            return await this.generateViaOpenAI(prompt);
-        } catch (e) {
-            console.error('Error OpenAI generateBotSalesPitch:', e.message);
-            return "Vi que tenés respuesta automática. Nosotros implementamos bots con IA que responden dudas reales y cierran ventas, no solo saludan. ¿Te muestro la diferencia?";
-        }
-    }
-
-    getTemplateForBusiness(category) {
-        if (!category) return this.templates.default;
-
-        const cat = category.toLowerCase();
-
-        if (cat.includes('dent') || cat.includes('odont')) return this.templates.odontologia;
-        if (cat.includes('bell') || cat.includes('estet') || cat.includes('salon')) return this.templates.belleza;
-        if (cat.includes('salud') || cat.includes('medic') || cat.includes('clinic')) return this.templates.salud;
-        if (cat.includes('restaurant') || cat.includes('comida')) return this.templates.restaurante;
-
-        return this.templates.default;
-    }
-
-    estimateTokens(text) {
-        return Math.ceil(text.length / 4);
-    }
-
-    clearCache() {
-        this.messageCache.clear();
-        console.log('🧹 Cache de mensajes limpiado');
-    }
-
-    getStats() {
-        return {
-            ...this.stats,
-            cacheSize: this.messageCache.size,
-            cacheHitRate: this.stats.apiCalls > 0 ?
-                ((this.stats.cacheHits / (this.stats.apiCalls + this.stats.cacheHits)) * 100).toFixed(1) + '%' :
-                '0%',
-            estimatedDailyCost: 'Acorde a tu cuota OpenAI',
-            tokensPerDay: this.stats.tokensUsed
-        };
     }
 }
 

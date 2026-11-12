@@ -1,5 +1,13 @@
 # 📜 SYSTEM CHANGELOG
 
+## [2026-11-12] - Ecosistema B2B NatoH Systems (`natohsystems.com`), HUD en Google Maps & Lead Scoring (0-100)
+### Added
+- **In-Page Floating HUD en Google Maps (`extension/content.js` rev-27):** Panel flotante dentro de Google Maps para raspar la vista actual con 1 clic (`📍 Raspar Esta Vista de Maps`), saltar a la siguiente zona virgen (`🤖 Siguiente Zona GPS`), detener en vivo y ver contadores de tarjetas y leads calificados sin abrir el popup.
+- **Catálogo de 20 Rubros B2B/PyME NatoH Systems (`geoGridScanner.js`):** Incorporados rubros de alto ticket para sistemas a medida y ERP (`distribuidoras`, `ferreterias_corralones`, `logistica_transporte`, `fabricas_metalurgicas`, `concesionarias_autos`, `inmobiliarias`, `clinicas_centros_medicos`, `hoteles_alojamientos`, `institutos_academias`, etc.) y filtros combinados por Ciudad y Rubro en el Dashboard.
+- **Clasificador de Falsas Webs y Redes Sociales (`webScraper.js`):** Detección automática cuando la URL de Google Maps es solo un Instagram, Facebook, Linktree, PedidosYa o link de WhatsApp (`isSocialOnly: true`, `externalPlatform`), más extracción de `instagramUrl` y `facebookUrl` desde el HTML.
+- **Motor de Lead Scoring B2B (0-100) y Cola por Prioridad (`painAnalyzer.js` & `server/index.js`):** Cálculo automático de `leadScore` (0-100), `priorityTier` (`hot`, `warm`, `cold`) y `scoreBreakdown`. El endpoint `GET /next` ahora entrega primero los leads de mayor puntaje (`sort: { leadScore: -1, createdAt: 1 }`).
+- **Controles CRM NatoH Systems (`crm-dashboard/`):** Filtros por Solución NatoH, Prioridad (`🔥 Hot Leads`) y Orden por Score en la vista de Leads, botón `⚡ Priorizar (100 pts)`, modal de `🗺️ Historial de Zonas` y snippets rápidos de `Portfolio NatoH Systems (natohsystems.com)` y `Sistema ERP/CRM PyME`.
+
 ## [2026-10-08] - Memoria Persistente de Zonas GPS, Calificación de Leads y Mensajes Ultra-Especializados
 ### Added
 - **Memoria Persistente de Zonas GPS (`ScannedZone.js` & `geoGridScanner.js`):**

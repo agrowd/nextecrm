@@ -107,8 +107,8 @@ const BotInstance = require('./models/BotInstance');
 const Config = require('./models/Config');
 const TemplateVariant = require('./models/TemplateVariant');
 const ScannedZone = require('./models/ScannedZone');
-const { auditWebsite } = require('./services/webScraper');
-const { analyzeLeadPains } = require('./services/painAnalyzer');
+const { auditWebsite, classifyExternalUrl } = require('./services/webScraper');
+const { analyzeLeadPains, calculateLeadScore } = require('./services/painAnalyzer');
 const geoGridScanner = require('./services/geoGridScanner');
 const { closerCopilot } = require('./services/closerCopilot');
 const { cleanAndFormatArgentinianNumber } = require('./services/phoneValidator');
@@ -302,12 +302,12 @@ app.get('/next', async (req, res) => {
           lastContactAt: new Date()
         }
       },
-      { sort: { createdAt: 1 }, new: true }
+      { sort: { leadScore: -1, createdAt: 1 }, new: true }
     );
 
-    // B) INTENTO 2: FALLBACK (Cualquier lead)
+    // B) INTENTO 2: FALLBACK (Cualquier lead, priorizando mayor Lead Score B2B NatoH)
     if (!lead) {
-      console.log(`⚠️ Bot ${instanceId} no encontró leads preferidos. Usando Fallback...`);
+      console.log(`⚠️ Bot ${instanceId} no encontró leads preferidos. Usando Fallback por prioridad...`);
       lead = await Lead.findOneAndUpdate(
         {
           status: 'pending',
@@ -320,7 +320,7 @@ app.get('/next', async (req, res) => {
             lastContactAt: new Date()
           }
         },
-        { sort: { createdAt: 1 }, new: true }
+        { sort: { leadScore: -1, createdAt: 1 }, new: true }
       );
     }
 
@@ -334,7 +334,7 @@ app.get('/next', async (req, res) => {
 
     // 3. GARANTÍA SINCRÓNICA DE DOSSIER E INTELIGENCIA WEB (Evita Race Condition con /ingest)
     try {
-      if (lead.hasWebsite && lead.website && (!lead.webAudit || !lead.webAudit.auditedAt)) {
+      if (lead.website && (!lead.webAudit || !lead.webAudit.auditedAt)) {
         console.log(`🔍 [/next] Ejecutando auditoría web express para ${lead.name} antes de entregar al bot...`);
         const auditResult = await Promise.race([
           auditWebsite(lead.website),
@@ -343,7 +343,11 @@ app.get('/next', async (req, res) => {
         if (auditResult) {
           lead = await Lead.findByIdAndUpdate(lead._id, {
             websiteValid: !auditResult.error,
+            hasWebsite: !auditResult.isSocialOnly && !auditResult.error,
             webAudit: auditResult,
+            externalPlatform: auditResult.externalPlatform || lead.externalPlatform || '',
+            instagramUrl: auditResult.instagramUrl || lead.instagramUrl || '',
+            facebookUrl: auditResult.facebookUrl || lead.facebookUrl || '',
             pixelFacebook: auditResult?.hasMetaPixel || false,
             pixelGoogle: auditResult?.hasGA4 || false
           }, { new: true });
@@ -357,7 +361,13 @@ app.get('/next', async (req, res) => {
           new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout analyzeLeadPains')), 7000))
         ]);
         if (dossier) {
-          lead = await Lead.findByIdAndUpdate(lead._id, { dossier }, { new: true });
+          const scoreData = calculateLeadScore(lead, dossier);
+          lead = await Lead.findByIdAndUpdate(lead._id, {
+            dossier,
+            leadScore: scoreData.leadScore,
+            priorityTier: scoreData.priorityTier,
+            scoreBreakdown: scoreData.scoreBreakdown
+          }, { new: true });
         }
       }
     } catch (syncIntelErr) {
@@ -473,7 +483,18 @@ app.post('/ingest', async (req, res) => {
         continue;
       }
 
-      const hasWeb = !!(leadData.website && leadData.website.trim().length > 0);
+      const rawWeb = (leadData.website || '').trim();
+      const extClass = classifyExternalUrl ? classifyExternalUrl(rawWeb) : null;
+      const hasWeb = !!(rawWeb.length > 0 && (!extClass || !extClass.isSocialOnly));
+
+      const initialScore = calculateLeadScore({
+        ...leadData,
+        phone: effectivePhone,
+        phoneValidated: phoneCheck.valid,
+        hasWebsite: hasWeb,
+        externalPlatform: leadData.externalPlatform || extClass?.externalPlatform || ''
+      });
+
       const newLead = await Lead.create({
         ...leadData,
         phone: effectivePhone,
@@ -483,6 +504,12 @@ app.post('/ingest', async (req, res) => {
         qualificationReason,
         source: leadData.source || 'extension',
         hasWebsite: hasWeb,
+        instagramUrl: leadData.instagramUrl || extClass?.instagramUrl || '',
+        facebookUrl: leadData.facebookUrl || extClass?.facebookUrl || '',
+        externalPlatform: leadData.externalPlatform || extClass?.externalPlatform || '',
+        leadScore: initialScore.leadScore,
+        priorityTier: initialScore.priorityTier,
+        scoreBreakdown: initialScore.scoreBreakdown,
         scannedZoneId: leadData.zoneId || '',
         scannedZoneName: leadData.zoneName || leadData.location || ''
       });
@@ -494,16 +521,20 @@ app.post('/ingest', async (req, res) => {
 
       added++;
 
-      // 🔍 AGENTE 2 & 3: Auditoría Web & Minería de Dolores / Dossier en Background
+      // 🔍 AGENTE 2 & 3: Auditoría Web & Minería de Dolores / Dossier + Lead Score en Background
       const runBackgroundIntelligence = async () => {
         let currentLead = newLead;
-        if (hasWeb) {
+        if (rawWeb.length > 0) {
           try {
-            const auditResult = await auditWebsite(leadData.website);
+            const auditResult = await auditWebsite(rawWeb);
             const isAccessible = auditResult && !auditResult.error;
             currentLead = await Lead.findByIdAndUpdate(newLead._id, {
               websiteValid: isAccessible,
+              hasWebsite: Boolean(isAccessible && !auditResult.isSocialOnly),
               webAudit: auditResult,
+              externalPlatform: auditResult?.externalPlatform || currentLead.externalPlatform || '',
+              instagramUrl: auditResult?.instagramUrl || currentLead.instagramUrl || '',
+              facebookUrl: auditResult?.facebookUrl || currentLead.facebookUrl || '',
               pixelFacebook: auditResult?.hasMetaPixel || false,
               pixelGoogle: auditResult?.hasGA4 || false
             }, { new: true });
@@ -513,7 +544,11 @@ app.post('/ingest', async (req, res) => {
                 leadId: currentLead._id,
                 updates: {
                   websiteValid: currentLead.websiteValid,
+                  hasWebsite: currentLead.hasWebsite,
                   webAudit: currentLead.webAudit,
+                  externalPlatform: currentLead.externalPlatform,
+                  instagramUrl: currentLead.instagramUrl,
+                  facebookUrl: currentLead.facebookUrl,
                   pixelFacebook: currentLead.pixelFacebook,
                   pixelGoogle: currentLead.pixelGoogle
                 }
@@ -524,15 +559,26 @@ app.post('/ingest', async (req, res) => {
           }
         }
 
-        // Generar Dossier Estratégico (Dolores y Oferta Consultiva)
+        // Generar Dossier Estratégico (Dolores y Oferta Consultiva NatoH) + Recalcular Score B2B
         try {
           const dossier = await analyzeLeadPains(currentLead || newLead);
           if (dossier) {
-            const updatedWithDossier = await Lead.findByIdAndUpdate(newLead._id, { dossier }, { new: true });
+            const scoreData = calculateLeadScore(currentLead || newLead, dossier);
+            const updatedWithDossier = await Lead.findByIdAndUpdate(newLead._id, {
+              dossier,
+              leadScore: scoreData.leadScore,
+              priorityTier: scoreData.priorityTier,
+              scoreBreakdown: scoreData.scoreBreakdown
+            }, { new: true });
             if (global.io && updatedWithDossier) {
               global.io.emit('lead_updated', {
                 leadId: updatedWithDossier._id,
-                updates: { dossier: updatedWithDossier.dossier }
+                updates: {
+                  dossier: updatedWithDossier.dossier,
+                  leadScore: updatedWithDossier.leadScore,
+                  priorityTier: updatedWithDossier.priorityTier,
+                  scoreBreakdown: updatedWithDossier.scoreBreakdown
+                }
               });
             }
           }
@@ -2782,7 +2828,7 @@ app.get('/api/leads/categories', async (req, res) => {
   }
 });
 
-// GET /api/json/leads - Obtener leads de la base de datos (con paginación)
+// GET /api/json/leads - Obtener leads de la base de datos (con paginación y filtros NatoH B2B)
 app.get('/api/json/leads', async (req, res) => {
   try {
     const {
@@ -2790,24 +2836,34 @@ app.get('/api/json/leads', async (req, res) => {
       limit = 500,
       status,
       keyword,
+      targetService,
+      priorityTier,
+      sortBy,
       search
     } = req.query;
 
     const query = {};
     if (status) query.status = status;
     if (keyword) query.keyword = keyword;
+    if (targetService) query['dossier.targetService'] = targetService;
+    if (priorityTier) query.priorityTier = priorityTier;
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
         { phone: { $regex: search, $options: 'i' } },
-        { location: { $regex: search, $options: 'i' } }
+        { location: { $regex: search, $options: 'i' } },
+        { category: { $regex: search, $options: 'i' } },
+        { keyword: { $regex: search, $options: 'i' } }
       ];
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sortSpec = sortBy === 'score'
+      ? { leadScore: -1, createdAt: -1 }
+      : { createdAt: -1 };
 
     const leads = await Lead.find(query)
-      .sort({ createdAt: -1 })
+      .sort(sortSpec)
       .skip(skip)
       .limit(parseInt(limit))
       .lean();
@@ -2839,6 +2895,38 @@ app.get('/api/json/leads', async (req, res) => {
   }
 });
 
+// POST /api/leads/:id/prioritize - Priorizar un lead al tope de la cola de envío (Score 100 / HOT)
+app.post(['/api/leads/:id/prioritize', '/leads/:id/prioritize'], async (req, res) => {
+  try {
+    const { id } = req.params;
+    const lead = await Lead.findById(id);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead no encontrado' });
+
+    const breakdown = Array.isArray(lead.scoreBreakdown) ? [...lead.scoreBreakdown] : [];
+    if (!breakdown.includes('⚡ Priorizado manualmente por operador (+100)')) {
+      breakdown.unshift('⚡ Priorizado manualmente por operador (+100)');
+    }
+
+    const updated = await Lead.findByIdAndUpdate(id, {
+      $set: {
+        leadScore: 100,
+        priorityTier: 'hot',
+        scoreBreakdown: breakdown,
+        ...(lead.status === 'discarded' || lead.status === 'failed' ? { status: 'pending', isQualified: true } : {})
+      }
+    }, { new: true });
+
+    if (global.io && updated) {
+      global.io.emit('lead_updated', { leadId: updated._id, updates: updated });
+    }
+
+    res.json({ success: true, lead: updated });
+  } catch (error) {
+    console.error('Error priorizando lead:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // POST /api/leads/:id/analyze-dossier - Analizar dolores y generar dossier para un lead individual
 app.post('/api/leads/:id/analyze-dossier', async (req, res) => {
   try {
@@ -2849,12 +2937,23 @@ app.post('/api/leads/:id/analyze-dossier', async (req, res) => {
     }
 
     const dossier = await analyzeLeadPains(lead);
-    const updatedLead = await Lead.findByIdAndUpdate(id, { dossier }, { new: true });
+    const scoreData = calculateLeadScore(lead, dossier);
+    const updatedLead = await Lead.findByIdAndUpdate(id, {
+      dossier,
+      leadScore: scoreData.leadScore,
+      priorityTier: scoreData.priorityTier,
+      scoreBreakdown: scoreData.scoreBreakdown
+    }, { new: true });
 
     if (global.io) {
       global.io.emit('lead_updated', {
         leadId: updatedLead._id,
-        updates: { dossier: updatedLead.dossier }
+        updates: {
+          dossier: updatedLead.dossier,
+          leadScore: updatedLead.leadScore,
+          priorityTier: updatedLead.priorityTier,
+          scoreBreakdown: updatedLead.scoreBreakdown
+        }
       });
     }
 
@@ -2887,12 +2986,23 @@ app.post('/api/leads/batch-analyze-dossier', async (req, res) => {
       try {
         const dossier = await analyzeLeadPains(lead);
         if (dossier) {
-          await Lead.findByIdAndUpdate(lead._id, { dossier });
+          const scoreData = calculateLeadScore(lead, dossier);
+          await Lead.findByIdAndUpdate(lead._id, {
+            dossier,
+            leadScore: scoreData.leadScore,
+            priorityTier: scoreData.priorityTier,
+            scoreBreakdown: scoreData.scoreBreakdown
+          });
           processed++;
           if (global.io) {
             global.io.emit('lead_updated', {
               leadId: lead._id,
-              updates: { dossier }
+              updates: {
+                dossier,
+                leadScore: scoreData.leadScore,
+                priorityTier: scoreData.priorityTier,
+                scoreBreakdown: scoreData.scoreBreakdown
+              }
             });
           }
         }
@@ -2925,8 +3035,16 @@ app.post('/api/leads/:id/preview-sequence', async (req, res) => {
     if (!lead.dossier || !lead.dossier.primaryPain) {
       const dossier = await analyzeLeadPains(lead);
       if (dossier) {
+        const scoreData = calculateLeadScore(lead, dossier);
         lead.dossier = dossier;
-        await Lead.findByIdAndUpdate(id, { dossier });
+        lead.leadScore = scoreData.leadScore;
+        lead.priorityTier = scoreData.priorityTier;
+        await Lead.findByIdAndUpdate(id, {
+          dossier,
+          leadScore: scoreData.leadScore,
+          priorityTier: scoreData.priorityTier,
+          scoreBreakdown: scoreData.scoreBreakdown
+        });
       }
     }
 
@@ -2938,7 +3056,9 @@ app.post('/api/leads/:id/preview-sequence', async (req, res) => {
         id: lead._id,
         name: lead.name,
         category: lead.category,
-        dossier: lead.dossier
+        dossier: lead.dossier,
+        leadScore: lead.leadScore,
+        priorityTier: lead.priorityTier
       },
       messages
     });
@@ -2975,7 +3095,7 @@ app.get('/api/conversations/:phone/copilot-suggestion', async (req, res) => {
     res.json({
       success: true,
       phone,
-      lead: lead ? { id: lead._id, name: lead.name, category: lead.category, dossier: lead.dossier } : null,
+      lead: lead ? { id: lead._id, name: lead.name, category: lead.category, dossier: lead.dossier, leadScore: lead.leadScore } : null,
       suggestion
     });
   } catch (error) {
@@ -2994,6 +3114,16 @@ app.get('/api/scraper/cities', (req, res) => {
   }
 });
 
+// GET /api/scraper/catalog - Catálogo completo de Ciudades, Subzonas y Rubros NatoH Systems
+app.get('/api/scraper/catalog', (req, res) => {
+  try {
+    const catalog = geoGridScanner.getCatalog();
+    res.json({ success: true, ...catalog });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // POST /api/scraper/generate-grid - Generar cuadrícula de coordenadas GPS para Google Maps
 app.post('/api/scraper/generate-grid', (req, res) => {
   try {
@@ -3007,7 +3137,7 @@ app.post('/api/scraper/generate-grid', (req, res) => {
 // GET /api/scraper/next-target - Obtener próxima zona y rubro recomendados sin repetición (Agente 1)
 app.get('/api/scraper/next-target', async (req, res) => {
   try {
-    const target = await geoGridScanner.getNextRecommendedTarget(req.query.city);
+    const target = await geoGridScanner.getNextRecommendedTarget(req.query.city, req.query.rubro);
     res.json(target);
   } catch (error) {
     console.error('Error obteniendo próximo objetivo de scraping:', error);
@@ -3053,6 +3183,7 @@ app.get('/api/leads/qualification-stats', async (req, res) => {
     const pending = await Lead.countDocuments({ status: 'pending', isQualified: { $ne: false } });
     const contacted = await Lead.countDocuments({ status: 'contacted' });
     const interested = await Lead.countDocuments({ status: 'interested' });
+    const hotLeads = await Lead.countDocuments({ status: 'pending', priorityTier: 'hot' });
 
     res.json({
       success: true,
@@ -3063,6 +3194,7 @@ app.get('/api/leads/qualification-stats', async (req, res) => {
         pending,
         contacted,
         interested,
+        hotLeads,
         qualificationRate: total > 0 ? Math.round((qualified / total) * 100) : 0
       }
     });
@@ -3072,13 +3204,14 @@ app.get('/api/leads/qualification-stats', async (req, res) => {
   }
 });
 
-// POST /api/leads/auto-qualify-all - Auditar y clasificar leads existentes en BD
+// POST /api/leads/auto-qualify-all - Auditar, calificar y puntuar leads existentes en BD
 app.post('/api/leads/auto-qualify-all', async (req, res) => {
   try {
     const unverifiedLeads = await Lead.find({
       $or: [
         { isQualified: { $exists: false } },
-        { isQualified: null }
+        { isQualified: null },
+        { leadScore: { $exists: false } }
       ]
     }).limit(1500);
 
@@ -3089,18 +3222,27 @@ app.post('/api/leads/auto-qualify-all', async (req, res) => {
       const nameLower = (lead.name || '').toLowerCase();
       const isNonCommercial = /comisar|polic|ministerio|secretar|embajada|consulado|fiscal|hospital\s+p|centro\s+de\s+salud\s+p|anses|afip|ioma|pami|registro\s+civil|municipalidad|tribunal/.test(nameLower);
 
-      const phoneValidation = phoneValidator.cleanAndFormatArgentinianNumber(lead.phone);
+      const phoneValidation = cleanAndFormatArgentinianNumber(lead.phone);
 
-      if (isNonCommercial || !phoneValidation.isValid) {
+      if (isNonCommercial || !phoneValidation.valid) {
         lead.status = 'discarded';
         lead.isQualified = false;
-        lead.qualificationReason = isNonCommercial ? 'Entidad pública/no comercial' : (phoneValidation.reason || 'Número no válido para prospección');
+        lead.qualificationReason = isNonCommercial ? 'Entidad pública/no comercial' : (phoneValidation.error || 'Número no válido para prospección');
         await lead.save();
         discardedCount++;
       } else {
-        lead.phone = phoneValidation.cleanWhatsappNumber;
+        lead.phone = phoneValidation.formatted;
+        lead.phoneValidated = true;
         lead.isQualified = true;
         lead.qualificationReason = 'Móvil verificado y activo';
+        if (!lead.dossier || !lead.dossier.primaryPain) {
+          const { buildHeuristicDossier } = require('./services/painAnalyzer');
+          lead.dossier = buildHeuristicDossier(lead);
+        }
+        const scoreData = calculateLeadScore(lead, lead.dossier);
+        lead.leadScore = scoreData.leadScore;
+        lead.priorityTier = scoreData.priorityTier;
+        lead.scoreBreakdown = scoreData.scoreBreakdown;
         await lead.save();
         qualifiedCount++;
       }

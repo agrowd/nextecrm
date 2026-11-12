@@ -1,10 +1,8 @@
-// content.js – GMaps Leads Scraper (rev-26, Ariadne Agent 1 GPS + Anti-Stale-DOM)
-//  • mantiene todo lo que ya funcionaba (título, scroll, logs etc.)
-//  • agrega pausa "humana" de 3-10 s entre tarjetas
-//  • la señal stopScraping detiene ambos bucles de inmediato y se resetea al iniciar
-//  • espera cambio real de h1 para evitar falsos duplicados (Stale DOM)
-//  • micro-scroll en panel de detalle para cargar reseñas reales de Google Maps
-//  • soporta scrapeCurrentView y modo autónomo GPS de Agente 1
+// content.js – GMaps Leads Scraper (rev-27, NatoH Systems In-Page HUD + Social/Platform Detector + Anti-Stale-DOM)
+//  • HUD flotante dentro de Google Maps para raspar "a mano" con 1 clic sin abrir el popup
+//  • Detección inteligente de Instagram, Facebook, Linktree, PedidosYa y WhatsApp en la ficha de Maps
+//  • Espera cambio real de h1 para evitar falsos duplicados (Stale DOM)
+//  • Micro-scroll en panel de detalle para extraer reseñas reales de Google Maps
 
 (() => {
   /* ───── helpers básicos ───── */
@@ -12,9 +10,39 @@
   const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
   const rwait = () => delay(rand(400, 800));
 
+  let sessionSentCount = 0;
+  let sessionQualifiedCount = 0;
+  let sessionSkippedCount = 0;
+  let isCurrentlyScraping = false;
+  let lastExtractedName = '-';
+
+  const updateHudStatus = (statusText, color = '#00a884', progressText = '') => {
+    const badge = document.getElementById('natoh-hud-status');
+    const prog = document.getElementById('natoh-hud-progress');
+    const sentEl = document.getElementById('natoh-hud-sent');
+    const cardsEl = document.getElementById('natoh-hud-cards');
+    const lastEl = document.getElementById('natoh-hud-last');
+
+    if (badge && statusText) {
+      badge.textContent = statusText;
+      badge.style.background = `${color}25`;
+      badge.style.color = color;
+      badge.style.borderColor = `${color}55`;
+    }
+    if (prog && progressText !== undefined && progressText !== null) {
+      prog.textContent = progressText;
+    }
+    if (sentEl) sentEl.textContent = `${sessionQualifiedCount} (${sessionSentCount} env.)`;
+    if (cardsEl) {
+      try { cardsEl.textContent = String(cardsList().length); } catch {}
+    }
+    if (lastEl) lastEl.textContent = lastExtractedName;
+  };
+
   const log = (m, l = 'info') => {
     const C = { info: '#3498db', warn: '#f39c12', error: '#e74c3c', success: '#2ecc71' }[l] || '#3498db';
     console.log(`%c[scraper] ${m}`, `color:${C};font-weight:bold`);
+    updateHudStatus(null, null, m.substring(0, 62));
     try {
       chrome.runtime.sendMessage({ type: 'scraper-log', level: l, message: m }, () => {
         if (chrome.runtime.lastError) {}
@@ -42,7 +70,6 @@
   const xp = (path, ctx = document) =>
     document.evaluate(path, ctx, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
 
-  // Función mejorada para esperar un elemento usando CSS o XPath
   async function waitForInput(timeout = 20000) {
     const t0 = Date.now();
     while (Date.now() - t0 < timeout) {
@@ -63,9 +90,7 @@
       ];
       for (const sel of cssSelectors) {
         const el = document.querySelector(sel);
-        if (isVisible(el)) {
-          return el;
-        }
+        if (isVisible(el)) return el;
       }
 
       const xpathSelectors = [
@@ -84,9 +109,7 @@
       for (const xpath of xpathSelectors) {
         try {
           const el = xp(xpath);
-          if (isVisible(el)) {
-            return el;
-          }
+          if (isVisible(el)) return el;
         } catch (e) {}
       }
 
@@ -181,15 +204,12 @@
       const cur = readCurrentTitleText();
       if (cur) {
         const normCur = cur.toLowerCase().trim();
-        // Si coincide con el aria-label de la tarjeta clickeada, es el título nuevo
         if (normExpected && (normCur === normExpected || normCur.includes(normExpected) || normExpected.includes(normCur))) {
           return cur;
         }
-        // Si cambió respecto al título anterior del panel, ya se actualizó el DOM
         if (!normPrev || normCur !== normPrev) {
           return cur;
         }
-        // Si pasaron más de 4.2s y el título sigue igual (caso raro de 2 sucursales seguidas con igual nombre), aceptarlo
         if (Date.now() - t0 > 4200) {
           return cur;
         }
@@ -253,15 +273,11 @@
       const endTexts = ['Has llegado al final de la lista', "You've reached the end of the list", 'No hay más resultados'];
       for (const selector of END_TEXT_CSS) {
         const el = document.querySelector(selector);
-        if (el?.textContent && endTexts.some(t => el.textContent.includes(t))) {
-          return true;
-        }
+        if (el?.textContent && endTexts.some(t => el.textContent.includes(t))) return true;
       }
       for (const xpath of END_TEXT_XP) {
         const el = xp(xpath);
-        if (el?.textContent && endTexts.some(t => el.textContent.includes(t))) {
-          return true;
-        }
+        if (el?.textContent && endTexts.some(t => el.textContent.includes(t))) return true;
       }
       return false;
     };
@@ -355,10 +371,8 @@
         const form = input.closest('form');
         if (form?.requestSubmit) {
           form.requestSubmit();
-          buttonClicked = true;
         } else if (form) {
           form.submit();
-          buttonClicked = true;
         }
       }
 
@@ -382,7 +396,7 @@
     return '';
   };
 
-  /* ───── abrir tarjeta y sacar datos ───── */
+  /* ───── abrir tarjeta y sacar datos enriquecidos para NatoH Systems ───── */
   async function openAndExtract(card, kw, loc, zoneMeta = {}, tries = 3) {
     for (let at = 0; at < tries; at++) {
       if (checkStop()) return null;
@@ -402,17 +416,53 @@
 
         await waitForSel('[role="main"]', 15000);
         const titleText = await getUpdatedTitleText(prevTitle, expectedLabel, 8000);
-        // Pausa breve para asegurar que teléfono, web y dirección del nuevo panel hayan renderizado
         await delay(450);
 
         const main = document.querySelector('[role="main"]');
         if (!main) throw new Error('Panel principal no disponible');
 
+        const rawWebHref = getHref(WEB_CSS, WEB_XP, main);
+        let instagramUrl = '';
+        let facebookUrl = '';
+        let externalPlatform = '';
+
+        // Detectar si el link "web" de Google Maps es en realidad Instagram, Facebook, Linktree, PedidosYa o WhatsApp
+        if (rawWebHref) {
+          const lw = rawWebHref.toLowerCase();
+          if (lw.includes('instagram.com/')) {
+            instagramUrl = rawWebHref;
+            externalPlatform = 'instagram';
+          } else if (lw.includes('facebook.com/') || lw.includes('fb.com/')) {
+            facebookUrl = rawWebHref;
+            externalPlatform = 'facebook';
+          } else if (lw.includes('linktr.ee/') || lw.includes('bio.link/') || lw.includes('beacons.ai/')) {
+            externalPlatform = 'linktree';
+          } else if (lw.includes('pedidosya.com') || lw.includes('rappi.com')) {
+            externalPlatform = 'pedidosya';
+          } else if (lw.includes('wa.me/') || lw.includes('api.whatsapp.com')) {
+            externalPlatform = 'whatsapp_link';
+          } else if (lw.includes('tiendanube') || lw.includes('mitiendanube')) {
+            externalPlatform = 'tiendanube';
+          }
+        }
+
+        // Buscar links sociales adicionales dentro de la ficha de Google Maps
+        try {
+          main.querySelectorAll('a[href]').forEach(a => {
+            const h = (a.href || '').toLowerCase();
+            if (!instagramUrl && h.includes('instagram.com/')) instagramUrl = a.href;
+            if (!facebookUrl && (h.includes('facebook.com/') || h.includes('fb.com/'))) facebookUrl = a.href;
+          });
+        } catch {}
+
         const lead = {
           name: titleText,
           phone: getText(PHONE_CSS, PHONE_XP, main),
           address: getText(ADDR_CSS, ADDR_XP, main),
-          website: getHref(WEB_CSS, WEB_XP, main),
+          website: rawWebHref,
+          instagramUrl: instagramUrl || undefined,
+          facebookUrl: facebookUrl || undefined,
+          externalPlatform: externalPlatform || undefined,
           keyword: kw,
           location: loc,
           zoneId: zoneMeta.zoneId || undefined,
@@ -439,7 +489,7 @@
           if (!isNaN(val)) lead.reviewCount = val;
         }
 
-        // Micro-scroll en el panel de detalle para que Google Maps cargue los snippets de reseñas (lazy load)
+        // Micro-scroll en el panel de detalle para que Google Maps cargue los snippets de reseñas
         try {
           const scrollablePane = main.querySelector('div.m6QErb.DxyBCb') || main;
           if (scrollablePane) {
@@ -486,15 +536,14 @@
               }
             });
           }
-          if (lead.reviews.length > 0) {
-            log(`⭐ Extraídas ${lead.reviews.length} reseñas para ${lead.name}`, 'info');
-          }
         } catch {}
 
         if (isDuplicate(lead)) {
+          sessionSkippedCount++;
           return null;
         }
 
+        lastExtractedName = lead.name.substring(0, 28);
         log(`📇 Lead extraído → ${lead.name} ${lead.phone ? '(' + lead.phone + ')' : '(sin tel)'}`, 'success');
         return lead;
       } catch (e) {
@@ -516,6 +565,10 @@
           return;
         }
         if (res?.ok) {
+          sessionSentCount++;
+          const addedCount = res?.data?.added ?? 1;
+          if (addedCount > 0) sessionQualifiedCount++;
+          updateHudStatus();
           log(`✅ Lead enviado al CRM: ${l.name}`, 'success');
           r(true);
         } else {
@@ -529,17 +582,27 @@
     }
   });
 
-  // Inferir rubro y ubicación de la URL o input si el usuario usó "Raspar Vista Actual" sin llenar campos
+  // Inferir rubro y ubicación de la URL, del HUD o del buscador de Google Maps
   function inferQueryFromPage(defaultKw, defaultLoc) {
-    let kw = defaultKw || '';
-    let loc = defaultLoc || '';
+    const hudKw = document.getElementById('natoh-hud-kw')?.value?.trim() || '';
+    const hudLoc = document.getElementById('natoh-hud-loc')?.value?.trim() || '';
+
+    let kw = defaultKw || hudKw || '';
+    let loc = defaultLoc || hudLoc || '';
     if (kw && loc) return { kw, loc };
 
     const inputEl = document.querySelector('#searchboxinput, form[role="search"] input');
     const rawSearch = inputEl?.value?.trim() || '';
     if (rawSearch) {
-      if (!kw) kw = rawSearch;
-      if (!loc) loc = 'Vista Maps';
+      // Si el usuario buscó ej: "distribuidora en San Martín", separar rubro y zona
+      const parts = rawSearch.split(/\s+en\s+/i);
+      if (parts.length === 2) {
+        if (!kw) kw = parts[0].trim();
+        if (!loc) loc = parts[1].trim();
+      } else {
+        if (!kw) kw = rawSearch;
+        if (!loc) loc = 'Vista Maps';
+      }
       return { kw, loc };
     }
 
@@ -554,88 +617,242 @@
     return { kw: kw || 'General', loc: loc || 'Zona Actual' };
   }
 
+  /* ───── Ejecutor de Raspar Vista Actual ───── */
+  async function executeScrapeCurrentView(msg = {}) {
+    if (isCurrentlyScraping) {
+      log('⚠️ Ya hay un raspado en curso en esta pestaña.', 'warn');
+      return;
+    }
+    stopRequested = false;
+    isCurrentlyScraping = true;
+    const { kw, loc } = inferQueryFromPage(msg.keyword, msg.location);
+    const zoneMeta = { zoneId: msg.zoneId, zoneName: msg.zoneName };
+    let leadsSent = 0;
+
+    updateHudStatus('Raspando...', '#00bfa5', `Iniciando "${kw}" en "${loc}"`);
+    log(`📍 Raspando vista GPS: "${kw}" en "${loc}"`, 'info');
+
+    try {
+      let hasCards = false;
+      try {
+        await waitFor(() => cardsList().length > 0, 14000);
+        hasCards = true;
+      } catch {
+        if (msg.searchQuery || (kw && kw !== 'General')) {
+          const q = msg.searchQuery || `${kw} ${loc}`.trim();
+          log(`🔍 Feed no detectado en vista directa, ejecutando búsqueda: "${q}"`, 'info');
+          await doSearch(q);
+          await waitFor(() => cardsList().length > 0, 20000);
+          hasCards = true;
+        }
+      }
+
+      if (hasCards && !checkStop()) {
+        await delay(1500);
+        await scrollFeed();
+        const cards = cardsList();
+        log(`📋 ${cards.length} negocios encontrados en esta zona`, 'info');
+
+        for (let i = 0; i < cards.length; i++) {
+          if (checkStop()) break;
+          updateHudStatus(`Raspando ${i + 1}/${cards.length}`, '#00bfa5');
+          log(`➡️ Procesando negocio (${i + 1}/${cards.length})`, 'info');
+          const lead = await openAndExtract(cards[i], kw, loc, zoneMeta);
+          if (lead) {
+            const ok = await sendLead(lead);
+            if (ok) leadsSent++;
+          }
+          await delay(rand(2500, 6000));
+        }
+      } else if (!hasCards) {
+        log(`⚠️ No se encontraron negocios en esta zona`, 'warn');
+      }
+    } catch (err) {
+      log(`❌ Error raspando vista: ${err.message}`, 'error');
+    } finally {
+      isCurrentlyScraping = false;
+    }
+
+    if (msg.isAgent1Auto || msg.zoneId) {
+      try {
+        chrome.runtime.sendMessage({
+          action: 'zoneFinished',
+          zoneId: msg.zoneId,
+          zoneName: msg.zoneName || loc,
+          keyword: kw,
+          leadsFound: leadsSent,
+          isAgent1Auto: Boolean(msg.isAgent1Auto),
+          stopped: checkStop()
+        });
+      } catch {}
+    } else {
+      if (checkStop()) {
+        updateHudStatus('Detenido', '#f39c12');
+        log('⏹️ Scraping detenido por usuario', 'warn');
+      } else {
+        updateHudStatus('Completado', '#2ecc71');
+        log(`🏁 Vista actual finalizada (${leadsSent} leads enviados)`, 'success');
+      }
+      notifyScrapingDone();
+      try {
+        chrome.runtime.sendMessage({ action: 'scrapingFinished' });
+      } catch {}
+    }
+  }
+
+  /* ───── HUD FLOTANTE EN GOOGLE MAPS (Raspado "A Mano" NatoH Systems) ───── */
+  function injectFloatingHud() {
+    if (document.getElementById('natoh-gmaps-hud')) return;
+
+    const hud = document.createElement('div');
+    hud.id = 'natoh-gmaps-hud';
+    hud.style.cssText = `
+      position: fixed;
+      bottom: 22px;
+      right: 22px;
+      width: 310px;
+      background: #111b21;
+      color: #e9edef;
+      border: 1px solid #00a88488;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.55);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      z-index: 999999;
+      overflow: hidden;
+      transition: all 0.2s ease;
+    `;
+
+    hud.innerHTML = `
+      <div id="natoh-hud-header" style="background: linear-gradient(90deg, #0b2924, #1a2730); padding: 9px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2f3b43; cursor: pointer;">
+        <div style="display: flex; align-items: center; gap: 7px;">
+          <span style="font-size: 15px;">🎯</span>
+          <div>
+            <div style="font-size: 12px; font-weight: 700; color: #fff; line-height: 1.1;">NatoH Systems Scraper</div>
+            <div style="font-size: 9px; color: #8696a0;">Captación B2B Google Maps</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span id="natoh-hud-status" style="font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; background: #00a88425; color: #00a884; border: 1px solid #00a88455;">Listo</span>
+          <button id="natoh-hud-toggle" style="background: none; border: none; color: #8696a0; cursor: pointer; font-size: 13px; padding: 0 3px;" title="Minimizar/Expandir">➖</button>
+        </div>
+      </div>
+
+      <div id="natoh-hud-body" style="padding: 10px 12px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; background: #1a2730; padding: 7px 9px; border-radius: 8px; border: 1px solid #2f3b43; font-size: 11px;">
+          <div>
+            <span style="color: #8696a0; font-size: 10px;">📋 En Vista:</span>
+            <strong id="natoh-hud-cards" style="color: #53bdeb; margin-left: 4px;">0</strong>
+          </div>
+          <div>
+            <span style="color: #8696a0; font-size: 10px;">✅ Calif.:</span>
+            <strong id="natoh-hud-sent" style="color: #25d366; margin-left: 4px;">0 (0 env.)</strong>
+          </div>
+          <div style="grid-column: span 2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 1px solid #26353f; padding-top: 4px; margin-top: 2px;">
+            <span style="color: #8696a0; font-size: 10px;">🏢 Último:</span>
+            <span id="natoh-hud-last" style="color: #e9edef; font-weight: 600; font-size: 10px; margin-left: 4px;">-</span>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px;">
+          <input id="natoh-hud-kw" type="text" placeholder="Rubro (auto)" style="background: #202c33; border: 1px solid #2f3b43; color: #fff; border-radius: 6px; padding: 5px 7px; font-size: 11px; outline: none; width: 100%; box-sizing: border-box;" title="Rubro o Keyword (se detecta solo si lo dejás vacío)">
+          <input id="natoh-hud-loc" type="text" placeholder="Zona (auto)" style="background: #202c33; border: 1px solid #2f3b43; color: #fff; border-radius: 6px; padding: 5px 7px; font-size: 11px; outline: none; width: 100%; box-sizing: border-box;" title="Zona o Localidad (se detecta sola si la dejás vacía)">
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <button id="natoh-btn-scrape-view" style="background: #00a884; color: #fff; border: none; border-radius: 7px; padding: 8px 10px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            📍 Raspar Esta Vista de Maps
+          </button>
+          <div style="display: flex; gap: 6px;">
+            <button id="natoh-btn-next-zone" style="flex: 1.5; background: #7e57c2; color: #fff; border: none; border-radius: 7px; padding: 7px 8px; font-size: 11px; font-weight: 600; cursor: pointer;">
+              🤖 Siguiente Zona GPS
+            </button>
+            <button id="natoh-btn-stop" style="flex: 1; background: #ef5350; color: #fff; border: none; border-radius: 7px; padding: 7px 8px; font-size: 11px; font-weight: 600; cursor: pointer;">
+              ⏹️ Detener
+            </button>
+          </div>
+        </div>
+
+        <div id="natoh-hud-progress" style="margin-top: 7px; font-size: 10px; color: #8696a0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+          Buscá a mano en Maps o usá Siguiente Zona GPS
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(hud);
+
+    // Minimizar / Expandir
+    const toggleBtn = document.getElementById('natoh-hud-toggle');
+    const headerEl = document.getElementById('natoh-hud-header');
+    const bodyEl = document.getElementById('natoh-hud-body');
+    let collapsed = false;
+    headerEl.addEventListener('click', () => {
+      collapsed = !collapsed;
+      bodyEl.style.display = collapsed ? 'none' : 'block';
+      toggleBtn.textContent = collapsed ? '➕' : '➖';
+      hud.style.width = collapsed ? '240px' : '310px';
+    });
+
+    // Acción 1: Raspar Vista Actual ("A Mano")
+    document.getElementById('natoh-btn-scrape-view').addEventListener('click', (e) => {
+      e.stopPropagation();
+      try {
+        chrome.runtime.sendMessage({ action: 'scrapeCurrentView' });
+      } catch {}
+      executeScrapeCurrentView({});
+    });
+
+    // Acción 2: Siguiente Zona GPS (Agente 1)
+    document.getElementById('natoh-btn-next-zone').addEventListener('click', (e) => {
+      e.stopPropagation();
+      stopRequested = false;
+      updateHudStatus('Agente 1 GPS...', '#7e57c2', 'Consultando próxima zona virgen...');
+      try {
+        chrome.runtime.sendMessage({ action: 'startAgent1Auto' });
+      } catch {}
+    });
+
+    // Acción 3: Detener
+    document.getElementById('natoh-btn-stop').addEventListener('click', (e) => {
+      e.stopPropagation();
+      stopRequested = true;
+      isCurrentlyScraping = false;
+      updateHudStatus('Detenido', '#f39c12', 'Raspado detenido por el operador');
+      try {
+        chrome.runtime.sendMessage({ action: 'stopScraping' });
+      } catch {}
+    });
+
+    // Actualizar contador de tarjetas en vista cada 2.5s mientras navega Google Maps a mano
+    setInterval(() => {
+      try {
+        const cardsEl = document.getElementById('natoh-hud-cards');
+        if (cardsEl) cardsEl.textContent = String(cardsList().length);
+      } catch {}
+    }, 2500);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(injectFloatingHud, 1200));
+  } else {
+    setTimeout(injectFloatingHud, 1200);
+  }
+
   /* ───── listener desde el popup / background ───── */
   chrome.runtime.onMessage.addListener((msg, _, reply) => {
     /* --- 1. Raspar Vista Actual o Objetivo GPS de Agente 1 --- */
     if (msg.action === 'scrapeCurrentView') {
-      stopRequested = false;
       reply?.({ success: true });
-
-      (async () => {
-        const { kw, loc } = inferQueryFromPage(msg.keyword, msg.location);
-        const zoneMeta = { zoneId: msg.zoneId, zoneName: msg.zoneName };
-        let leadsSent = 0;
-
-        log(`📍 Raspando vista GPS: "${kw}" en "${loc}"`, 'info');
-
-        try {
-          // Esperar a que haya tarjetas en la vista actual (o buscar si la URL no abrió el feed)
-          let hasCards = false;
-          try {
-            await waitFor(() => cardsList().length > 0, 14000);
-            hasCards = true;
-          } catch {
-            if (msg.searchQuery || (kw && kw !== 'General')) {
-              const q = msg.searchQuery || `${kw} ${loc}`.trim();
-              log(`🔍 Feed no detectado en vista directa, ejecutando búsqueda: "${q}"`, 'info');
-              await doSearch(q);
-              await waitFor(() => cardsList().length > 0, 20000);
-              hasCards = true;
-            }
-          }
-
-          if (hasCards && !checkStop()) {
-            await delay(1500);
-            await scrollFeed();
-            const cards = cardsList();
-            log(`📋 ${cards.length} negocios encontrados en esta zona`, 'info');
-
-            for (let i = 0; i < cards.length; i++) {
-              if (checkStop()) break;
-              log(`➡️ Procesando negocio (${i + 1}/${cards.length})`, 'info');
-              const lead = await openAndExtract(cards[i], kw, loc, zoneMeta);
-              if (lead) {
-                const ok = await sendLead(lead);
-                if (ok) leadsSent++;
-              }
-              await delay(rand(2500, 6500));
-            }
-          } else if (!hasCards) {
-            log(`⚠️ No se encontraron negocios en esta zona`, 'warn');
-          }
-        } catch (err) {
-          log(`❌ Error raspando vista: ${err.message}`, 'error');
-        }
-
-        if (msg.isAgent1Auto || msg.zoneId) {
-          try {
-            chrome.runtime.sendMessage({
-              action: 'zoneFinished',
-              zoneId: msg.zoneId,
-              keyword: kw,
-              leadsFound: leadsSent,
-              isAgent1Auto: Boolean(msg.isAgent1Auto),
-              stopped: checkStop()
-            });
-          } catch {}
-        } else {
-          checkStop()
-            ? log('⏹️ Scraping detenido por usuario', 'warn')
-            : log(`🏁 Vista actual finalizada (${leadsSent} leads enviados)`, 'success');
-          notifyScrapingDone();
-          try {
-            chrome.runtime.sendMessage({ action: 'scrapingFinished' });
-          } catch {}
-        }
-      })();
+      executeScrapeCurrentView(msg);
       return true;
     }
 
     /* --- 2. Iniciar Cola Manual --- */
     if (msg.action === 'startScrapingQueue' && Array.isArray(msg.queue)) {
       stopRequested = false;
+      isCurrentlyScraping = true;
       reply?.({ success: true, total: msg.queue.length });
       (async () => {
+        updateHudStatus('En Cola...', '#00bfa5', `Cola de ${msg.queue.length} búsquedas`);
         log(`🚦 Scraping iniciado – total búsquedas: ${msg.queue.length}`, 'info');
         sentLeads.clear();
         log(`🧹 Filtro de duplicados reiniciado`, 'info');
@@ -667,6 +884,7 @@
 
             for (let i = 0; i < cards.length; i++) {
               if (checkStop()) break outer;
+              updateHudStatus(`Raspando ${i + 1}/${cards.length}`, '#00bfa5');
               log(`➡️ Procesando tarjeta (${i + 1}/${cards.length})`, 'info');
               const lead = await openAndExtract(cards[i], keyword, location);
               if (lead) await sendLead(lead);
@@ -677,9 +895,14 @@
             continue;
           }
         }
-        checkStop()
-          ? log('⏹️ Scraping detenido por usuario', 'warn')
-          : log('🏁 Scraping finalizado', 'success');
+        isCurrentlyScraping = false;
+        if (checkStop()) {
+          updateHudStatus('Detenido', '#f39c12');
+          log('⏹️ Scraping detenido por usuario', 'warn');
+        } else {
+          updateHudStatus('Completado', '#2ecc71');
+          log('🏁 Scraping finalizado', 'success');
+        }
 
         notifyScrapingDone();
         try {
@@ -694,10 +917,12 @@
     /* --- 3. Detener --- */
     if (msg.action === 'stopScraping') {
       stopRequested = true;
+      isCurrentlyScraping = false;
+      updateHudStatus('Detenido', '#f39c12', 'Señal de parada recibida');
       reply?.({ stopped: true });
       log('⏸️ Señal de stop recibida', 'warn');
     }
   });
 
-  log('🟢 GMaps Leads Scraper cargado (rev-26) - Agente 1 GPS & Anti-Stale-DOM activo');
+  log('🟢 GMaps Leads Scraper cargado (rev-27) - NatoH Systems HUD & Anti-Stale-DOM activo');
 })();

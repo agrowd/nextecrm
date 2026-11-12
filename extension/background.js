@@ -1,10 +1,11 @@
-// background.js - GMaps Leads Scraper (rev-26, Ariadne Agent 1 GPS Sync)
+// background.js - GMaps Leads Scraper (rev-27, NatoH Systems GPS Sync + In-Page HUD)
 const DEFAULT_BACKEND = 'http://149.50.128.73:8484';
 
 // Estado global del scraping
 let scrapingActive = false;
 let autoAgentMode = false;
 let autoAgentCity = '';
+let autoAgentRubro = '';
 let currentTabId = null;
 let awaitingTabLoad = false;
 
@@ -73,10 +74,13 @@ async function postLead(lead, retries = 3) {
   throw lastErr;
 }
 
-async function fetchNextAgentTarget(city = '') {
+async function fetchNextAgentTarget(city = '', rubro = '') {
   const baseUrl = await getBackendUrl();
-  const query = city ? `?city=${encodeURIComponent(city)}` : '';
-  const r = await fetch(`${baseUrl}/api/scraper/next-target${query}`, {
+  const params = new URLSearchParams();
+  if (city) params.set('city', city);
+  if (rubro) params.set('rubro', rubro);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const r = await fetch(`${baseUrl}/api/scraper/next-target${qs}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
   });
@@ -84,14 +88,20 @@ async function fetchNextAgentTarget(city = '') {
   return await r.json();
 }
 
-async function markZoneScannedInBackend(zoneId, keyword, leadsFound = 0) {
+async function markZoneScannedInBackend(zoneId, keyword, leadsFound = 0, zoneName = '') {
   if (!zoneId || !keyword) return;
   try {
     const baseUrl = await getBackendUrl();
     await fetch(`${baseUrl}/api/scraper/mark-scanned`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ zoneId, keyword, leadsFound })
+      body: JSON.stringify({
+        zoneId,
+        zoneName: zoneName || zoneId,
+        keyword,
+        totalLeadsFound: leadsFound,
+        validLeadsIngested: leadsFound
+      })
     });
     emitLog(`🗺️ Zona marcada como escaneada: ${zoneId} (${keyword}) -> ${leadsFound} leads`, 'success');
   } catch (err) {
@@ -103,17 +113,18 @@ async function markZoneScannedInBackend(zoneId, keyword, leadsFound = 0) {
 async function launchNextAgentTarget() {
   if (!scrapingActive || !autoAgentMode || !currentTabId) return;
   try {
-    emitLog('🤖 Consultando próximo objetivo GPS a Agente 1...', 'info');
-    const data = await fetchNextAgentTarget(autoAgentCity);
-    if (!data?.success || !data?.target) {
+    emitLog('🤖 Consultando próximo objetivo GPS a Agente 1 (NatoH Systems)...', 'info');
+    const data = await fetchNextAgentTarget(autoAgentCity, autoAgentRubro);
+    const targetObj = data?.target || data;
+    if (!data?.success || !targetObj?.zone || !targetObj?.rubro) {
       emitLog('🏁 Agente 1 completó todas las zonas disponibles.', 'success');
       stopScraping();
       safeRuntimeSend({ action: 'scrapingFinished' });
       return;
     }
 
-    const { zone, rubro, googleMapsUrl } = data.target;
-    emitLog(`🎯 Objetivo Agente 1: ${rubro.label} en ${zone.name} (${zone.city})`, 'success');
+    const { zone, rubro, googleMapsUrl, searchQuery } = targetObj;
+    emitLog(`🎯 Objetivo Agente 1: ${rubro.label} en ${zone.name}`, 'success');
 
     awaitingTabLoad = true;
     await chrome.tabs.update(currentTabId, { url: googleMapsUrl });
@@ -133,7 +144,7 @@ async function launchNextAgentTarget() {
             safeTabSend(currentTabId, {
               action: 'scrapeCurrentView',
               keyword: rubro.id,
-              searchQuery: `${rubro.query} ${zone.name}`,
+              searchQuery: searchQuery || `${rubro.query} ${zone.name}`,
               location: zone.name,
               zoneId: zone.id,
               zoneName: zone.name,
@@ -183,8 +194,6 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   }
 });
 
-// NOTA: Se eliminó chrome.tabs.onActivated para permitir trabajar en otras pestañas sin cortar el scraping.
-
 // Detectar solo si la pestaña del scraper sale de Google Maps
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (scrapingActive && !awaitingTabLoad && tabId === currentTabId && changeInfo.url) {
@@ -200,7 +209,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     postLead(msg.lead)
       .then((res) => sendResponse({ ok: true, data: res }))
       .catch(err => sendResponse({ ok: false, error: err.message }));
-    return true; // puerto abierto
+    return true;
   }
 
   if (msg.action === 'getScrapingStatus') {
@@ -219,7 +228,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     scrapingActive = true;
     autoAgentMode = true;
     autoAgentCity = msg.city || '';
-    currentTabId = msg.tabId;
+    autoAgentRubro = msg.rubro || '';
+    currentTabId = msg.tabId || sender.tab?.id || currentTabId;
     sendResponse({ success: true });
     launchNextAgentTarget();
     return false;
@@ -227,7 +237,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.action === 'zoneFinished') {
     (async () => {
-      await markZoneScannedInBackend(msg.zoneId, msg.keyword, msg.leadsFound || 0);
+      await markZoneScannedInBackend(msg.zoneId, msg.keyword, msg.leadsFound || 0, msg.zoneName);
       if (scrapingActive && autoAgentMode && !msg.stopped) {
         emitLog('⏭️ Avanzando automáticamente a la siguiente zona GPS...', 'info');
         setTimeout(() => launchNextAgentTarget(), 2500);
@@ -249,23 +259,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       console.log('✅ Scraping finalizado');
       safeRuntimeSend(msg);
     }
+    return false;
   }
 
   if (msg.action === 'stopScraping') {
     stopScraping();
-    safeRuntimeSend(msg);
     sendResponse({ stopped: true });
     return false;
   }
-
-  if (msg.type === 'scraper-log') {
-    safeRuntimeSend(msg); // reenvío al popup
-  }
 });
-
-// evita warning del service-worker
-self.addEventListener('fetch', e => {
-  if (e.preloadResponse) e.waitUntil(e.preloadResponse);
-});
-
-console.log('🟢 GMaps Leads Scraper background.js cargado (rev-26)');

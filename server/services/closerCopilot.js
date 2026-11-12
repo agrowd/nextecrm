@@ -1,217 +1,165 @@
 /**
- * 🤝 AGENTE 5: COPILOTO DE CIERRE & ASISTENTE EN VIVO (CLOSER COPILOT)
+ * 🤝 AGENTE 5: CLOSER COPILOT (ASISTENTE DE CIERRE EN VIVO - NATOH SYSTEMS)
  * 
- * Analiza en tiempo real las respuestas de los prospectos en el chat de WhatsApp,
- * clasifica su intención de compra y genera una respuesta sugerida ultra-personalizada
- * lista para enviar con 1 clic por el operador humano.
+ * Analiza el historial de conversación de WhatsApp de un lead junto con su
+ * Dossier Estratégico (Agente 3) y su Auditoría Web (Agente 2) para asistir
+ * al operador humano en tiempo real:
+ * - Detecta la etapa del embudo y la objeción o pregunta del cliente
+ * - Redacta una respuesta sugerida lista para enviar con 1 clic (con links a natohsystems.com / nextemarketing.com)
+ * - Sugiere el siguiente paso comercial concreto
  */
 
-async function postJson(url, data, headers, timeoutMs = 8000) {
-    if (typeof fetch === 'function') {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), timeoutMs);
-        try {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...headers },
-                body: JSON.stringify(data),
-                signal: controller.signal
-            });
-            clearTimeout(timer);
-            return await res.json();
-        } catch (e) {
-            clearTimeout(timer);
-            throw e;
-        }
-    }
-    const axios = require('axios');
-    const res = await axios.post(url, data, { headers, timeout: timeoutMs });
-    return res.data;
-}
+const OpenAI = require('openai');
+
+const NATOH_PRICING_REFERENCE = `
+TARIFARIO PROMO OTOÑO 2026 (NatoH Systems https://natohsystems.com & Nexte Marketing https://nextemarketing.com):
+1. ⚙️ Sistema a Medida (ERP, Stock, Pedidos Mayoristas, Turnero Online o Carta QR Gastronómica): $350.000 ARS (antes $600.000)
+2. 🤖 Agente de IA Conversacional 24/7 en WhatsApp: $180.000 ARS (antes $350.000)
+3. 🌐 Sitio Web Corporativo / Catálogo E-Commerce: $250.000 ARS (antes $500.000)
+4. 📍 Posicionamiento SEO Local en Google Maps: $150.000 ARS (antes $350.000)
+5. 🎁 Combo Integral Completo (Web/Sistema + Agente IA + SEO Maps): $690.000 ARS
+Forma de pago: 50% de anticipo al iniciar el desarrollo y 50% contra entrega funcionando (en 7 a 10 días hábiles).
+`;
 
 class CloserCopilot {
-    constructor() {
-        this.apiKey = process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY || '';
-        this.model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-    }
+    buildHeuristicSuggestion(lead, messages = []) {
+        const lastInbound = [...messages].reverse().find(m => !m.fromMe && m.direction !== 'outbound');
+        const text = (lastInbound?.content || lastInbound?.body || '').toLowerCase();
+        const name = lead?.name || 'el cliente';
+        const targetLabel = lead?.dossier?.targetServiceLabel || 'Sistema a Medida / Web Profesional + IA';
+        const targetOffer = lead?.dossier?.suggestedOffer || 'Sistema a Medida $350.000, Web Profesional $250.000 o Agente IA $180.000 en 2 pagos';
 
-    /**
-     * Analiza el historial de chat y genera la recomendación para el operador
-     * @param {Object} lead - Datos del lead y su dossier
-     * @param {Array} messages - Historial de mensajes de la conversación
-     * @returns {Promise<Object>} Sugerencia estructurada
-     */
-    async generateSuggestion(lead, messages = []) {
-        const cleanName = (lead?.name || '').split('|')[0].trim() || 'cliente';
-        const dossier = lead?.dossier || {};
-        const incomingMessages = messages.filter(m => !m.fromMe && m.content && m.content.trim());
-
-        if (incomingMessages.length === 0) {
+        if (!lastInbound) {
             return {
-                hasIncoming: false,
-                intent: 'sin_respuesta',
-                intentLabel: 'Sin respuesta del cliente',
-                confidence: 1.0,
-                suggestedReply: '',
-                rationale: 'El cliente aún no ha respondido a la prospección.'
+                stage: 'esperando_respuesta',
+                stageLabel: '⏳ Esperando respuesta del prospecto',
+                detectedObjection: 'Aún no respondió a la secuencia inicial',
+                coachingTip: 'Si pasaron más de 48 hs y leyó los mensajes, enviá un seguimiento corto ofreciendo mostrarle un ejemplo puntual de NatoH Systems sin compromiso.',
+                suggestedReply: `Hola! ¿Cómo estás? Te escribía cortito por si llegaste a ver la propuesta de *NatoH Systems* (https://natohsystems.com) para *${name}*. Si te sirve, te paso por acá un ejemplo rápido de cómo funciona nuestro ${targetLabel} sin ningún compromiso. ¿Te parece?`,
+                confidence: 0.80
             };
         }
 
-        const lastMessage = incomingMessages[incomingMessages.length - 1].content.trim();
-        const lastMessageLower = lastMessage.toLowerCase();
-
-        // 1. Intentar análisis con LLM si hay API Key disponible
-        if (this.apiKey) {
-            try {
-                const aiResult = await this.analyzeWithLLM(lead, cleanName, dossier, messages, lastMessage);
-                if (aiResult && aiResult.suggestedReply) {
-                    return {
-                        hasIncoming: true,
-                        lastCustomerMessage: lastMessage,
-                        ...aiResult
-                    };
-                }
-            } catch (err) {
-                console.warn(`⚠️ [CloserCopilot] Falló inferencia IA para ${cleanName}: ${err.message}. Usando motor heurístico.`);
-            }
+        if (/precio|cuanto|costo|valor|presupuesto|sale|tarifa|planes/.test(text)) {
+            return {
+                stage: 'consulta_precio',
+                stageLabel: '💰 Consulta de Precio / Inversión',
+                detectedObjection: 'Quiere conocer valores claros y modalidad de pago',
+                coachingTip: 'Anclá el valor mostrando el ahorro de la promo, mencioná los 2 pagos (50% y 50%) y cerrá ofreciendo una llamada de 5 minutos o demo.',
+                suggestedReply: `¡Gracias por responder! Te detallo: para *${name}* recomendamos nuestro *${targetLabel}*. Con la promo vigente te queda en: ${targetOffer}. Se abona 50% para iniciar y el otro 50% recién cuando te lo entregamos funcionando (podés ver nuestros desarrollos en https://natohsystems.com). ¿Te queda bien que te llame 5 minutitos hoy o mañana para mostrarte una demo?`,
+                confidence: 0.92
+            };
         }
 
-        // 2. Motor Heurístico de Alta Precisión (Fallback Instantáneo)
-        return this.analyzeWithHeuristics(lead, cleanName, dossier, lastMessageLower, lastMessage);
-    }
-
-    /**
-     * Inferencia rápida con LLM (gpt-4o-mini)
-     */
-    async analyzeWithLLM(lead, cleanName, dossier, messages, lastMessage) {
-        const historyText = messages.slice(-6).map(m => {
-            const sender = m.fromMe ? 'Juan Cruz (Nexte)' : cleanName;
-            return `${sender}: "${m.content}"`;
-        }).join('\n');
-
-        const prompt = `
-Eres Juan Cruz, asesor comercial senior en Nexte (software, sistemas a medida y páginas web en Argentina).
-Un cliente acaba de responder a tu secuencia de prospección en WhatsApp.
-Tu misión es clasificar su intención y redactar la respuesta perfecta para continuar la conversación y avanzar hacia una demo o llamada de cierre.
-
-DATOS DEL CLIENTE:
-- Nombre: ${cleanName}
-- Rubro: ${lead.category || 'Comercio/Servicios'}
-- Dolor auditado: ${dossier.primaryPain || 'Gestión y captación digital'}
-- Servicio recomendado: ${dossier.targetServiceLabel || 'Software a medida / Web'}
-- Propuesta económica de referencia: ${dossier.suggestedOffer || 'Promo especial en cuotas'}
-
-HISTORIAL RECIENTE DEL CHAT:
-${historyText}
-
-ÚLTIMO MENSAJE DEL CLIENTE:
-"${lastMessage}"
-
-CLASIFICACIONES POSIBLES:
-- "interes_alto": Quiere saber más, le interesó la propuesta o pide detalles.
-- "pregunta_precio": Pregunta costos, formas de pago o promociones.
-- "pide_portfolio": Pide ver ejemplos, sitios web hechos o referencias.
-- "duda_tecnica": Pregunta sobre cómo se instala, compatibilidad o cómo funciona.
-- "agendar_llamada": Propone hablar por teléfono, llamada o pasar a coordinar día/hora.
-- "objecion": Plantea que es caro, que no tiene tiempo o que ya tiene programador.
-- "rechazo": Dice "no gracias", "no me interesa", pide no recibir más mensajes.
-
-REGLAS DE RESPUESTA:
-1. Tono argentino fluido, profesional, cálido y conciso ("vos", "te comento", "un abrazo").
-2. No seas insistente si rechaza. Si tiene interés, ofrece enviar ejemplos o coordinar una breve llamada de 5 minutos.
-3. Máximo 45 palabras.
-
-Devuelve ÚNICAMENTE un JSON válido con esta estructura:
-{
-  "intent": "interes_alto | pregunta_precio | pide_portfolio | duda_tecnica | agendar_llamada | objecion | rechazo",
-  "intentLabel": "Etiqueta visual corta en español",
-  "confidence": 0.95,
-  "suggestedReply": "Texto exacto de la respuesta para el cliente",
-  "rationale": "Por qué se sugiere esta respuesta (1 renglón para el operador)"
-}
-`;
-
-        const response = await postJson('https://api.openai.com/v1/chat/completions', {
-            model: this.model,
-            messages: [
-                { role: 'system', content: 'Eres un copiloto comercial B2B experto en WhatsApp ventas en Argentina. Devuelves exclusivamente JSON puro.' },
-                { role: 'user', content: prompt }
-            ],
-            temperature: 0.3,
-            max_tokens: 400
-        }, {
-            'Authorization': `Bearer ${this.apiKey}`
-        }, 6000);
-
-        const raw = response?.choices?.[0]?.message?.content || '';
-        const match = raw.match(/\{[\s\S]*\}/);
-        if (match) {
-            return JSON.parse(match[0]);
+        if (/como funciona|info|mas informacion|contame|explica|ver|ejemplo|demo|muestra|web|sistema/.test(text)) {
+            return {
+                stage: 'interes_demo',
+                stageLabel: '🔥 Interés Activo / Pide Demo o Info',
+                detectedObjection: 'Quiere ver algo tangible aplicado a su rubro antes de decidir',
+                coachingTip: 'Compartí el link de NatoH Systems (natohsystems.com), explicá el beneficio en 2 líneas y proponé llamada breve.',
+                suggestedReply: `¡Buenísimo! Básicamente desarrollamos la solución llave en mano adaptada a *${name}* para que automatices las consultas y gestión desde el celular. Acá podés ver nuestros sistemas y trabajos recientes: https://natohsystems.com y https://nextemarketing.com. ¿Preferís que te mande un video corto por acá o hacemos una llamada rápida de 5 minutos y te muestro en pantalla?`,
+                confidence: 0.92
+            };
         }
-        throw new Error('Respuesta inválida de IA');
-    }
 
-    /**
-     * Motor Heurístico Determinístico
-     */
-    analyzeWithHeuristics(lead, cleanName, dossier, lastLower, originalMessage) {
-        let intent = 'interes_alto';
-        let intentLabel = 'Interés en la Propuesta';
-        let suggestedReply = `¡Hola! Me alegro que te interese. Justamente para ${cleanName} podemos armar algo súper enfocado a su escala. ¿Te parece si te comparto un par de ejemplos de cómo lo implementamos o preferís que coordinemos una breve charla de 5 minutos?`;
-        let rationale = 'El cliente muestra apertura o responde positivamente; se ofrece mostrar trabajos o llamada corta.';
+        if (/caro|no tengo plata|mas adelante|ahora no|despues|mes que viene|presupuesto ajustado/.test(text)) {
+            return {
+                stage: 'objecion_presupuesto',
+                stageLabel: '🛡️ Objeción de Presupuesto / Timing',
+                detectedObjection: 'Siente que la inversión inicial es alta o quiere postergarlo',
+                coachingTip: 'Ofrecé arrancar por el módulo más accesible (ej. Agente IA $180.000 o Web en 2 pagos de $125.000) para congelar el descuento de la promo.',
+                suggestedReply: `Te entiendo perfectamente. Si querés, para que no tengas que hacer toda la inversión junta ahora, podemos arrancar por la primera etapa congelando el valor promocional y dividirlo en 2 pagos (son solo $90.000 para empezar con el Agente IA o $125.000 para la Web/Sistema). ¿Te sirve si lo armamos así para que ya te empiece a generar clientes?`,
+                confidence: 0.88
+            };
+        }
 
-        // 1. Rechazo explícito
-        if (/no\s*(gracias|me interesa|quiero|mande|moleste)|deja|basta|spam|borrame|sacame/i.test(lastLower)) {
-            intent = 'rechazo';
-            intentLabel = 'Rechazo / No Interesado';
-            suggestedReply = 'Entendido, disculpá la molestia. Te dejo un saludo cordial y que tengas un excelente día.';
-            rationale = 'El cliente no desea continuar; respuesta cortés de cierre sin insistencia.';
-        }
-        // 2. Pregunta de Precios / Costos
-        else if (/cuanto\s*(sale|cuesta)|precio|costo|presupuesto|valor|cuotas|promo/i.test(lastLower)) {
-            intent = 'pregunta_precio';
-            intentLabel = 'Consulta de Precios & Financiación';
-            const offerText = dossier.suggestedOffer || 'Tenemos promociones con facilidades en 2 pagos según los módulos que necesiten';
-            suggestedReply = `Te comento: para ${cleanName}, ${offerText}. Además nos adaptamos según lo que requieras ahora. ¿Querés que te pase el detalle de los módulos o prefieren ver una demo en vivo primero?`;
-            rationale = 'El cliente consulta valores; se transparenta la propuesta y se ofrece demo.';
-        }
-        // 3. Pide Portfolio / Trabajos Realizados
-        else if (/portfolio|ejemplo|ejemplos|mostrame|ver\s*(algo|trabajo|paginas|webs)|referencia/i.test(lastLower)) {
-            intent = 'pide_portfolio';
-            intentLabel = 'Pide Portfolio / Casos de Éxito';
-            suggestedReply = `¡Claro que sí! Con gusto te paso algunos casos reales de plataformas y sistemas que desarrollamos para otros negocios de tu rubro. ¿Preferís que te envíe los links directos por acá o te muestro un video breve de 1 minuto?`;
-            rationale = 'El cliente pide referencias; respuesta rápida con apertura para enviar links.';
-        }
-        // 4. Coordinar Llamada / Contacto Directo
-        else if (/llamame|llamar|hablemos|telefono|reunion|zoom|mañana|horario|cuando\s*podemos/i.test(lastLower)) {
-            intent = 'agendar_llamada';
-            intentLabel = 'Coordinar Llamada / Demo';
-            suggestedReply = `¡Excelente! ¿Qué día y horario te queda más cómodo para una breve llamada de 5 a 10 minutos? Así te muestro en vivo cómo quedaría funcionando para ${cleanName}.`;
-            rationale = 'El cliente propone llamada; facilitamos agenda inmediata.';
-        }
-        // 5. Saludo simple
-        else if (/^(hola|buenas|buen dia|buenas tardes|que tal|como andas)[\s\.,!]*$/i.test(lastLower)) {
-            intent = 'saludo';
-            intentLabel = 'Saludo / Apertura';
-            suggestedReply = `¡Hola! ¿Cómo estás? Te escribía por lo que te comenté sobre ${dossier.primaryPain || 'la digitalización y software para tu negocio'}. ¿Pudiste ver la propuesta que te compartí más arriba?`;
-            rationale = 'El cliente saludó; retomamos la conversación amablemente.';
+        if (/no me interesa|no gracias|ya tenemos|baja|no quiero/.test(text)) {
+            return {
+                stage: 'rechazo_cortes',
+                stageLabel: '🧊 Desinterés / Ya tiene proveedor',
+                detectedObjection: 'Indica que ya cuenta con el servicio o no lo busca ahora',
+                coachingTip: 'Dejá la puerta abierta con amabilidad y el link de natohsystems.com para que agende el contacto.',
+                suggestedReply: `¡Impecable, muchas gracias por avisarme! Te dejo nuestro contacto agendado y nuestra web https://natohsystems.com por si más adelante necesitan desarrollar algún sistema a medida o automatizar WhatsApp con IA. ¡Muchos éxitos con *${name}*!`,
+                confidence: 0.90
+            };
         }
 
         return {
-            hasIncoming: true,
-            lastCustomerMessage: originalMessage,
-            intent,
-            intentLabel,
-            confidence: 0.85,
-            suggestedReply,
-            rationale
+            stage: 'conversacion_abierta',
+            stageLabel: '💬 Conversación Abierta',
+            detectedObjection: 'Mensaje general del cliente que requiere seguimiento consultivo',
+            coachingTip: 'Respondé su consulta de forma directa y llevalo hacia una breve llamada de 5 minutos o envío de demo de NatoH Systems.',
+            suggestedReply: `¡Hola! Qué bueno saludarte. Con respecto a lo que me comentás, para *${name}* lo ideal es implementar nuestro *${targetLabel}* que entregamos listo para usar en 7 días (podés ver ejemplos en https://natohsystems.com). ¿Tenés 5 minutos hoy a la tarde para que te comente por llamada cómo lo adaptamos a tu negocio?`,
+            confidence: 0.84
         };
+    }
+
+    async generateSuggestion(lead, messages = []) {
+        const heuristic = this.buildHeuristicSuggestion(lead, messages);
+        const apiKey = process.env.OPENAI_API_KEY;
+
+        if (!apiKey || apiKey === 'your-api-key' || apiKey.trim() === '') {
+            return heuristic;
+        }
+
+        try {
+            const openai = new OpenAI({ apiKey });
+
+            const recentTranscript = messages.slice(-10).map(m => {
+                const role = (m.fromMe || m.direction === 'outbound') ? 'Agencia (NatoH/Nexte)' : `Cliente (${lead?.name || 'Prospecto'})`;
+                return `${role}: ${m.content || m.body || ''}`;
+            }).join('\n');
+
+            const dossierInfo = lead?.dossier?.primaryPain
+                ? `Dolor detectado: ${lead.dossier.primaryPain}. Solución recomendada: ${lead.dossier.targetServiceLabel}. Oferta sugerida: ${lead.dossier.suggestedOffer}.`
+                : 'Sin dossier previo.';
+
+            const prompt = `Sos el "Closer Copilot" (Agente 5) de NatoH Systems (https://natohsystems.com) & Nexte Marketing (https://nextemarketing.com).
+Tu misión es ayudar al vendedor humano a cerrar la venta por WhatsApp con el dueño del negocio "${lead?.name || 'Prospecto'}" (Rubro: ${lead?.category || lead?.keyword || 'Comercio'}, Zona: ${lead?.location || 'Argentina'}).
+
+CONTEXTO DEL PROSPECTO:
+- ${dossierInfo}
+- Sitio web actual: ${lead?.website || 'No tiene web'} (Plataforma externa: ${lead?.externalPlatform || 'Ninguna'})
+- Score B2B: ${lead?.leadScore || 50}/100
+
+${NATOH_PRICING_REFERENCE}
+
+HISTORIAL RECIENTE DEL CHAT DE WHATSAPP:
+${recentTranscript || '(Sin mensajes aún)'}
+
+Analizá el último mensaje del cliente y devolvé ÚNICAMENTE un JSON válido con:
+{
+  "stage": "consulta_precio | interes_demo | objecion_presupuesto | listo_para_cerrar | conversacion_abierta | esperando_respuesta",
+  "stageLabel": "Etiqueta corta con emoji del estado actual de la negociación",
+  "detectedObjection": "Qué está preguntando, dudando o necesitando el cliente en este momento (1 oración)",
+  "coachingTip": "Consejo táctico de 1 oración para el vendedor humano",
+  "suggestedReply": "Mensaje de WhatsApp exacto listo para copiar y enviar al cliente (español argentino natural, cálido, máximo 55 palabras, resolviendo su duda, mencionando https://natohsystems.com si pide ver trabajos y proponiendo llamada de 5 min o cierre)"
+}`;
+
+            const response = await openai.chat.completions.create({
+                model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+                messages: [{ role: 'user', content: prompt }],
+                response_format: { type: 'json_object' },
+                temperature: 0.55,
+                max_tokens: 450
+            });
+
+            const parsed = JSON.parse(response.choices[0].message.content);
+            return {
+                stage: parsed.stage || heuristic.stage,
+                stageLabel: parsed.stageLabel || heuristic.stageLabel,
+                detectedObjection: parsed.detectedObjection || heuristic.detectedObjection,
+                coachingTip: parsed.coachingTip || heuristic.coachingTip,
+                suggestedReply: parsed.suggestedReply || heuristic.suggestedReply,
+                confidence: 0.95
+            };
+        } catch (error) {
+            console.warn('⚠️ [Agente 5 Copilot] Usando sugerencia heurística:', error.message);
+            return heuristic;
+        }
     }
 }
 
-const defaultCopilot = new CloserCopilot();
-
 module.exports = {
-    CloserCopilot,
-    closerCopilot: defaultCopilot
+    closerCopilot: new CloserCopilot()
 };

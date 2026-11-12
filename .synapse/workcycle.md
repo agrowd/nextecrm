@@ -1,6 +1,38 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-10-07 (15:20 Argentina)
+## Current Session: 2026-11-12 (14:25 Argentina)
+- **Objective:** Análisis integral y potenciación punta a punta del sistema (Extensión Chrome "a mano" con HUD en Google Maps, Backend de Calificación y Lead Scoring B2B, Catálogo de 20 Rubros y Dossier IA alineado a `natohsystems.com`, Bot WhatsApp y Dashboard CRM) para maximizar la captación de clientes objetivo de NatoH Systems.
+- **Status:** ✅ COMPLETED, SYNCHRONIZED & DEPLOYING TO VPS
+- **Git Info:** master
+
+### 60. Evolución Integral para Captación B2B NatoH Systems (`natohsystems.com`)
+- **Causa/Requerimiento:** Solicitud del usuario: *"analiza todo el sistema y sin salir de la estructura de scrappear por google maps 'a mano' mejora cada parte del sistema, back, front y nuevas cosas que sirvan y mejoren la captacion de clientes objetivo (que son los de natohsystem.com) analiza todo"*.
+- **Implementación Técnica Realizada:**
+  1. **Extensión Chrome rev-27 con HUD Flotante In-Page en Google Maps (`extension/content.js`, `extension/background.js`)**:
+     - Se mantiene 100% la estructura de raspar en el navegador "a mano", pero ahora Google Maps muestra un **HUD Flotante interactivo (`#natoh-gmaps-hud`)** en la esquina inferior derecha.
+     - Permite ver en vivo cuántas tarjetas hay cargadas en la vista actual de Maps, cuántos leads calificados se enviaron en la sesión, cuál fue el último negocio extraído, etiquetar rubro/zona al vuelo y ejecutar **`📍 Raspar Esta Vista de Maps`**, **`🤖 Siguiente Zona GPS`** o **`⏹️ Detener`** sin siquiera abrir el popup de la extensión.
+     - Detección en la ficha de Google Maps de enlaces que en realidad son Instagram, Facebook, Linktree, PedidosYa, Tiendanube o WhatsApp (`externalPlatform`, `instagramUrl`, `facebookUrl`).
+     - Corrección en `background.js` de la lectura de `const targetObj = data?.target || data` en `/api/scraper/next-target`.
+  2. **Agente 1: 20 Rubros B2B/PyME NatoH Systems & Filtros a Demanda (`server/services/geoGridScanner.js`)**:
+     - Ampliación de `RUBROS_CATALOG` a 20 verticales de alto ticket para `natohsystems.com`: Distribuidoras y Mayoristas, Corralones y Ferreterías Industriales, Logística y Transporte, Fábricas y Metalúrgicas, Concesionarias de Autos, Talleres y Repuestos, Clínicas y Policonsultorios, Odontología, Centros de Estética, Veterinarias, Inmobiliarias y Desarrolladoras, Hoteles y Alojamientos, Institutos y Academias, Estudios Jurídicos/Contables, Arquitectura/Constructoras, Restaurantes/Bares, Mueblerías/Deco, Indumentaria, Gimnasios y Peluquerías.
+     - Soporte de filtrado combinado por `city` y `rubro` en `getNextRecommendedTarget(city, rubro)` y nuevo endpoint `GET /api/scraper/catalog`.
+  3. **Agente 2: Clasificador de Falsas Webs y Auditor Profundo (`server/services/webScraper.js`, `phoneValidator.js`)**:
+     - `classifyExternalUrl()` detecta negocios que ponen Instagram, Facebook, Linktree, PedidosYa o links de WhatsApp como su "sitio web" en Google Maps, marcándolos con `isSocialOnly: true` y `hasWebsite: false` para que la IA les ofrezca crear su propio sitio/sistema en lugar de tratar a Instagram como una web corporativa.
+     - Extracción automática de enlaces `instagramUrl` y `facebookUrl` desde el HTML del sitio del cliente, más detección de turneros (`hasBookingSystem`), chatbots (`hasChatWidget`), adaptabilidad móvil (`isMobileResponsive`) y tiempo de respuesta (`loadTimeMs`).
+     - Descarte automático de líneas gratuitas `0800`/`0810` sin WhatsApp en `phoneValidator.js`.
+  4. **Agente 3: Motor de Lead Scoring B2B (0-100) y Cola Priorizada (`server/services/painAnalyzer.js`, `server/models/Lead.js`, `server/index.js`)**:
+     - Nueva función `calculateLeadScore(lead, dossier)` que puntúa cada prospecto de 0 a 100 (`priorityTier: 'hot' | 'warm' | 'cold'`) según teléfono móvil válido (+25), rubro objetivo NatoH (+20), brecha digital/falta de web o sistema (+22), tracción comercial en reseñas (+18) y minería de quejas operativas en reseñas de clientes (+15).
+     - `GET /next` ahora ordena por `{ leadScore: -1, createdAt: 1 }` para que los bots de WhatsApp contacten siempre primero a los prospectos `🔥 HOT` de mayor conversión y ticket.
+     - Nuevo endpoint `POST /api/leads/:id/prioritize` para subir cualquier lead a Score 100 con 1 clic desde el CRM.
+  5. **Agente 4 & 5: Secuencias y Copiloto NatoH Systems (`bot/services/aiTextGenerator.js`, `server/services/closerCopilot.js`)**:
+     - Incorporación de la solución `software_custom_erp` (Sistemas de Gestión ERP/CRM, Stock, Pedidos y Cotizador IA a medida) y referencias directas a `https://natohsystems.com` y `https://nextemarketing.com`.
+     - Sincronizado en `bot/`, `bot_1/`, `bot_2/`, `bot_3/`, `bot_4/`.
+  6. **Frontend CRM (`crm-dashboard/index.html`, `crm-dashboard/app.js`)**:
+     - Selectores interactivos de **Ciudad** y **Rubro NatoH** en la tarjeta del Agente 1 + modal **🗺️ Historial de Zonas**.
+     - Filtros en la tabla de Leads por **Solución NatoH**, **Prioridad (`🔥 Hot Leads`)** y **Orden por Score B2B**, badges de puntaje (`🔥 88 pts`), badges de redes/plataformas (`📸 Solo IG`, `🌳 Linktree`, `🛵 PedidosYa`) y botón **⚡ Priorizar en Cola**.
+     - Nuevos snippets rápidos en el chat: **`🏢 Portfolio NatoH Systems`** y **`⚙️ Sistema ERP/CRM PyME`**.
+
+## Previous Session: 2026-10-07 (15:20 Argentina)
 - **Objective:** Finalización completa de las Fases 2 a 5 de la Arquitectura Multi-Agente de Inteligencia Autónoma (Plan de Agentes). Integración frontend en el CRM Dashboard (Copiloto IA de cierre en vivo con 1-clic, previsualización de 4 mensajes personalizados, gestión de dossiers comerciales por lead y en lote, y mitigación de espacio de compilación Docker en VPS).
 - **Status:** ✅ COMPLETED & SYNCHRONIZED
 - **Git Info:** master (pending push)

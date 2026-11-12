@@ -165,6 +165,40 @@
                             <p style="color: #8696a0; font-size: 13px; margin: 0;" id="targetReason">Calculando cuadrícula no explorada para evitar duplicar leads...</p>
                         </div>
                         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <select id="agent1CityFilter" onchange="fetchNextScrapingTarget(true)" style="background: #202c33; color: #e9edef; border: 1px solid #3b4a54; padding: 8px 10px; border-radius: 8px; font-size: 12px; cursor: pointer;">
+                                <option value="">🌎 Ciudad: Automática (IA)</option>
+                                <option value="caba">📍 CABA</option>
+                                <option value="gba_norte">📍 GBA Zona Norte</option>
+                                <option value="gba_sur">📍 GBA Zona Sur</option>
+                                <option value="gba_oeste">📍 GBA Zona Oeste</option>
+                                <option value="cordoba">📍 Córdoba Capital</option>
+                                <option value="rosario">📍 Rosario</option>
+                                <option value="mendoza">📍 Mendoza</option>
+                                <option value="mar_del_plata">📍 Mar del Plata</option>
+                            </select>
+                            <select id="agent1RubroFilter" onchange="fetchNextScrapingTarget(true)" style="background: #202c33; color: #e9edef; border: 1px solid #3b4a54; padding: 8px 10px; border-radius: 8px; font-size: 12px; cursor: pointer; max-width: 230px;">
+                                <option value="">🏢 Rubro NatoH: Prioridad B2B</option>
+                                <option value="distribuidoras">📦 Distribuidoras y Mayoristas (ERP)</option>
+                                <option value="ferreterias_corralones">🏗️ Corralones y Ferreterías Ind. (ERP)</option>
+                                <option value="logistica_transporte">🚚 Logística y Transporte (ERP)</option>
+                                <option value="fabricas_metalurgicas">🏭 Fábricas y Metalúrgicas (ERP)</option>
+                                <option value="concesionarias_autos">🚗 Concesionarias de Autos (IA/CRM)</option>
+                                <option value="inmobiliarias">🏠 Inmobiliarias y Desarrolladoras (IA/CRM)</option>
+                                <option value="clinicas_centros_medicos">🏥 Clínicas y Policonsultorios (Turnero)</option>
+                                <option value="odontologia">🦷 Consultorios Odontológicos (Turnero)</option>
+                                <option value="estetica">✨ Centros de Estética y Spa (Turnero)</option>
+                                <option value="veterinarias">🐾 Clínicas Veterinarias (Turnero)</option>
+                                <option value="talleres_lubricentros">🔧 Talleres Mecánicos y Repuestos (Turnero)</option>
+                                <option value="hoteles_alojamientos">🏨 Hoteles y Alojamientos (Reservas)</option>
+                                <option value="institutos_academias">🎓 Institutos y Academias (IA/Gestión)</option>
+                                <option value="abogados_contadores">⚖️ Estudios Jurídicos y Contables (Web)</option>
+                                <option value="arquitectura_construccion">📐 Arquitectura y Constructoras (Web)</option>
+                                <option value="restaurantes">🍽️ Restaurantes y Bares (Carta QR)</option>
+                                <option value="mueblerias_deco">🛋️ Mueblerías y Decoración (E-Commerce)</option>
+                                <option value="indumentaria">👗 Indumentaria y Showrooms (E-Commerce)</option>
+                                <option value="gimnasios">🏋️ Gimnasios y Crossfit (Turnero)</option>
+                                <option value="peluquerias">💇 Peluquerías y Barberías (Turnero)</option>
+                            </select>
                             <button id="btnShuffleTarget" onclick="fetchNextScrapingTarget(true)" class="btn-action" style="background: #202c33; color: #8696a0; border: 1px solid #3b4a54; padding: 8px 14px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px;">
                                 <span class="material-icons" style="font-size: 16px;">shuffle</span> Otra Zona
                             </button>
@@ -174,9 +208,8 @@
                             <button id="btnOpenMapsTarget" onclick="openTargetInGoogleMaps()" class="btn-action" style="background: #00a884; color: #111b21; border: none; font-weight: 700; padding: 8px 16px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px;">
                                 <span class="material-icons" style="font-size: 18px;">open_in_new</span> Abrir en Google Maps
                             </button>
-                            <button id="btnMarkScanned" onclick="markCurrentTargetScanned()" class="btn-action" title="Marcar zona como escaneada en BD" style="background: #202c33; color: #e9edef; border: 1px solid #3b4a54; padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 13px;">
-                                <span class="material-icons" style="font-size: 16px; color: #25d366;">check</span> Marcar Escaneada
-                            </button>
+                            <button id="btnMarkScanned" onclick="markCurrentTargetScanned()" class="btn-action" title="Marcar zona como escaneada en BD" style="background: #202c33; color: #e9edef; border: 1px solid #3b4a54; padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 13px;"><span class="material-icons" style="font-size: 16px; color: #25d366;">check</span> Marcar Escaneada</button>
+                            <button id="btnZonesHistory" onclick="openZonesHistoryModal()" class="btn-action" title="Ver historial de zonas escaneadas" style="background: #202c33; color: #53bdeb; border: 1px solid #53bdeb55; padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 13px;"><span class="material-icons" style="font-size: 16px;">map</span> Historial Zonas</button>
                         </div>
                     </div>
 
@@ -345,6 +378,8 @@
                             <!-- QUICK RESPONSES BAR (SNIPPETS 1-CLICK) -->
                             <div class="chat-snippets-bar" id="chatSnippetsBar" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: #111b21; border-top: 1px solid rgba(47, 59, 67, 0.5); overflow-x: auto; white-space: nowrap;">
                                 <span style="font-size: 11px; color: #8696a0; font-weight: 600; flex-shrink: 0;">⚡ Respuestas Rápidas:</span>
+                                <button type="button" class="snippet-chip" onclick="insertChatSnippet('natoh_portfolio')" style="background: #202c33; color: #00bfa5; border: 1px solid rgba(0, 191, 165, 0.4); border-radius: 12px; padding: 3px 10px; font-size: 11px; font-weight: 700; cursor: pointer;">🏢 Portfolio NatoH Systems</button>
+                                <button type="button" class="snippet-chip" onclick="insertChatSnippet('erp_custom')" style="background: #202c33; color: #b39ddb; border: 1px solid rgba(179, 157, 219, 0.4); border-radius: 12px; padding: 3px 10px; font-size: 11px; font-weight: 600; cursor: pointer;">⚙️ Sistema ERP/CRM PyME</button>
                                 <button type="button" class="snippet-chip" onclick="insertChatSnippet('demo_web')" style="background: #202c33; color: #53bdeb; border: 1px solid rgba(83, 189, 235, 0.3); border-radius: 12px; padding: 3px 10px; font-size: 11px; font-weight: 600; cursor: pointer;">🌐 Demos Web</button>
                                 <button type="button" class="snippet-chip" onclick="insertChatSnippet('demo_bot')" style="background: #202c33; color: #53bdeb; border: 1px solid rgba(83, 189, 235, 0.3); border-radius: 12px; padding: 3px 10px; font-size: 11px; font-weight: 600; cursor: pointer;">🤖 Asistente IA</button>
                                 <button type="button" class="snippet-chip" onclick="insertChatSnippet('tarifario')" style="background: #202c33; color: #53bdeb; border: 1px solid rgba(83, 189, 235, 0.3); border-radius: 12px; padding: 3px 10px; font-size: 11px; font-weight: 600; cursor: pointer;">💰 Tarifario Promo</button>
@@ -410,7 +445,28 @@
                             <option value="not_interested">No interesados</option>
                         </select>
                         <input type="text" placeholder="Buscar nombre, teléfono o zona..." id="leadSearchInput"
-                            class="table-search" style="width: 250px;">
+                            class="table-search" style="width: 220px;">
+                        <select id="leadServiceFilter" style="padding: 8px 10px; background: #202c33; border: 1px solid #2f3b43; color: white; border-radius: 6px; font-size: 12px;">
+                            <option value="">🎯 Solución NatoH: Todas</option>
+                            <option value="software_custom_erp">⚙️ Sistema ERP / Stock / CRM</option>
+                            <option value="software_turnero">📅 Turnero & Agenda Online</option>
+                            <option value="ia_natoh">🤖 Agente IA WhatsApp 24/7</option>
+                            <option value="gastronomia_pedidos">🍽️ Carta QR + Pedidos</option>
+                            <option value="ecommerce">🛒 E-Commerce / Catálogo</option>
+                            <option value="web_express">🌐 Web Corporativa Express</option>
+                            <option value="rediseño_web">🎨 Modernización Web</option>
+                        </select>
+                        <select id="leadPriorityFilter" style="padding: 8px 10px; background: #202c33; border: 1px solid #2f3b43; color: white; border-radius: 6px; font-size: 12px;">
+                            <option value="">🔥 Prioridad: Todas</option>
+                            <option value="hot">🔥 Hot Leads (75-100 pts)</option>
+                            <option value="warm">⚡ Warm Leads (50-74 pts)</option>
+                            <option value="cold">❄️ Cold Leads (&lt;50 pts)</option>
+                        </select>
+                        <select id="leadSortFilter" style="padding: 8px 10px; background: #202c33; border: 1px solid #2f3b43; color: white; border-radius: 6px; font-size: 12px;">
+                            <option value="recent">🕒 Orden: Recientes</option>
+                            <option value="score">🔥 Orden: Score B2B</option>
+                        </select>
+
                         <button class="refresh-btn" id="refreshLeads"><span
                                 class="material-icons">refresh</span></button>
                     </div>
@@ -465,6 +521,8 @@
                     </div>
                     <div class="modal-footer"
                         style="padding: 15px 20px; border-top: 1px solid #2f3b43; display: flex; gap: 10px; justify-content: flex-end;">
+                        <button onclick="prioritizeCurrentModalLead()" class="action-btn"
+                            style="background: #ff9800; color: #111b21; font-weight: 700; padding: 8px 14px;">⚡ Priorizar (100 pts)</button>
                         <button onclick="reQueueLead()" class="action-btn"
                             style="background: #00a884; padding: 8px 16px;">Volver a Cola</button>
                         <button onclick="remarkLead()" class="action-btn"

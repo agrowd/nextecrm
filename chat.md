@@ -832,3 +832,14 @@ Se diseñó la arquitectura de los 4 prompts dinámicos para `gpt-4o-mini` sin v
 ### [2026-10-28 15:14] — Remediación Integral Ejecutada y Desplegada (Extensión + Bots + Backend)
 - **User:** "Si te confirmo" / "que paso"
 - **Action:** Se aplicaron todas las mejoras y correcciones en `extension/`, `bot/` (`bot_1` a `bot_4`) y `server/index.js`, actualizando `.synapse/` y desplegando en el VPS `149.50.128.73`.
+
+
+---
+
+## Sesión 2026-11-12 — Optimización Integral B2B NatoH Systems (`natohsystems.com`)
+**Usuario:** analiza todo el sistema y sin salir de la estructura de scrappear por google maps "a mano" mejora cada parte del sistema, back, front y nuevas cosas que sirvan y mejoren la captacion de clientes objetivo (que son los de natohsystem.com) analiza todo
+**Asistente:** Se realizó una auditoría e implementación integral en las 4 capas del sistema manteniendo el paradigma de scrapeo "a mano" desde la extensión de Chrome:
+1. **Extensión Chrome (rev-27):** Inyección de HUD flotante (`#natoh-gmaps-hud`) directamente sobre Google Maps con contadores en vivo y botones de 1 clic (`📍 Raspar Esta Vista de Maps`, `🤖 Siguiente Zona GPS`, `⏹️ Detener`), más detección de links de Instagram/Facebook/Linktree/PedidosYa en las fichas de Maps.
+2. **Backend (Agentes 1, 2 y 3):** Ampliación a 20 rubros B2B/PyME de alto ticket para `natohsystems.com`, clasificador de falsas webs (`classifyExternalUrl`), descarte de líneas `0800`/`0810`, minería de quejas en reseñas, motor de **Lead Scoring B2B (0-100)** (`hot`/`warm`/`cold`) y priorización de cola en `GET /next` por `{ leadScore: -1, createdAt: 1 }`.
+3. **Bots WhatsApp & Copiloto (Agentes 4 y 5):** Incorporación de `software_custom_erp` (Sistemas de Gestión, Stock, Pedidos y Cotizador IA) y enlaces a `https://natohsystems.com` en `aiTextGenerator.js` (sincronizado en `bot` y `bot_1`..`bot_4`) y `closerCopilot.js`.
+4. **Frontend CRM Dashboard:** Selectores de Ciudad y Rubro NatoH en el Planificador GPS + modal de Historial de Zonas, filtros por Solución NatoH y Prioridad/Score en la tabla de Leads, botón `⚡ Priorizar en Cola` y snippets rápidos de NatoH Systems en el chat.

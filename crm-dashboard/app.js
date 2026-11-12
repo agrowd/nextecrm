@@ -1654,12 +1654,14 @@ function insertChatSnippet(snippetType) {
     if (!input) return;
 
     const snippets = {
-        demo_web: "Te comparto 2 o 3 ejemplos de sitios web profesionales y landings de alta conversión que desarrollamos en Nexte Marketing: https://nextemarketing.com. ¿Querés que armemos un modelo para tu marca?",
-        demo_bot: "Nuestro Asistente Virtual con IA NatoH atiende 24/7 en WhatsApp, responde preguntas frecuentes, toma turnos y valida comprobantes de pago automáticamente. El valor en promo es de $180.000 (precio regular $350.000). ¿Te gustaría probar una demo en vivo?",
-        tarifario: "Te resumo nuestras soluciones en promo 2026:\n🤖 Asistente IA NatoH 24/7 $180.000\n⚙️ Sistema a Medida / Turnero $350.000\n🌐 Web Profesional $250.000\n📍 SEO Google Maps $150.000\n🎁 Combo Integral $690.000 (Ahorro $1.110.000).\n¿Cuál se adapta mejor a lo que buscás?",
-        llamada: "¿Te parece que coordinemos una breve llamada de 5 minutos o nos encontramos por videollamada para charlar los detalles sin compromiso? Decime qué día y horario te queda cómodo.",
-        turnero: "El Sistema de Gestión & Turnos Online permite administrar agendas por profesional, enviar recordatorios automáticos por WhatsApp y reducir un 40% el ausentismo de pacientes. Está en promo a $350.000 en 2 pagos. ¿Querés ver cómo funciona?",
-        gastro: "Para gastronomía implementamos Carta Digital QR + Sistema de Pedidos directos a WhatsApp sin comisiones a terceros. Permite recibir pedidos calculando montos y reservas. Está en promo a $350.000. ¿Te muestro una demo interactiva?"
+        natoh_portfolio: "Te comparto el portfolio oficial de NatoH Systems donde podés ver nuestros desarrollos de software a medida, sistemas de gestión, turneros y agentes de IA en funcionamiento: https://natohsystems.com y https://nextemarketing.com. ¿Querés que te muestre cómo lo adaptamos a tu negocio?",
+        erp_custom: "En NatoH Systems (https://natohsystems.com) desarrollamos Sistemas de Gestión a Medida (Stock, Pedidos Mayoristas, Cotizadores, Logística y CRM) junto con Agentes IA en WhatsApp que cotizan las 24 hs. El sistema llave en mano está en promo a $350.000 en 2 pagos (50% al iniciar y 50% contra entrega). ¿Hacemos una breve llamada de 5 minutos para ver qué módulos necesitan?",
+        demo_web: "Te comparto ejemplos reales de sitios web corporativos y sistemas de alta conversión que desarrollamos en NatoH Systems & Nexte: https://natohsystems.com y https://nextemarketing.com. ¿Querés que armemos un modelo para tu marca?",
+        demo_bot: "Nuestro Agente de IA NatoH atiende 24/7 en WhatsApp, responde consultas al instante, cotiza, toma turnos y filtra clientes listos para comprar. El valor en promo es de $180.000 (precio regular $350.000) en 2 pagos. ¿Te gustaría probar una demo en vivo?",
+        tarifario: "Te resumo nuestras soluciones NatoH Systems (https://natohsystems.com) en promo 2026:\n⚙️ Sistema a Medida (ERP / Stock / Turnero / Carta QR): $350.000\n🤖 Agente IA WhatsApp 24/7: $180.000\n🌐 Web Corporativa / E-Commerce: $250.000\n📍 SEO Google Maps: $150.000\n🎁 Combo Integral: $690.000 (Se abona 50% al iniciar y 50% contra entrega).\n¿Cuál se adapta mejor a lo que buscás?",
+        llamada: "¿Te parece que coordinemos una breve llamada de 5 minutos o videollamada para mostrarte el sistema en pantalla sin compromiso? Decime qué día y horario te queda cómodo.",
+        turnero: "El Sistema de Gestión & Turnos Online de NatoH Systems permite administrar agendas por profesional, enviar recordatorios automáticos por WhatsApp y reducir un 40% las inasistencias. Está en promo a $350.000 en 2 pagos. ¿Querés ver cómo funciona?",
+        gastro: "Para gastronomía implementamos Carta Digital QR + Sistema de Pedidos directos a WhatsApp con 0% de comisión. El cliente arma su pedido y te llega listo con el total calculado. Está en promo a $350.000 (pago único en 2 veces). ¿Te muestro una demo interactiva?"
     };
 
     const text = snippets[snippetType];
@@ -2275,13 +2277,19 @@ async function fetchLeads() {
     try {
         const searchInput = getEl('leadSearchInput');
         const statusFilter = getEl('leadStatusFilter');
+        const serviceFilter = getEl('leadServiceFilter');
+        const priorityFilter = getEl('leadPriorityFilter');
+        const sortFilter = getEl('leadSortFilter');
+
         const term = searchInput ? searchInput.value.trim() : '';
         const status = statusFilter ? statusFilter.value : '';
+        const targetService = serviceFilter ? serviceFilter.value : '';
+        const priorityTier = priorityFilter ? priorityFilter.value : '';
+        const sortBy = sortFilter ? sortFilter.value : 'recent';
 
         const page = currentState.leadsPage || 1;
         const limit = 500;
 
-        // Construir URL de forma segura
         let url;
         try {
             const baseUrl = API_URL || window.location.origin;
@@ -2294,6 +2302,9 @@ async function fetchLeads() {
         url.searchParams.append('page', page);
         url.searchParams.append('limit', limit);
         if (status) url.searchParams.append('status', status);
+        if (targetService) url.searchParams.append('targetService', targetService);
+        if (priorityTier) url.searchParams.append('priorityTier', priorityTier);
+        if (sortBy) url.searchParams.append('sortBy', sortBy);
         if (term) url.searchParams.append('search', term);
 
         const response = await fetchAPI(url.toString());
@@ -2338,19 +2349,41 @@ function getAiIntentBadge(lead) {
     `;
 }
 
+function getLeadScoreBadge(lead) {
+    const score = typeof lead.leadScore === 'number' ? lead.leadScore : 50;
+    const tier = lead.priorityTier || (score >= 75 ? 'hot' : (score >= 50 ? 'warm' : 'cold'));
+    const breakdownTitle = Array.isArray(lead.scoreBreakdown) && lead.scoreBreakdown.length > 0
+        ? lead.scoreBreakdown.join(' | ')
+        : `Score B2B NatoH Systems: ${score}/100`;
+
+    if (tier === 'hot') {
+        return `<span style="background: rgba(255, 152, 0, 0.2); color: #ffb74d; border: 1px solid rgba(255, 152, 0, 0.45); padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; gap: 2px;" title="${escapeHtml(breakdownTitle)}">🔥 ${score} pts</span>`;
+    }
+    if (tier === 'warm') {
+        return `<span style="background: rgba(83, 189, 235, 0.15); color: #53bdeb; border: 1px solid rgba(83, 189, 235, 0.35); padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; display: inline-flex; align-items: center; gap: 2px;" title="${escapeHtml(breakdownTitle)}">⚡ ${score} pts</span>`;
+    }
+    return `<span style="background: rgba(134, 150, 160, 0.15); color: #8696a0; border: 1px solid rgba(134, 150, 160, 0.3); padding: 1px 6px; border-radius: 4px; font-size: 10px; display: inline-flex; align-items: center; gap: 2px;" title="${escapeHtml(breakdownTitle)}">${score} pts</span>`;
+}
+
 function getDossierBadge(lead) {
-    if (!lead || !lead.dossier || !lead.dossier.targetService) return '';
+    const scoreBadge = getLeadScoreBadge(lead);
+    if (!lead || !lead.dossier || !lead.dossier.targetService) {
+        return `<div style="margin-top: 3px; display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">${scoreBadge}</div>`;
+    }
     const configs = {
-        'software_turnero': { bg: 'rgba(126, 87, 194, 0.2)', color: '#b39ddb', text: '⚙️ Turnos / IA' },
+        'software_custom_erp': { bg: 'rgba(171, 71, 188, 0.22)', color: '#ce93d8', text: '⚙️ ERP / Sistema a Medida' },
+        'software_turnero': { bg: 'rgba(126, 87, 194, 0.2)', color: '#b39ddb', text: '📅 Turnos / Agenda' },
+        'gastronomia_pedidos': { bg: 'rgba(255, 112, 67, 0.2)', color: '#ff8a65', text: '🍽️ Carta QR + Pedidos' },
         'web_express': { bg: 'rgba(37, 211, 102, 0.15)', color: '#25d366', text: '🌐 Web Express' },
         'rediseño_web': { bg: 'rgba(255, 152, 0, 0.15)', color: '#ff9800', text: '🎨 Rediseño Web' },
         'ecommerce': { bg: 'rgba(33, 150, 243, 0.15)', color: '#2196f3', text: '🛒 E-Commerce' },
-        'ia_natoh': { bg: 'rgba(0, 168, 132, 0.15)', color: '#00a884', text: '🤖 IA NatoH' }
+        'ia_natoh': { bg: 'rgba(0, 168, 132, 0.15)', color: '#00a884', text: '🤖 Agente IA 24/7' }
     };
     const c = configs[lead.dossier.targetService] || { bg: 'rgba(255,255,255,0.08)', color: '#a0aec0', text: lead.dossier.targetServiceLabel || 'Dossier IA' };
     return `
-        <div style="margin-top: 3px;">
-            <span class="dossier-badge" style="background: ${c.bg}; color: ${c.color}; border: 1px solid ${c.color}35; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px;" title="Dolor auditado: ${lead.dossier.primaryPain || ''}">
+        <div style="margin-top: 3px; display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+            ${scoreBadge}
+            <span class="dossier-badge" style="background: ${c.bg}; color: ${c.color}; border: 1px solid ${c.color}35; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px;" title="Dolor auditado: ${escapeHtml(lead.dossier.primaryPain || '')}">
                 ${c.text}
             </span>
         </div>
@@ -2369,26 +2402,50 @@ function renderLeadsTable() {
         'contacted': { bg: '#00a88425', color: '#00a884', text: 'Contactado' },
         'interested': { bg: '#25d36625', color: '#25d366', text: 'Interesado' },
         'not_interested': { bg: '#f4433625', color: '#f44336', text: 'No interesado' },
-        'completed': { bg: '#7e57c225', color: '#7e57c2', text: 'Completado' }
+        'completed': { bg: '#7e57c225', color: '#7e57c2', text: 'Completado' },
+        'discarded': { bg: '#ef535020', color: '#ef5350', text: 'Descartado' }
     };
 
     leads.forEach(lead => {
         const st = statusColors[lead.status] || statusColors['pending'];
-        const hasWeb = lead.hasWebsite || lead.website;
+        const extPlat = lead.externalPlatform || lead.webAudit?.externalPlatform || '';
+        const isSocialOnly = Boolean(lead.webAudit?.isSocialOnly || ['instagram', 'facebook', 'linktree', 'pedidosya', 'whatsapp_link'].includes(extPlat));
+        const hasWeb = (lead.hasWebsite || lead.website) && !isSocialOnly;
         
         let webContent = '';
-        if (hasWeb) {
-            const hasFB = lead.pixelFacebook === true;
-            const hasGG = lead.pixelGoogle === true;
-            const isAudited = lead.websiteValid !== undefined;
+        if (isSocialOnly && lead.website) {
+            const platLabels = {
+                instagram: { icon: '📸', label: 'Solo IG', color: '#e1306c' },
+                facebook: { icon: '👤', label: 'Solo FB', color: '#1877f2' },
+                linktree: { icon: '🌳', label: 'Linktree', color: '#43e660' },
+                pedidosya: { icon: '🛵', label: 'PedidosYa', color: '#ff3b5c' },
+                whatsapp_link: { icon: '💬', label: 'Solo WA', color: '#25d366' }
+            };
+            const p = platLabels[extPlat] || { icon: '🔗', label: 'Red Social', color: '#ff9800' };
+            webContent = `
+                <div style="display: flex; flex-direction: column; gap: 3px; align-items: center;">
+                    <a href="${lead.website.startsWith('http') ? lead.website : 'https://' + lead.website}" target="_blank" style="color:${p.color}; text-decoration:none; font-size:11px; font-weight:700;" onclick="event.stopPropagation();" title="No tiene web propia, redirige a ${p.label}">
+                        ${p.icon} ${p.label}
+                    </a>
+                    <span style="font-size:9px; color:#ffb74d;">Sin Web Propia</span>
+                </div>
+            `;
+        } else if (hasWeb && lead.website) {
+            const hasFB = lead.pixelFacebook === true || lead.webAudit?.hasMetaPixel === true;
+            const hasGG = lead.pixelGoogle === true || lead.webAudit?.hasGA4 === true;
+            const hasWA = lead.webAudit?.hasWhatsAppWidget === true;
+            const isAudited = lead.websiteValid !== undefined || Boolean(lead.webAudit?.auditedAt);
             
             const fbBadge = isAudited ? 
                 `<span class="audit-pill ${hasFB ? 'has' : 'none'}" style="font-size: 9px; padding: 1px 4px; border-radius: 3px;" title="${hasFB ? 'Pixel de Facebook activo' : 'Sin Pixel de Facebook'}">FB</span>` :
                 `<span class="audit-pill" style="font-size: 9px; padding: 1px 4px; border-radius: 3px; background: rgba(255,255,255,0.05); color:#666; border: 1px dashed rgba(255,255,255,0.1);" title="Auditoría pendiente">FB</span>`;
                 
             const ggBadge = isAudited ?
-                `<span class="audit-pill ${hasGG ? 'has' : 'none'}" style="font-size: 9px; padding: 1px 4px; border-radius: 3px;" title="${hasGG ? 'Google Tag Manager/Analytics activo' : 'Sin Google Tag/Analytics'}">GG</span>` :
+                `<span class="audit-pill ${hasGG ? 'has' : 'none'}" style="font-size: 9px; padding: 1px 4px; border-radius: 3px;" title="${hasGG ? 'Google Analytics activo' : 'Sin Google Analytics'}">GG</span>` :
                 `<span class="audit-pill" style="font-size: 9px; padding: 1px 4px; border-radius: 3px; background: rgba(255,255,255,0.05); color:#666; border: 1px dashed rgba(255,255,255,0.1);" title="Auditoría pendiente">GG</span>`;
+
+            const waBadge = isAudited ?
+                `<span class="audit-pill ${hasWA ? 'has' : 'none'}" style="font-size: 9px; padding: 1px 4px; border-radius: 3px;" title="${hasWA ? 'Botón WhatsApp en web' : 'Sin botón WhatsApp en web'}">WA</span>` : '';
             
             webContent = `
                 <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
@@ -2398,11 +2455,12 @@ function renderLeadsTable() {
                     <div style="display: flex; gap: 3px;">
                         ${fbBadge}
                         ${ggBadge}
+                        ${waBadge}
                     </div>
                 </div>
             `;
         } else {
-            webContent = `<span style="color:#8696a0; font-size:11px; font-style:italic;">Sin Web</span>`;
+            webContent = `<span style="color:#25d366; font-size:11px; font-weight:600;">🎯 Sin Web</span>`;
         }
 
         const aiIntentBadge = getAiIntentBadge(lead);
@@ -2426,14 +2484,17 @@ function renderLeadsTable() {
                 <td style="text-align:center;">${webContent}</td>
                 <td style="text-align:center; color:#8696a0;">${lead.messagesSent || 0}</td>
                 <td>
-                    <button class="delete-lead-btn" data-id="${lead._id}" style="background:none; border:none; cursor:pointer;" title="Eliminar">
-                        <span class="material-icons" style="color:#f44336; font-size:18px;">delete</span>
+                    <button onclick="event.stopPropagation(); prioritizeLeadInQueue('${lead._id}');" style="background:none; border:none; cursor:pointer;" title="⚡ Priorizar en Cola (Score 100)">
+                        <span class="material-icons" style="color:#ff9800; font-size:18px;">bolt</span>
                     </button>
-                    <button class="view-lead-btn" data-id="${lead._id}" style="background:none; border:none; cursor:pointer; margin-left:5px;" title="Ver Detalle">
+                    <button class="view-lead-btn" data-id="${lead._id}" style="background:none; border:none; cursor:pointer; margin-left:4px;" title="Ver Detalle">
                         <span class="material-icons" style="color:#8696a0; font-size:18px;">visibility</span>
                     </button>
-                    <button class="preview-sequence-btn" data-id="${lead._id}" onclick="event.stopPropagation(); openSequencePreview('${lead._id}');" style="background:none; border:none; cursor:pointer; margin-left:5px;" title="Previsualizar 4 Mensajes IA">
+                    <button class="preview-sequence-btn" data-id="${lead._id}" onclick="event.stopPropagation(); openSequencePreview('${lead._id}');" style="background:none; border:none; cursor:pointer; margin-left:4px;" title="Previsualizar 4 Mensajes IA">
                         <span class="material-icons" style="color:#00bfa5; font-size:18px;">auto_awesome</span>
+                    </button>
+                    <button class="delete-lead-btn" data-id="${lead._id}" style="background:none; border:none; cursor:pointer; margin-left:4px;" title="Eliminar">
+                        <span class="material-icons" style="color:#f44336; font-size:18px;">delete</span>
                     </button>
                 </td>
             </tr>
@@ -2456,16 +2517,50 @@ function renderLeadsTable() {
 function setupLeadsListeners() {
     const lsi = getEl('leadSearchInput');
     const lsf = getEl('leadStatusFilter');
+    const lsvf = getEl('leadServiceFilter');
+    const lpf = getEl('leadPriorityFilter');
+    const lsort = getEl('leadSortFilter');
 
     if (lsi) lsi.addEventListener('input', debounce(() => {
         currentState.leadsPage = 1;
         fetchLeads();
     }, 500));
 
-    if (lsf) lsf.addEventListener('change', () => {
-        currentState.leadsPage = 1;
-        fetchLeads();
+    [lsf, lsvf, lpf, lsort].forEach(sel => {
+        if (sel) sel.addEventListener('change', () => {
+            currentState.leadsPage = 1;
+            fetchLeads();
+        });
     });
+}
+
+async function prioritizeLeadInQueue(leadId) {
+    if (!leadId) return;
+    try {
+        const res = await fetchAPI(`/leads/${leadId}/prioritize`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success && data.lead) {
+            if (currentState.leads) {
+                const idx = currentState.leads.findIndex(l => String(l._id) === String(leadId));
+                if (idx !== -1) currentState.leads[idx] = data.lead;
+            }
+            renderLeadsTable();
+            ui.modal.show(
+                '⚡ Lead Priorizado al Tope',
+                `El negocio "${data.lead.name}" ahora tiene Score 100 (🔥 HOT) y será contactado con máxima prioridad por el próximo bot disponible.`,
+                'success',
+                [{ text: 'Excelente', value: true, color: '#00a884' }]
+            );
+        }
+    } catch (e) {
+        console.error('Error priorizando lead:', e);
+    }
+}
+
+function prioritizeCurrentModalLead() {
+    if (currentLeadId) {
+        prioritizeLeadInQueue(currentLeadId);
+    }
 }
 
 function changePage(delta) {
@@ -3919,15 +4014,17 @@ async function batchAnalyzePendingDossiers() {
     }
 }
 
-// --- CALIFICACIÓN & AGENTE 1 GEO-PLANNER ---
+// --- CALIFICACIÓN & AGENTE 1 GEO-PLANNER (NATOH SYSTEMS) ---
 let currentTargetPlan = null;
 const SOLUTION_LABELS = {
-    'software_turnero': '⚙️ Sistema de Turnos & Gestión Online',
-    'web_express': '🌐 Web Profesional Express (Sin Web)',
-    'rediseño_web': '🎨 Rediseño Web & Botón WhatsApp',
-    'gastronomia_pedidos': '🍽️ Carta Digital QR + Pedidos WhatsApp',
-    'ecommerce_tienda': '🛒 Tienda Online E-commerce',
-    'ia_natoh': '🤖 Asistente Virtual IA 24/7'
+    'software_custom_erp': '⚙️ Sistema ERP, Stock & Gestión a Medida (NatoH)',
+    'software_turnero': '📅 Sistema de Turnos & Agenda Online',
+    'web_express': '🌐 Sitio Web Corporativo Express',
+    'rediseño_web': '🎨 Modernización Web & Automatización WhatsApp',
+    'gastronomia_pedidos': '🍽️ Carta Digital QR + Pedidos 0% Comisión',
+    'ecommerce': '🛒 Catálogo / Tienda E-Commerce + IA',
+    'ecommerce_tienda': '🛒 Catálogo / Tienda E-Commerce + IA',
+    'ia_natoh': '🤖 Agente de IA Conversacional 24/7'
 };
 
 async function fetchQualificationStats() {
@@ -3943,7 +4040,6 @@ async function fetchQualificationStats() {
             const dCountEl = getEl('rtDiscardedCount');
             if (dCountEl) dCountEl.textContent = (s.discarded || 0).toLocaleString();
 
-            // Si hay leads en base de datos pero aún no están calificados, disparar auto-calificación silenciosa
             if (s.total > 0 && s.qualified === 0 && s.discarded === 0 && !window._autoQualifyRan) {
                 window._autoQualifyRan = true;
                 console.log("⚙️ Ejecutando auditoría y calificación de leads en cola...");
@@ -3960,12 +4056,18 @@ async function fetchQualificationStats() {
 
 async function fetchNextScrapingTarget(forceShuffle = false) {
     const reasonEl = getEl('targetReason');
-    const badgeEl = getEl('targetStatusBadge');
-    if (reasonEl) reasonEl.textContent = 'Consultando memoria de zonas y calculando próximo objetivo sin solapamiento...';
+    if (reasonEl) reasonEl.textContent = 'Consultando memoria de zonas NatoH Systems y calculando próximo objetivo sin solapamiento...';
 
     try {
-        const queryParam = forceShuffle ? `?shuffle=${Date.now()}` : '';
-        const res = await fetchAPI(`/scraper/next-target${queryParam}`);
+        const citySel = getEl('agent1CityFilter')?.value || '';
+        const rubroSel = getEl('agent1RubroFilter')?.value || '';
+        const params = new URLSearchParams();
+        if (citySel) params.set('city', citySel);
+        if (rubroSel) params.set('rubro', rubroSel);
+        if (forceShuffle) params.set('shuffle', String(Date.now()));
+        const qs = params.toString() ? `?${params.toString()}` : '';
+
+        const res = await fetchAPI(`/scraper/next-target${qs}`);
         const data = await res.json();
 
         if (data && data.success) {
@@ -3977,6 +4079,31 @@ async function fetchNextScrapingTarget(forceShuffle = false) {
     } catch (e) {
         console.error('Error fetching next target:', e);
         if (reasonEl) reasonEl.textContent = 'Error de conexión con el Agente 1.';
+    }
+}
+
+async function openZonesHistoryModal() {
+    try {
+        const res = await fetchAPI('/scraper/zones-history?limit=40');
+        const data = await res.json();
+        if (!data || !data.success) {
+            alert('No se pudo cargar el historial de zonas.');
+            return;
+        }
+        const recs = data.records || [];
+        const lines = recs.length > 0
+            ? recs.map((r, i) => `${i + 1}. 📍 ${r.zoneName || r.zoneId} — 🏢 ${r.keywordLabel || r.keyword} (${r.validLeadsIngested || 0} calif. / ${r.totalLeadsFound || 0} vistos)`).join('\n')
+            : 'Aún no hay zonas registradas en el historial.';
+
+        ui.modal.show(
+            `🗺️ Cobertura GPS: ${data.coveragePercent || 0}% (${data.totalScannedCombinations || 0}/${data.totalPossibleCombinations || 620})`,
+            `Últimas zonas y rubros escaneados por Agente 1:\n\n${lines}`,
+            'info',
+            [{ text: 'Cerrar', value: true, color: '#00a884' }]
+        );
+    } catch (e) {
+        console.error('Error cargando historial de zonas:', e);
+        alert('Error de conexión al consultar historial de zonas.');
     }
 }
 
@@ -4106,3 +4233,6 @@ window.openTargetInGoogleMaps = openTargetInGoogleMaps;
 window.copyTargetSearchQuery = copyTargetSearchQuery;
 window.markCurrentTargetScanned = markCurrentTargetScanned;
 window.fetchQualificationStats = fetchQualificationStats;
+window.prioritizeLeadInQueue = prioritizeLeadInQueue;
+window.prioritizeCurrentModalLead = prioritizeCurrentModalLead;
+window.openZonesHistoryModal = openZonesHistoryModal;

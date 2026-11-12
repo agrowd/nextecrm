@@ -6,16 +6,24 @@
  */
 
 function cleanAndFormatArgentinianNumber(raw) {
-    if (!raw) return { valid: false, formatted: null, error: 'Sin teléfono' };
+    if (!raw) {
+        return { valid: false, isValid: false, formatted: null, cleanWhatsappNumber: null, error: 'Sin teléfono', reason: 'Sin teléfono' };
+    }
     let num = String(raw).replace(/[^0-9]/g, ''); // Solo números
 
     if (!num || num.length < 8) {
-        return { valid: false, formatted: null, error: 'Número demasiado corto' };
+        return { valid: false, isValid: false, formatted: null, cleanWhatsappNumber: null, error: 'Número demasiado corto', reason: 'Número demasiado corto' };
+    }
+
+    // 0️⃣ DESCARTAR LÍNEAS GRATUITAS / CORPORATIVAS SIN WHATSAPP DIRECTO (0800 / 0810)
+    if (num.startsWith('0800') || num.startsWith('0810') || num.startsWith('800') || num.startsWith('810') || num.startsWith('54800') || num.startsWith('54810') || num.startsWith('549800') || num.startsWith('549810')) {
+        const err = 'Línea corporativa 0800/0810 (sin WhatsApp directo)';
+        return { valid: false, isValid: false, formatted: null, cleanWhatsappNumber: null, error: err, reason: err };
     }
 
     // 1️⃣ DETECCIÓN DE FORMATO INTERNACIONAL YA EXISTENTE
     if (num.startsWith('549') && num.length === 13) {
-        return { valid: true, formatted: num };
+        return { valid: true, isValid: true, formatted: num, cleanWhatsappNumber: num };
     }
 
     // Si empieza con 549 o 54 pero no es longitud final, quitamos prefijo para re-procesar
@@ -24,6 +32,12 @@ function cleanAndFormatArgentinianNumber(raw) {
 
     // 2️⃣ LIMPIEZA DE PREFIJO NACIONAL (0)
     if (num.startsWith('0')) num = num.slice(1);
+
+    // Re-chequear 800/810 tras quitar prefijos
+    if (num.startsWith('800') || num.startsWith('810')) {
+        const err = 'Línea corporativa 0800/0810 (sin WhatsApp directo)';
+        return { valid: false, isValid: false, formatted: null, cleanWhatsappNumber: null, error: err, reason: err };
+    }
 
     // 3️⃣ DETECCIÓN DE CÓDIGO DE ÁREA
     let code = '';
@@ -52,10 +66,11 @@ function cleanAndFormatArgentinianNumber(raw) {
 
     // 6️⃣ VALIDACIÓN FINAL (estándar argentino de 12 a 14 dígitos con prefijo internacional)
     if (final.length < 12 || final.length > 14) {
-        return { valid: false, formatted: null, error: `Longitud inválida tras formateo (${final.length} dígitos)` };
+        const err = `Longitud inválida tras formateo (${final.length} dígitos)`;
+        return { valid: false, isValid: false, formatted: null, cleanWhatsappNumber: null, error: err, reason: err };
     }
 
-    return { valid: true, formatted: final };
+    return { valid: true, isValid: true, formatted: final, cleanWhatsappNumber: final };
 }
 
 module.exports = {

@@ -1,234 +1,244 @@
-const axios = require('axios');
-
 /**
- * Servicio de Auditoría de Sitios Web
- * Realiza un análisis profundo y rápido del código HTML para detectar:
- * - CMS (WordPress, Shopify, Wix, Tiendanube, Squarespace, VTEX, Webflow, etc.)
- * - Botón / Widget de WhatsApp (wa.me, api.whatsapp.com, joinchat, widgets flotantes, plugins)
- * - Píxel de Meta (Facebook / Instagram)
- * - Google Analytics 4 (GA4) / Google Tag Manager / Ads
- * - Certificado SSL
- * - Generación de insights técnicos para los mensajes de IA
+ * 🌐 AGENTE 2: WEB SCRAPER, AUDITOR TÉCNICO & CLASIFICADOR DE PLATAFORMAS (NatoH Systems)
+ * 
+ * Visita la URL del negocio (si tiene), clasifica si es una red social o plataforma
+ * de terceros (Instagram, Facebook, Linktree, PedidosYa, Tiendanube, Turnito, WhatsApp),
+ * o audita su HTML real buscando CMS, píxeles, widgets de chat/turnos, links sociales,
+ * adaptabilidad móvil y velocidad de respuesta.
  */
-async function auditWebsite(rawUrl) {
-    if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.trim()) {
+
+const axios = require('axios');
+const cheerio = require('cheerio');
+
+function classifyExternalUrl(rawUrl) {
+    if (!rawUrl) return null;
+    const lower = rawUrl.toLowerCase();
+
+    if (lower.includes('instagram.com/')) {
         return {
-            hasWebsite: false,
-            reason: 'URL vacía o no provista'
+            isSocialOnly: true,
+            externalPlatform: 'instagram',
+            cms: 'Instagram (Sin Web Propia)',
+            instagramUrl: rawUrl,
+            insight: 'No posee sitio web propio: en Google Maps redirige únicamente a su perfil de Instagram'
         };
     }
+    if (lower.includes('facebook.com/') || lower.includes('fb.com/')) {
+        return {
+            isSocialOnly: true,
+            externalPlatform: 'facebook',
+            cms: 'Facebook (Sin Web Propia)',
+            facebookUrl: rawUrl,
+            insight: 'No posee sitio web propio: en Google Maps redirige únicamente a una página de Facebook'
+        };
+    }
+    if (lower.includes('linktr.ee/') || lower.includes('bio.link/') || lower.includes('beacons.ai/') || lower.includes('cafecito.app/') || lower.includes('lnk.bio/')) {
+        return {
+            isSocialOnly: true,
+            externalPlatform: 'linktree',
+            cms: 'Linktree / Bio Link',
+            insight: 'Usa un árbol de links gratuito (Linktree) en lugar de tener un sitio web profesional o sistema propio'
+        };
+    }
+    if (lower.includes('wa.me/') || lower.includes('api.whatsapp.com') || lower.includes('wa.link/')) {
+        return {
+            isSocialOnly: true,
+            externalPlatform: 'whatsapp_link',
+            cms: 'Link Directo WhatsApp (Sin Web)',
+            insight: 'No tiene sitio web: su botón de web en Google Maps lleva directo a un chat manual de WhatsApp'
+        };
+    }
+    if (lower.includes('pedidosya.com') || lower.includes('rappi.com')) {
+        return {
+            isSocialOnly: true,
+            externalPlatform: 'pedidosya',
+            cms: 'App de Delivery (PedidosYa/Rappi)',
+            insight: 'Redirige su tráfico a PedidosYa/Rappi pagando altas comisiones por pedido en vez de tener Carta QR propia'
+        };
+    }
+    if (lower.includes('turnito.app') || lower.includes('agendapro.com') || lower.includes('calendly.com') || lower.includes('simplybook') || lower.includes('docturno.com') || lower.includes('wono.app')) {
+        return {
+            isSocialOnly: false,
+            externalPlatform: 'third_party_booking',
+            cms: 'Turnero Terciarizado',
+            insight: 'Utiliza una plataforma de turnos alquilada de terceros sin portal corporativo propio'
+        };
+    }
+    if (lower.includes('mercadolibre.com') || lower.includes('mercadoshops.com')) {
+        return {
+            isSocialOnly: false,
+            externalPlatform: 'mercadolibre',
+            cms: 'Mercado Libre / Mercado Shops',
+            insight: 'Depende de Mercado Libre en lugar de contar con su propio E-Commerce o sistema B2B sin comisiones'
+        };
+    }
+    return null;
+}
 
-    let targetUrl = rawUrl.trim();
-    if (!/^https?:\/\//i.test(targetUrl)) {
-        targetUrl = 'https://' + targetUrl;
+async function auditWebsite(rawUrl) {
+    if (!rawUrl || typeof rawUrl !== 'string' || rawUrl.trim() === '') {
+        return null;
     }
 
-    const tryFetch = async (urlToFetch) => {
-        return await axios.get(urlToFetch, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-                'Accept-Language': 'es-ES,es;q=0.9,en-US;q=0.8,en;q=0.7',
-                'Cache-Control': 'no-cache'
-            },
-            timeout: 10000,
-            maxRedirects: 5,
-            validateStatus: (status) => status >= 200 && status < 400
-        });
+    let url = rawUrl.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+    }
+
+    const result = {
+        auditedAt: new Date(),
+        hasWebsite: true,
+        isSocialOnly: false,
+        externalPlatform: '',
+        url: url,
+        ssl: url.startsWith('https://'),
+        cms: 'HTML / A Medida',
+        hasGA4: false,
+        hasMetaPixel: false,
+        hasGTM: false,
+        hasGoogleAds: false,
+        hasWhatsAppWidget: false,
+        hasBookingSystem: false,
+        hasChatWidget: false,
+        isMobileResponsive: true,
+        loadTimeMs: null,
+        instagramUrl: '',
+        facebookUrl: '',
+        title: '',
+        insights: []
     };
 
-    let response = null;
-    let finalUrl = targetUrl;
-    let isSsl = targetUrl.startsWith('https://');
-
-    try {
-        response = await tryFetch(targetUrl);
-    } catch (err) {
-        // Si falló con HTTPS, intentar con HTTP o viceversa
-        try {
-            const alternateUrl = targetUrl.startsWith('https://') 
-                ? targetUrl.replace('https://', 'http://') 
-                : targetUrl.replace('http://', 'https://');
-            response = await tryFetch(alternateUrl);
-            finalUrl = alternateUrl;
-            isSsl = alternateUrl.startsWith('https://');
-        } catch (fallbackErr) {
-            console.warn(`⚠️ Falló auditoría en ${targetUrl}: ${fallbackErr.message}`);
-            return {
-                auditedAt: new Date(),
-                hasWebsite: true,
-                url: targetUrl,
-                ssl: isSsl,
-                cms: 'No accesible',
-                hasGA4: false,
-                hasMetaPixel: false,
-                hasGTM: false,
-                hasGoogleAds: false,
-                hasWhatsAppWidget: false,
-                title: '',
-                insights: ['El sitio web no respondió a la inspección automática.'],
-                error: fallbackErr.message
-            };
-        }
+    // 1. Clasificación rápida si la URL en Google Maps es una red social o plataforma externa
+    const extClass = classifyExternalUrl(url);
+    if (extClass) {
+        result.isSocialOnly = extClass.isSocialOnly;
+        result.hasWebsite = !extClass.isSocialOnly;
+        result.externalPlatform = extClass.externalPlatform;
+        result.cms = extClass.cms;
+        if (extClass.instagramUrl) result.instagramUrl = extClass.instagramUrl;
+        if (extClass.facebookUrl) result.facebookUrl = extClass.facebookUrl;
+        result.insights.push(extClass.insight);
+        result.insights.push('Oportunidad directa para NatoH Systems: crear su portal web corporativo y/o sistema de gestión propio');
+        return result;
     }
 
     try {
-        const html = response.data;
-        if (typeof html !== 'string') {
-            return {
-                auditedAt: new Date(),
-                hasWebsite: true,
-                url: finalUrl,
-                ssl: isSsl,
-                cms: 'Formato no HTML',
-                hasGA4: false,
-                hasMetaPixel: false,
-                hasGTM: false,
-                hasGoogleAds: false,
-                hasWhatsAppWidget: false,
-                title: '',
-                insights: []
-            };
+        const t0 = Date.now();
+        const response = await axios.get(url, {
+            timeout: 8000,
+            maxRedirects: 5,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'es-AR,es;q=0.9,en;q=0.8'
+            }
+        });
+        result.loadTimeMs = Date.now() - t0;
+
+        const html = typeof response.data === 'string' ? response.data : '';
+        const lowerHtml = html.toLowerCase();
+        const $ = cheerio.load(html);
+
+        result.title = ($('title').first().text() || '').trim().substring(0, 120);
+
+        // Detectar CMS / Plataforma
+        if (lowerHtml.includes('tiendanube') || lowerHtml.includes('nuvemshop') || lowerHtml.includes('d26lpennugtm8s.cloudfront.net')) {
+            result.cms = 'TiendaNube';
+            result.externalPlatform = 'tiendanube';
+        } else if (lowerHtml.includes('woocommerce')) {
+            result.cms = 'WooCommerce (WordPress)';
+        } else if (lowerHtml.includes('wp-content') || lowerHtml.includes('wp-includes')) {
+            result.cms = 'WordPress';
+        } else if (lowerHtml.includes('shopify.com') || lowerHtml.includes('cdn.shopify.com')) {
+            result.cms = 'Shopify';
+        } else if (lowerHtml.includes('wix.com') || lowerHtml.includes('wixstatic.com')) {
+            result.cms = 'Wix';
+        } else if (lowerHtml.includes('mercadoshops')) {
+            result.cms = 'MercadoShops';
+            result.externalPlatform = 'mercadolibre';
+        } else if (lowerHtml.includes('empretienda')) {
+            result.cms = 'Empretienda';
         }
 
-        const lowerHtml = html.toLowerCase();
-        const insights = [];
+        // Detectar Píxeles y Analítica
+        result.hasGA4 = lowerHtml.includes('gtag(') || lowerHtml.includes('google-analytics.com') || lowerHtml.includes('g-');
+        result.hasGTM = lowerHtml.includes('googletagmanager.com/gtm.js');
+        result.hasMetaPixel = lowerHtml.includes('connect.facebook.net') || lowerHtml.includes('fbq(') || lowerHtml.includes('facebook.com/tr');
+        result.hasGoogleAds = lowerHtml.includes('googleadservices.com') || lowerHtml.includes('aw-');
 
-        // 1. 🔍 Detección de Botón / Widget de WhatsApp
-        const hasWhatsAppWidget = 
-            lowerHtml.includes('wa.me/') ||
-            lowerHtml.includes('wa.link/') ||
+        // Detectar Widget de WhatsApp
+        result.hasWhatsAppWidget = lowerHtml.includes('wa.me/') ||
             lowerHtml.includes('api.whatsapp.com') ||
-            lowerHtml.includes('web.whatsapp.com') ||
-            lowerHtml.includes('chat.whatsapp.com') ||
             lowerHtml.includes('whatsapp.com/send') ||
             lowerHtml.includes('joinchat') ||
-            lowerHtml.includes('wp-block-whatsapp') ||
-            lowerHtml.includes('whatsapp-button') ||
-            lowerHtml.includes('floating-whatsapp') ||
-            lowerHtml.includes('whatsapp-widget') ||
-            lowerHtml.includes('whatsapp_widget') ||
-            lowerHtml.includes('btn-whatsapp') ||
-            lowerHtml.includes('boton-whatsapp') ||
-            lowerHtml.includes('fa-whatsapp') ||
-            lowerHtml.includes('elfsight-app-whatsapp') ||
-            (lowerHtml.includes('whatsapp') && (
-                lowerHtml.includes('widget') || 
-                lowerHtml.includes('float') || 
-                lowerHtml.includes('button') || 
-                lowerHtml.includes('icono') || 
-                lowerHtml.includes('chat') ||
-                lowerHtml.includes('flotante') ||
-                lowerHtml.includes('contact')
-            ));
+            lowerHtml.includes('wa-widget');
 
-        if (hasWhatsAppWidget) {
-            insights.push('Tiene botón directo de WhatsApp integrado.');
-        } else {
-            insights.push('No posee botón flotante visible de WhatsApp.');
+        // Detectar Sistemas de Turnos o Reservas embebidos
+        result.hasBookingSystem = lowerHtml.includes('calendly.com') ||
+            lowerHtml.includes('turnito') ||
+            lowerHtml.includes('agendapro') ||
+            lowerHtml.includes('simplybook') ||
+            lowerHtml.includes('docturno') ||
+            lowerHtml.includes('reservo');
+
+        // Detectar Chatbots o Live Chat
+        result.hasChatWidget = lowerHtml.includes('tawk.to') ||
+            lowerHtml.includes('tidio') ||
+            lowerHtml.includes('crisp.chat') ||
+            lowerHtml.includes('manychat') ||
+            lowerHtml.includes('cliengo') ||
+            lowerHtml.includes('kommo') ||
+            lowerHtml.includes('landbot');
+
+        // Detectar Viewport Mobile
+        result.isMobileResponsive = $('meta[name="viewport"]').length > 0;
+
+        // Extraer enlaces a Instagram y Facebook dentro de la web
+        $('a[href]').each((_, el) => {
+            const href = ($(el).attr('href') || '').trim();
+            if (!href) return;
+            const lHref = href.toLowerCase();
+            if (!result.instagramUrl && lHref.includes('instagram.com/') && !lHref.includes('/p/') && !lHref.includes('/reel/')) {
+                result.instagramUrl = href;
+            }
+            if (!result.facebookUrl && (lHref.includes('facebook.com/') || lHref.includes('fb.com/')) && !lHref.includes('sharer')) {
+                result.facebookUrl = href;
+            }
+        });
+
+        // Construir Insights accionables para Agente 3 y Agente 4 (NatoH Systems)
+        if (!result.hasWhatsAppWidget && !result.hasChatWidget) {
+            result.insights.push('No tiene botón ni agente de WhatsApp en su web (pierde consultas en vivo)');
+        }
+        if (!result.hasBookingSystem) {
+            result.insights.push('Sin turnero ni sistema de autogestión online integrado');
+        }
+        if (!result.hasMetaPixel && !result.hasGA4) {
+            result.insights.push('Sin píxeles de seguimiento (Meta Pixel / Google Analytics 4)');
+        }
+        if (!result.ssl) {
+            result.insights.push('Sitio sin certificado seguro SSL (muestra alerta de No Seguro)');
+        }
+        if (!result.isMobileResponsive) {
+            result.insights.push('Diseño web antiguo no adaptado a celulares (sin etiqueta viewport)');
+        }
+        if (result.loadTimeMs && result.loadTimeMs > 4500) {
+            result.insights.push(`Carga web lenta (${(result.loadTimeMs / 1000).toFixed(1)}s), afectando retención de clientes`);
+        }
+        if (result.insights.length === 0) {
+            result.insights.push(`Web activa en ${result.cms}, oportunidad de integrar Agente IA 24/7 o Sistema de Gestión NatoH`);
         }
 
-        // 2. 🏗️ Detección de CMS / Plataforma
-        let cms = 'Custom / Código a medida';
-        if (lowerHtml.includes('wp-content') || lowerHtml.includes('wp-includes') || lowerHtml.includes('wordpress')) {
-            cms = 'WordPress';
-            insights.push('Desarrollado sobre WordPress.');
-        } else if (lowerHtml.includes('cdn.shopify.com') || lowerHtml.includes('shopify')) {
-            cms = 'Shopify';
-            insights.push('Tienda online montada en Shopify.');
-        } else if (lowerHtml.includes('tiendanube') || lowerHtml.includes('mitiendanube') || lowerHtml.includes('d26lpennugtm8s.cloudfront.net')) {
-            cms = 'Tiendanube';
-            insights.push('E-commerce montado en Tiendanube.');
-        } else if (lowerHtml.includes('wixsite.com') || lowerHtml.includes('wix.com') || lowerHtml.includes('_wix_') || lowerHtml.includes('wix-image')) {
-            cms = 'Wix';
-            insights.push('Creado con constructor Wix.');
-        } else if (lowerHtml.includes('squarespace')) {
-            cms = 'Squarespace';
-            insights.push('Sitio montado en Squarespace.');
-        } else if (lowerHtml.includes('vteximg.com') || lowerHtml.includes('vtex.com')) {
-            cms = 'VTEX';
-            insights.push('Plataforma corporativa VTEX.');
-        } else if (lowerHtml.includes('assets.website-files.com') || lowerHtml.includes('webflow')) {
-            cms = 'Webflow';
-            insights.push('Diseñado en Webflow.');
-        } else if (lowerHtml.includes('prestashop')) {
-            cms = 'PrestaShop';
-            insights.push('Tienda montada en PrestaShop.');
-        } else if (lowerHtml.includes('magento') || lowerHtml.includes('mage/')) {
-            cms = 'Magento';
-            insights.push('E-commerce en Magento.');
-        }
-
-        // 3. 📊 Detección de GA4 (Google Analytics 4) y GTM
-        const hasGTM = lowerHtml.includes('googletagmanager.com/gtm.js') || lowerHtml.includes('gtm-');
-        const hasGA4 = lowerHtml.includes('googletagmanager.com/gtag/js?id=g-') ||
-                       lowerHtml.includes("gtag('config', 'g-") ||
-                       lowerHtml.includes('gtag("config", "g-') ||
-                       lowerHtml.includes("gtag('config','g-") ||
-                       /g-[a-z0-9]{6,12}/i.test(html) ||
-                       lowerHtml.includes('analytics.js') ||
-                       hasGTM;
-
-        if (hasGA4) {
-            insights.push('Medición analítica activa con Google Analytics (GA4/GTM).');
-        } else {
-            insights.push('Falta configuración de Google Analytics 4 (GA4) para medir visitantes.');
-        }
-
-        // 4. 🎯 Detección de Meta Pixel (Facebook / Instagram Ads)
-        const hasMetaPixel = lowerHtml.includes('fbevents.js') ||
-                             lowerHtml.includes('connect.facebook.net') ||
-                             lowerHtml.includes('fbq(') ||
-                             lowerHtml.includes('fb_pixel') ||
-                             lowerHtml.includes('pixel_id');
-
-        if (hasMetaPixel) {
-            insights.push('Posee Píxel de Meta instalado para campañas de anuncios.');
-        } else {
-            insights.push('No tiene Píxel de Meta instalado (oportunidad de remarketing).');
-        }
-
-        // 5. 🏷️ Título del Sitio
-        let title = '';
-        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-        if (titleMatch && titleMatch[1]) {
-            title = titleMatch[1].trim();
-        }
-
-        console.log(`✅ [WebAuditor] Auditoría completada para ${finalUrl}: CMS=${cms}, WA=${hasWhatsAppWidget}, GA4=${hasGA4}, Pixel=${hasMetaPixel}`);
-
-        return {
-            auditedAt: new Date(),
-            hasWebsite: true,
-            url: finalUrl,
-            ssl: isSsl,
-            cms,
-            hasGA4,
-            hasMetaPixel,
-            hasGTM,
-            hasGoogleAds: lowerHtml.includes('googleads') || lowerHtml.includes('conversion_id'),
-            hasWhatsAppWidget,
-            title,
-            insights
-        };
-
-    } catch (parseError) {
-        console.error(`❌ Error analizando HTML de ${finalUrl}:`, parseError);
-        return {
-            auditedAt: new Date(),
-            hasWebsite: true,
-            url: finalUrl,
-            ssl: isSsl,
-            cms: 'Error de análisis',
-            hasGA4: false,
-            hasMetaPixel: false,
-            hasGTM: false,
-            hasGoogleAds: false,
-            hasWhatsAppWidget: false,
-            title: '',
-            insights: []
-        };
+        return result;
+    } catch (error) {
+        result.hasWebsite = false;
+        result.error = error.message;
+        result.insights.push('El sitio web registrado en Google Maps está caído o no responde (oportunidad crítica de renovación)');
+        return result;
     }
 }
 
-module.exports = { auditWebsite };
+module.exports = {
+    auditWebsite,
+    classifyExternalUrl
+};

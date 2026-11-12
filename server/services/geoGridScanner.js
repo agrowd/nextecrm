@@ -1,402 +1,384 @@
 /**
- * 🗺️ AGENTE 1: MINERO MASIVO GEOGRÁFICO CON MEMORIA PERSISTENTE (GEO-GRID SCANNER)
+ * 🗺️ AGENTE 1: GEO-GRID SCANNER & MEMORIA PERSISTENTE DE ZONAS (NatoH Systems B2B Edition)
  * 
- * Divide ciudades y regiones en micro-cuadrículas de coordenadas GPS (latitud/longitud)
- * para realizar búsquedas hiper-densas en Google Maps y superar el límite de 120 resultados.
- * Almacena el historial de escaneos para no repetir nunca zonas ni rubros ya cubiertos
- * y sugiere automáticamente el próximo objetivo de prospección.
+ * Calcula y planifica cuadrículas de coordenadas GPS sobre ciudades argentinas
+ * y lleva el registro histórico en MongoDB (`ScannedZone`) de qué sub-zonas
+ * y qué rubros ya fueron escaneados para evitar repeticiones y maximizar
+ * el descubrimiento de negocios calificados para NatoH Systems (natohsystems.com).
  */
 
 const ScannedZone = require('../models/ScannedZone');
 
-// Zonas y micro-barrios de alta densidad comercial en Argentina
-const SUB_ZONES = [
-    // --- CABA ---
-    { id: 'caba_palermo', name: 'Palermo (Soho & Hollywood)', city: 'CABA', center: { lat: -34.5889, lng: -58.4305 }, radiusKm: 2.5, zoom: 15 },
-    { id: 'caba_belgrano', name: 'Belgrano & Colegiales', city: 'CABA', center: { lat: -34.5623, lng: -58.4564 }, radiusKm: 2.2, zoom: 15 },
-    { id: 'caba_recoleta', name: 'Recoleta & Barrio Norte', city: 'CABA', center: { lat: -34.5875, lng: -58.3974 }, radiusKm: 2.0, zoom: 15 },
-    { id: 'caba_caballito', name: 'Caballito', city: 'CABA', center: { lat: -34.6186, lng: -58.4438 }, radiusKm: 2.0, zoom: 15 },
-    { id: 'caba_almagro', name: 'Almagro & Boedo', city: 'CABA', center: { lat: -34.6062, lng: -58.4214 }, radiusKm: 2.0, zoom: 15 },
-    { id: 'caba_microcentro', name: 'Microcentro & San Nicolás', city: 'CABA', center: { lat: -34.6037, lng: -58.3750 }, radiusKm: 1.8, zoom: 15 },
-    { id: 'caba_villa_urquiza', name: 'Villa Urquiza & Villa Pueyrredón', city: 'CABA', center: { lat: -34.5735, lng: -58.4878 }, radiusKm: 2.2, zoom: 15 },
-    { id: 'caba_flores', name: 'Flores & Parque Chacabuco', city: 'CABA', center: { lat: -34.6288, lng: -58.4632 }, radiusKm: 2.2, zoom: 15 },
+const PRESET_ZONES = {
+    caba: {
+        name: 'CABA (Ciudad Autónoma de Buenos Aires)',
+        center: { lat: -34.6037, lng: -58.3816 },
+        bounds: { north: -34.535, south: -34.685, west: -58.530, east: -58.350 },
+        defaultZoom: 15
+    },
+    gba_norte: {
+        name: 'GBA Zona Norte (Vicente López, San Isidro, Tigre)',
+        center: { lat: -34.4708, lng: -58.5286 },
+        bounds: { north: -34.390, south: -34.540, west: -58.620, east: -58.460 },
+        defaultZoom: 15
+    },
+    gba_sur: {
+        name: 'GBA Zona Sur (Avellaneda, Lanús, Lomas, Quilmes)',
+        center: { lat: -34.7200, lng: -58.3600 },
+        bounds: { north: -34.650, south: -34.820, west: -58.460, east: -58.240 },
+        defaultZoom: 15
+    },
+    gba_oeste: {
+        name: 'GBA Zona Oeste (Ramos Mejía, Morón, Ituzaingó)',
+        center: { lat: -34.6500, lng: -58.6000 },
+        bounds: { north: -34.580, south: -34.700, west: -58.720, east: -58.530 },
+        defaultZoom: 15
+    },
+    cordoba: {
+        name: 'Córdoba Capital',
+        center: { lat: -31.4201, lng: -64.1888 },
+        bounds: { north: -31.350, south: -31.480, west: -64.260, east: -64.120 },
+        defaultZoom: 15
+    },
+    rosario: {
+        name: 'Rosario (Santa Fe)',
+        center: { lat: -32.9442, lng: -60.6505 },
+        bounds: { north: -32.880, south: -33.010, west: -60.720, east: -60.610 },
+        defaultZoom: 15
+    },
+    mendoza: {
+        name: 'Mendoza Capital & Godoy Cruz',
+        center: { lat: -32.8895, lng: -68.8458 },
+        bounds: { north: -32.850, south: -32.950, west: -68.890, east: -68.800 },
+        defaultZoom: 15
+    },
+    mar_del_plata: {
+        name: 'Mar del Plata',
+        center: { lat: -38.0055, lng: -57.5426 },
+        bounds: { north: -37.950, south: -38.060, west: -57.620, east: -57.520 },
+        defaultZoom: 15
+    }
+};
 
-    // --- GBA NORTE ---
-    { id: 'gba_vicente_lopez', name: 'Vicente López & Florida', city: 'GBA Norte', center: { lat: -34.5284, lng: -58.4754 }, radiusKm: 2.5, zoom: 15 },
-    { id: 'gba_olivos', name: 'Olivos & La Lucila', city: 'GBA Norte', center: { lat: -34.5097, lng: -58.4903 }, radiusKm: 2.2, zoom: 15 },
-    { id: 'gba_san_isidro', name: 'San Isidro Centro & Acassuso', city: 'GBA Norte', center: { lat: -34.4721, lng: -58.5273 }, radiusKm: 2.5, zoom: 15 },
-    { id: 'gba_martinez', name: 'Martínez', city: 'GBA Norte', center: { lat: -34.4932, lng: -58.5108 }, radiusKm: 2.2, zoom: 15 },
-    { id: 'gba_tigre', name: 'Tigre & Rincón de Milberg', city: 'GBA Norte', center: { lat: -34.4258, lng: -58.5796 }, radiusKm: 3.0, zoom: 14 },
-    { id: 'gba_san_fernando', name: 'San Fernando & Victoria', city: 'GBA Norte', center: { lat: -34.4441, lng: -58.5583 }, radiusKm: 2.5, zoom: 15 },
-
-    // --- GBA OESTE ---
-    { id: 'gba_ramos_mejia', name: 'Ramos Mejía & Haedo', city: 'GBA Oeste', center: { lat: -34.6492, lng: -58.5647 }, radiusKm: 2.5, zoom: 15 },
-    { id: 'gba_moron', name: 'Morón Centro', city: 'GBA Oeste', center: { lat: -34.6534, lng: -58.6198 }, radiusKm: 2.5, zoom: 15 },
-    { id: 'gba_castelar', name: 'Castelar & Ituzaingó', city: 'GBA Oeste', center: { lat: -34.6617, lng: -58.6417 }, radiusKm: 2.5, zoom: 15 },
-    { id: 'gba_san_justo', name: 'San Justo (La Matanza)', city: 'GBA Oeste', center: { lat: -34.6781, lng: -58.5587 }, radiusKm: 2.5, zoom: 15 },
-
-    // --- GBA SUR ---
-    { id: 'gba_avellaneda', name: 'Avellaneda Centro', city: 'GBA Sur', center: { lat: -34.6622, lng: -58.3653 }, radiusKm: 2.2, zoom: 15 },
-    { id: 'gba_lanus', name: 'Lanús Centro & Oeste', city: 'GBA Sur', center: { lat: -34.7061, lng: -58.3927 }, radiusKm: 2.5, zoom: 15 },
-    { id: 'gba_quilmes', name: 'Quilmes & Bernal', city: 'GBA Sur', center: { lat: -34.7242, lng: -58.2610 }, radiusKm: 2.8, zoom: 15 },
-    { id: 'gba_lomas', name: 'Lomas de Zamora & Banfield', city: 'GBA Sur', center: { lat: -34.7601, lng: -58.4012 }, radiusKm: 2.8, zoom: 15 },
-
-    // --- LA PLATA ---
-    { id: 'la_plata_centro', name: 'La Plata Casco Urbano', city: 'La Plata', center: { lat: -34.9205, lng: -57.9536 }, radiusKm: 3.0, zoom: 14 },
-    { id: 'la_plata_city_bell', name: 'City Bell & Gonnet', city: 'La Plata', center: { lat: -34.8690, lng: -58.0483 }, radiusKm: 3.0, zoom: 14 },
-
-    // --- CÓRDOBA ---
-    { id: 'cordoba_centro', name: 'Córdoba Capital Centro', city: 'Córdoba', center: { lat: -31.4167, lng: -64.1833 }, radiusKm: 2.5, zoom: 15 },
-    { id: 'cordoba_nueva_cordoba', name: 'Nueva Córdoba & Güemes', city: 'Córdoba', center: { lat: -31.4286, lng: -64.1873 }, radiusKm: 2.0, zoom: 15 },
-    { id: 'cordoba_cerro_rosas', name: 'Cerro de las Rosas & Argüello', city: 'Córdoba', center: { lat: -31.3789, lng: -64.2389 }, radiusKm: 3.0, zoom: 14 },
-
-    // --- ROSARIO ---
-    { id: 'rosario_centro', name: 'Rosario Centro & Monumento', city: 'Rosario', center: { lat: -32.9468, lng: -60.6393 }, radiusKm: 2.5, zoom: 15 },
-    { id: 'rosario_pichincha', name: 'Pichincha & Echesortu', city: 'Rosario', center: { lat: -32.9348, lng: -60.6558 }, radiusKm: 2.2, zoom: 15 },
-
-    // --- MENDOZA ---
-    { id: 'mendoza_capital', name: 'Mendoza Capital Centro', city: 'Mendoza', center: { lat: -32.8895, lng: -68.8458 }, radiusKm: 2.5, zoom: 15 },
-    { id: 'mendoza_godoy_cruz', name: 'Godoy Cruz', city: 'Mendoza', center: { lat: -32.9254, lng: -68.8436 }, radiusKm: 2.5, zoom: 15 },
-
-    // --- MAR DEL PLATA ---
-    { id: 'mdp_centro', name: 'Mar del Plata Centro', city: 'Mar del Plata', center: { lat: -38.0055, lng: -57.5560 }, radiusKm: 2.5, zoom: 15 },
-    { id: 'mdp_guemes', name: 'Zona Güemes & Playa Grande', city: 'Mar del Plata', center: { lat: -38.0163, lng: -57.5458 }, radiusKm: 2.2, zoom: 15 }
+// Catálogo granular de sub-zonas de alto poder adquisitivo y densidad comercial/industrial
+const GRANULAR_SUBZONES = [
+    // CABA
+    { id: 'caba_palermo_soho', name: 'Palermo Soho (CABA)', city: 'caba', lat: -34.5889, lng: -58.4305, zoom: 16 },
+    { id: 'caba_palermo_hollywood', name: 'Palermo Hollywood (CABA)', city: 'caba', lat: -34.5815, lng: -58.4385, zoom: 16 },
+    { id: 'caba_belgrano_centro', name: 'Belgrano Centro / Cabildo (CABA)', city: 'caba', lat: -34.5625, lng: -58.4565, zoom: 16 },
+    { id: 'caba_recoleta', name: 'Recoleta (CABA)', city: 'caba', lat: -34.5895, lng: -58.3974, zoom: 16 },
+    { id: 'caba_caballito', name: 'Caballito / Acoyte y Rivadavia (CABA)', city: 'caba', lat: -34.6186, lng: -58.4368, zoom: 16 },
+    { id: 'caba_villa_urquiza', name: 'Villa Urquiza (CABA)', city: 'caba', lat: -34.5736, lng: -58.4875, zoom: 16 },
+    { id: 'caba_nunez', name: 'Núñez / Libertador (CABA)', city: 'caba', lat: -34.5453, lng: -58.4612, zoom: 16 },
+    { id: 'caba_devoto', name: 'Villa Devoto (CABA)', city: 'caba', lat: -34.6003, lng: -58.5126, zoom: 16 },
+    { id: 'caba_almagro', name: 'Almagro / Boedo (CABA)', city: 'caba', lat: -34.6122, lng: -58.4210, zoom: 16 },
+    { id: 'caba_microcentro', name: 'Microcentro / Tribunales (CABA)', city: 'caba', lat: -34.6037, lng: -58.3816, zoom: 16 },
+    { id: 'caba_puerto_madero', name: 'Puerto Madero / Retiro (CABA)', city: 'caba', lat: -34.6083, lng: -58.3635, zoom: 16 },
+    { id: 'caba_colegiales_chacarita', name: 'Colegiales / Chacarita (CABA)', city: 'caba', lat: -34.5778, lng: -58.4492, zoom: 16 },
+    // GBA Norte
+    { id: 'gba_vicente_lopez', name: 'Vicente López / Olivos (Zona Norte)', city: 'gba_norte', lat: -34.5105, lng: -58.4815, zoom: 15 },
+    { id: 'gba_martinez', name: 'Martínez Centro (Zona Norte)', city: 'gba_norte', lat: -34.4882, lng: -58.5038, zoom: 15 },
+    { id: 'gba_san_isidro', name: 'San Isidro Centro / Lomas (Zona Norte)', city: 'gba_norte', lat: -34.4708, lng: -58.5286, zoom: 15 },
+    { id: 'gba_nordelta_tigre', name: 'Nordelta / Tigre Centro (Zona Norte)', city: 'gba_norte', lat: -34.4018, lng: -58.6495, zoom: 15 },
+    { id: 'gba_pilar', name: 'Pilar Centro / Panamericana Km 50', city: 'gba_norte', lat: -34.4587, lng: -58.9142, zoom: 15 },
+    { id: 'gba_san_martin', name: 'San Martín / Polo Industrial (GBA)', city: 'gba_norte', lat: -34.5750, lng: -58.5370, zoom: 15 },
+    // GBA Sur
+    { id: 'gba_lomas_las_lomitas', name: 'Las Lomitas / Lomas de Zamora (Zona Sur)', city: 'gba_sur', lat: -34.7644, lng: -58.4022, zoom: 16 },
+    { id: 'gba_quilmes_centro', name: 'Quilmes Centro (Zona Sur)', city: 'gba_sur', lat: -34.7242, lng: -58.2526, zoom: 16 },
+    { id: 'gba_lanus_centro', name: 'Lanúsita / Lanús Oeste (Zona Sur)', city: 'gba_sur', lat: -34.7067, lng: -58.3935, zoom: 16 },
+    { id: 'gba_adrogue', name: 'Adrogué Centro (Zona Sur)', city: 'gba_sur', lat: -34.7985, lng: -58.3920, zoom: 16 },
+    { id: 'gba_avellaneda', name: 'Avellaneda Centro / Mitre (Zona Sur)', city: 'gba_sur', lat: -34.6625, lng: -58.3647, zoom: 16 },
+    // GBA Oeste
+    { id: 'gba_ramos_mejia', name: 'Ramos Mejía Centro (Zona Oeste)', city: 'gba_oeste', lat: -34.6433, lng: -58.5647, zoom: 16 },
+    { id: 'gba_castelar_ituzaingo', name: 'Castelar / Parque Leloir (Zona Oeste)', city: 'gba_oeste', lat: -34.6512, lng: -58.6435, zoom: 15 },
+    { id: 'gba_moron_centro', name: 'Morón Centro (Zona Oeste)', city: 'gba_oeste', lat: -34.6534, lng: -58.6198, zoom: 16 },
+    // Interior
+    { id: 'cba_nueva_cordoba', name: 'Nueva Córdoba / Centro (Córdoba)', city: 'cordoba', lat: -31.4258, lng: -64.1862, zoom: 16 },
+    { id: 'cba_cerro_las_rosas', name: 'Cerro de las Rosas (Córdoba)', city: 'cordoba', lat: -31.3712, lng: -64.2368, zoom: 15 },
+    { id: 'ros_centro_pichincha', name: 'Pichincha / Centro (Rosario)', city: 'rosario', lat: -32.9365, lng: -60.6542, zoom: 16 },
+    { id: 'mdz_centro_aristides', name: 'Av. Arístides / Centro (Mendoza)', city: 'mendoza', lat: -32.8915, lng: -68.8555, zoom: 16 },
+    { id: 'mdp_guemes_centro', name: 'Paseo Güemes / Alem (Mar del Plata)', city: 'mar_del_plata', lat: -38.0128, lng: -57.5378, zoom: 16 }
 ];
 
-// Catálogo de rubros comerciales estratégicos con alta conversión a software / web / IA
+// Catálogo Estratégico de Rubros de Alta Conversión B2B & PyME para NatoH Systems (natohsystems.com)
 const RUBROS_CATALOG = [
-    { id: 'odontologia', label: 'Odontología & Dentistas', targetSolution: 'software_turnero', priority: 1 },
-    { id: 'veterinarias', label: 'Veterinarias & Clínicas Animales', targetSolution: 'software_turnero', priority: 1 },
-    { id: 'esteticas', label: 'Centros de Estética, Spa & Belleza', targetSolution: 'software_turnero', priority: 1 },
-    { id: 'consultorios_medicos', label: 'Consultorios Médicos & Policonsultorios', targetSolution: 'software_turnero', priority: 2 },
-    { id: 'talleres_mecanicos', label: 'Talleres Mecánicos & Frenos', targetSolution: 'software_turnero', priority: 2 },
-    { id: 'restaurantes', label: 'Restaurantes, Pizzerías & Bares', targetSolution: 'gastronomia_pedidos', priority: 2 },
-    { id: 'inmobiliarias', label: 'Inmobiliarias & Propiedades', targetSolution: 'web_express', priority: 2 },
-    { id: 'gimnasios', label: 'Gimnasios & Centros de Fitness', targetSolution: 'software_turnero', priority: 3 },
-    { id: 'peluquerias', label: 'Peluquerías & Barberías', targetSolution: 'software_turnero', priority: 3 },
-    { id: 'estudios_contables', label: 'Estudios Contables & Impositivos', targetSolution: 'web_express', priority: 3 },
-    { id: 'estudios_juridicos', label: 'Estudios Jurídicos & Abogados', targetSolution: 'web_express', priority: 3 },
-    { id: 'tiendas_ropa', label: 'Tiendas de Ropa & Calzado', targetSolution: 'ecommerce_tienda', priority: 3 }
+    // 1. SISTEMAS DE GESTIÓN, ERP, STOCK Y AUTOMATIZACIÓN A MEDIDA (Alto Ticket B2B)
+    { id: 'distribuidoras', label: 'Distribuidoras y Mayoristas', query: 'distribuidora mayorista', targetSolution: 'software_custom_erp', priority: 10 },
+    { id: 'ferreterias_corralones', label: 'Corralones y Ferreterías Industriales', query: 'corralon de materiales ferreteria industrial', targetSolution: 'software_custom_erp', priority: 10 },
+    { id: 'logistica_transporte', label: 'Logística, Transporte y Encomiendas', query: 'empresa de logistica y transporte', targetSolution: 'software_custom_erp', priority: 9 },
+    { id: 'fabricas_metalurgicas', label: 'Fábricas, Metalúrgicas e Industria PyME', query: 'fabrica metalurgica industrial', targetSolution: 'software_custom_erp', priority: 9 },
+    { id: 'concesionarias_autos', label: 'Concesionarias y Agencias de Autos', query: 'concesionaria de autos multimarca', targetSolution: 'ia_natoh', priority: 9 },
+    { id: 'talleres_lubricentros', label: 'Talleres Mecánicos, Lubricentros y Repuestos', query: 'taller mecanico integral repuestos', targetSolution: 'software_turnero', priority: 8 },
+
+    // 2. CLÍNICAS, SALUD Y BIENESTAR (Turneros + IA WhatsApp 24/7 + Gestión de Pacientes)
+    { id: 'clinicas_centros_medicos', label: 'Clínicas, Policonsultorios y Diagnóstico', query: 'centro medico policonsultorio', targetSolution: 'software_turnero', priority: 10 },
+    { id: 'odontologia', label: 'Consultorios y Clínicas Odontológicas', query: 'consultorio odontologico centro dental', targetSolution: 'software_turnero', priority: 10 },
+    { id: 'estetica', label: 'Centros de Estética, Spa y Depilación', query: 'centro de estetica corporal', targetSolution: 'software_turnero', priority: 9 },
+    { id: 'veterinarias', label: 'Clínicas Veterinarias y Pet Shops', query: 'veterinaria clinica veterinaria', targetSolution: 'software_turnero', priority: 9 },
+    { id: 'gimnasios', label: 'Gimnasios, Crossfit y Pilates', query: 'gimnasio centro de entrenamiento', targetSolution: 'software_turnero', priority: 8 },
+    { id: 'peluquerias', label: 'Peluquerías, Barberías y Salones', query: 'peluqueria barberia', targetSolution: 'software_turnero', priority: 7 },
+
+    // 3. INMOBILIARIAS, EDUCACIÓN, TURISMO Y SERVICIOS PROFESIONALES (Webs Corporativas + Agentes IA)
+    { id: 'inmobiliarias', label: 'Inmobiliarias y Desarrolladoras', query: 'inmobiliaria propiedades', targetSolution: 'ia_natoh', priority: 10 },
+    { id: 'hoteles_alojamientos', label: 'Hoteles, Apart Hotel y Cabañas', query: 'hotel apart hotel alojamiento', targetSolution: 'software_turnero', priority: 9 },
+    { id: 'institutos_academias', label: 'Institutos Educativos y Academias', query: 'instituto educativo academia cursos', targetSolution: 'ia_natoh', priority: 8 },
+    { id: 'abogados_contadores', label: 'Estudios Jurídicos y Contables', query: 'estudio juridico contable', targetSolution: 'web_express', priority: 8 },
+    { id: 'arquitectura_construccion', label: 'Estudios de Arquitectura y Constructoras', query: 'estudio de arquitectura empresa constructora', targetSolution: 'web_express', priority: 8 },
+
+    // 4. GASTRONOMÍA Y COMERCIO (Carta QR Sin Comisiones + E-Commerce)
+    { id: 'restaurantes', label: 'Restaurantes, Bares y Cafeterías', query: 'restaurante bar gastronomia', targetSolution: 'gastronomia_pedidos', priority: 9 },
+    { id: 'mueblerias_deco', label: 'Mueblerías, Colchonerías y Decoración', query: 'muebleria fabrica de muebles decoracion', targetSolution: 'ecommerce', priority: 8 },
+    { id: 'indumentaria', label: 'Locales de Ropa, Calzado y Showrooms', query: 'tienda de ropa showroom indumentaria', targetSolution: 'ecommerce', priority: 7 }
 ];
-
-function kmToLatDelta(km) {
-    return km / 111.0;
-}
-
-function kmToLngDelta(km, lat = -34.6) {
-    const latRad = (lat * Math.PI) / 180.0;
-    return km / (111.0 * Math.cos(latRad));
-}
 
 class GeoGridScanner {
     /**
-     * Catálogo completo de sub-zonas y ciudades
+     * Genera una cuadrícula de puntos GPS dentro de un área para búsquedas hiper-locales
      */
-    getAllSubZones() {
-        return SUB_ZONES;
-    }
+    generateGrid({ city = 'caba', keyword = 'comercio', stepKm = 2.0, zoom = 15 } = {}) {
+        const zone = PRESET_ZONES[city] || PRESET_ZONES.caba;
+        const { north, south, west, east } = zone.bounds;
 
-    /**
-     * Catálogo de rubros con prioridad
-     */
-    getRubrosCatalog() {
-        return RUBROS_CATALOG;
-    }
+        const latStep = stepKm / 111.0;
+        const lngStep = stepKm / 92.0;
 
-    /**
-     * Compatibilidad hacia atrás: Zonas agrupadas por ciudad
-     */
-    getPresetZones() {
-        const cities = {};
-        SUB_ZONES.forEach(z => {
-            if (!cities[z.city]) {
-                cities[z.city] = { id: z.city.toLowerCase().replace(/\s+/g, '_'), name: z.city, zones: [] };
-            }
-            cities[z.city].zones.push(z);
-        });
-        return Object.values(cities);
-    }
+        const cells = [];
+        let row = 0;
 
-    /**
-     * 🧠 DETERMINAR EL PRÓXIMO OBJETIVO RECOMENDADO
-     * Analiza MongoDB para encontrar una combinación (Zona, Rubro) que NO haya sido escaneada
-     * o cuya última exploración tenga más de 30 días, evitando repeticiones.
-     */
-    async getNextRecommendedTarget(preferredCity = null) {
-        try {
-            // Obtener registros de zonas ya escaneadas
-            const scannedRecords = await ScannedZone.find({}).lean();
-            const scannedMap = new Map();
+        for (let lat = north; lat >= south; lat -= latStep) {
+            let col = 0;
+            for (let lng = west; lng <= east; lng += lngStep) {
+                const roundedLat = Number(lat.toFixed(5));
+                const roundedLng = Number(lng.toFixed(5));
+                const encodedQuery = encodeURIComponent(keyword);
 
-            scannedRecords.forEach(rec => {
-                const key = `${rec.zoneId}__${rec.keyword}`.toLowerCase();
-                scannedMap.set(key, rec);
-            });
-
-            // Filtrar zonas por ciudad si se especificó
-            let candidateZones = SUB_ZONES;
-            if (preferredCity) {
-                candidateZones = SUB_ZONES.filter(z => z.city.toLowerCase() === preferredCity.toLowerCase());
-                if (candidateZones.length === 0) candidateZones = SUB_ZONES;
-            }
-
-            // Buscar la primera combinación de alta prioridad no escaneada
-            for (const rubro of RUBROS_CATALOG) {
-                for (const zone of candidateZones) {
-                    const key = `${zone.id}__${rubro.id}`.toLowerCase();
-                    const existing = scannedMap.get(key);
-
-                    // Si no está escaneada o fue escaneada hace más de 30 días
-                    const isOld = existing && existing.scannedAt && ((Date.now() - new Date(existing.scannedAt).getTime()) > 30 * 24 * 3600 * 1000);
-
-                    if (!existing || isOld) {
-                        const cleanLat = zone.center.lat.toFixed(6);
-                        const cleanLng = zone.center.lng.toFixed(6);
-                        const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(rubro.id)}/@${cleanLat},${cleanLng},${zone.zoom}z`;
-
-                        return {
-                            success: true,
-                            isNewTarget: !existing,
-                            reason: !existing ? 'Zona y rubro nunca antes explorados' : 'Exploración anterior con más de 30 días de antigüedad',
-                            zone: {
-                                id: zone.id,
-                                name: zone.name,
-                                city: zone.city,
-                                center: zone.center,
-                                radiusKm: zone.radiusKm,
-                                zoom: zone.zoom
-                            },
-                            rubro: {
-                                id: rubro.id,
-                                label: rubro.label,
-                                targetSolution: rubro.targetSolution
-                            },
-                            searchQuery: `${rubro.label} en ${zone.name}`,
-                            googleMapsUrl: mapsUrl,
-                            previousScan: existing ? {
-                                scannedAt: existing.scannedAt,
-                                totalLeadsFound: existing.totalLeadsFound || 0,
-                                validLeadsIngested: existing.validLeadsIngested || 0
-                            } : null
-                        };
-                    }
-                }
-            }
-
-            // Si todas fueron escaneadas, devolver la más antigua
-            const oldest = scannedRecords.sort((a, b) => new Date(a.scannedAt) - new Date(b.scannedAt))[0];
-            const fallbackZone = SUB_ZONES.find(z => z.id === oldest?.zoneId) || SUB_ZONES[0];
-            const fallbackRubro = RUBROS_CATALOG.find(r => r.id === oldest?.keyword) || RUBROS_CATALOG[0];
-
-            return {
-                success: true,
-                isNewTarget: false,
-                reason: 'Todas las combinaciones fueron cubiertas. Reiniciando ciclo por la zona más antigua.',
-                zone: fallbackZone,
-                rubro: fallbackRubro,
-                searchQuery: `${fallbackRubro.label} en ${fallbackZone.name}`,
-                googleMapsUrl: `https://www.google.com/maps/search/${encodeURIComponent(fallbackRubro.id)}/@${fallbackZone.center.lat},${fallbackZone.center.lng},${fallbackZone.zoom}z`,
-                previousScan: oldest
-            };
-
-        } catch (error) {
-            console.error('Error calculando próximo objetivo en GeoGridScanner:', error);
-            // Fallback determinista
-            const z = SUB_ZONES[0];
-            const r = RUBROS_CATALOG[0];
-            return {
-                success: true,
-                isNewTarget: true,
-                reason: 'Modo autónomo por defecto',
-                zone: z,
-                rubro: r,
-                searchQuery: `${r.label} en ${z.name}`,
-                googleMapsUrl: `https://www.google.com/maps/search/${encodeURIComponent(r.id)}/@${z.center.lat},${z.center.lng},${z.zoom}z`
-            };
-        }
-    }
-
-    /**
-     * Registrar la finalización de un escaneo en una zona
-     */
-    async recordZoneScan(data) {
-        try {
-            const {
-                zoneId,
-                zoneName,
-                city,
-                keyword,
-                keywordLabel,
-                center,
-                radiusKm = 2.0,
-                zoom = 15,
-                totalLeadsFound = 0,
-                validLeadsIngested = 0,
-                discardedLeads = 0,
-                notes = ''
-            } = data;
-
-            if (!zoneId || !keyword) {
-                throw new Error('zoneId y keyword son requeridos para registrar el escaneo');
-            }
-
-            const cleanCenter = center || (SUB_ZONES.find(z => z.id === zoneId)?.center) || { lat: -34.6037, lng: -58.3816 };
-            const cleanZoneName = zoneName || (SUB_ZONES.find(z => z.id === zoneId)?.name) || zoneId;
-            const cleanCity = city || (SUB_ZONES.find(z => z.id === zoneId)?.city) || 'Argentina';
-
-            const record = await ScannedZone.findOneAndUpdate(
-                { zoneId, keyword },
-                {
-                    zoneId,
-                    zoneName: cleanZoneName,
-                    city: cleanCity,
-                    keyword,
-                    keywordLabel: keywordLabel || keyword,
-                    center: cleanCenter,
-                    radiusKm,
+                cells.push({
+                    cellId: `${city}_r${row}_c${col}`,
+                    row,
+                    col,
+                    lat: roundedLat,
+                    lng: roundedLng,
                     zoom,
-                    status: 'completed',
-                    scannedAt: new Date(),
-                    $inc: {
-                        totalLeadsFound: totalLeadsFound,
-                        validLeadsIngested: validLeadsIngested,
-                        discardedLeads: discardedLeads
-                    },
-                    notes
-                },
-                { upsert: true, new: true }
-            );
-
-            return { success: true, record };
-        } catch (error) {
-            console.error('Error guardando registro de zona escaneada:', error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    /**
-     * Obtener historial de zonas ya escaneadas
-     */
-    async getScannedHistory(limit = 40) {
-        try {
-            const history = await ScannedZone.find({})
-                .sort({ scannedAt: -1 })
-                .limit(limit)
-                .lean();
-
-            const totalScanned = await ScannedZone.countDocuments({});
-            const totalValidLeads = history.reduce((sum, h) => sum + (h.validLeadsIngested || 0), 0);
-            const totalSubZones = SUB_ZONES.length;
-            const totalRubros = RUBROS_CATALOG.length;
-            const totalPossibleCombinations = totalSubZones * totalRubros;
-            const totalScannedCombinations = totalScanned;
-            const coveragePercent = totalPossibleCombinations > 0 
-                ? Math.round((totalScanned / totalPossibleCombinations) * 100) 
-                : 0;
-
-            return {
-                success: true,
-                totalScanned,
-                totalScannedCombinations,
-                totalSubZones,
-                totalRubros,
-                totalPossibleCombinations,
-                coveragePercent,
-                totalValidLeads,
-                history
-            };
-        } catch (error) {
-            console.error('Error obteniendo historial de zonas:', error);
-            return { 
-                success: false, 
-                error: error.message, 
-                totalScanned: 0,
-                totalScannedCombinations: 0,
-                totalPossibleCombinations: SUB_ZONES.length * RUBROS_CATALOG.length,
-                coveragePercent: 0,
-                history: [] 
-            };
-        }
-    }
-
-    /**
-     * Generar cuadrícula de coordenadas GPS detallada para una zona
-     */
-    generateGrid(options = {}) {
-        const {
-            zoneId,
-            radiusKm = 2.5,
-            stepKm = 1.2,
-            keyword = 'odontologia',
-            zoom = 15
-        } = options;
-
-        let centerLat = options.centerLat;
-        let centerLng = options.centerLng;
-        let zoneName = 'Área personalizada';
-
-        if (zoneId) {
-            const match = SUB_ZONES.find(z => z.id === zoneId);
-            if (match) {
-                centerLat = match.center.lat;
-                centerLng = match.center.lng;
-                zoneName = match.name;
+                    searchUrl: `https://www.google.com/maps/search/${encodedQuery}/@${roundedLat},${roundedLng},${zoom}z`
+                });
+                col++;
             }
-        }
-
-        if (typeof centerLat !== 'number' || typeof centerLng !== 'number') {
-            centerLat = -34.6037;
-            centerLng = -58.3816;
-            zoneName = 'CABA Centro';
-        }
-
-        const effectiveStep = Math.max(0.8, Math.min(stepKm, 4.0));
-        const latDelta = kmToLatDelta(effectiveStep);
-        const lngDelta = kmToLngDelta(effectiveStep, centerLat);
-
-        const radiusLat = kmToLatDelta(radiusKm);
-        const radiusLng = kmToLngDelta(radiusKm, centerLat);
-
-        const minLat = centerLat - radiusLat;
-        const maxLat = centerLat + radiusLat;
-        const minLng = centerLng - radiusLng;
-        const maxLng = centerLng + radiusLng;
-
-        const points = [];
-        let index = 1;
-
-        for (let lat = minLat; lat <= maxLat; lat += latDelta) {
-            for (let lng = minLng; lng <= maxLng; lng += lngDelta) {
-                const dLat = (lat - centerLat) / radiusLat;
-                const dLng = (lng - centerLng) / radiusLng;
-                if ((dLat * dLat + dLng * dLng) <= 1.05) {
-                    const cleanLat = Number(lat.toFixed(6));
-                    const cleanLng = Number(lng.toFixed(6));
-                    const queryUrl = `https://www.google.com/maps/search/${encodeURIComponent(keyword)}/@${cleanLat},${cleanLng},${zoom}z`;
-
-                    points.push({
-                        index: index++,
-                        lat: cleanLat,
-                        lng: cleanLng,
-                        keyword,
-                        zoom,
-                        searchUrl: queryUrl,
-                        searchQuery: `${keyword} (@${cleanLat},${cleanLng})`
-                    });
-                }
-            }
+            row++;
         }
 
         return {
-            zoneName,
+            city,
+            zoneName: zone.name,
             keyword,
-            center: { lat: centerLat, lng: centerLng },
-            radiusKm,
-            stepKm: effectiveStep,
-            totalPoints: points.length,
-            points
+            stepKm,
+            totalCells: cells.length,
+            cells
+        };
+    }
+
+    getPresetZones() {
+        return Object.entries(PRESET_ZONES).map(([key, val]) => ({
+            id: key,
+            name: val.name,
+            center: val.center,
+            defaultZoom: val.defaultZoom
+        }));
+    }
+
+    getAllSubZones() {
+        return GRANULAR_SUBZONES;
+    }
+
+    getCatalog() {
+        return {
+            cities: this.getPresetZones(),
+            subZones: GRANULAR_SUBZONES,
+            rubros: RUBROS_CATALOG
+        };
+    }
+
+    /**
+     * Calcula la próxima combinación (Sub-zona + Rubro) que NO haya sido escaneada aún,
+     * o bien la que se haya escaneado hace más tiempo.
+     * Permite filtrar opcionalmente por `preferredCity` y/o `preferredRubro`.
+     */
+    async getNextRecommendedTarget(preferredCity = null, preferredRubro = null) {
+        const scannedRecords = await ScannedZone.find({}).sort({ lastScannedAt: -1 }).lean();
+
+        const scannedMap = new Map();
+        for (const rec of scannedRecords) {
+            const key = `${rec.zoneId}::${rec.keyword}`;
+            scannedMap.set(key, rec);
+        }
+
+        const candidateZones = (preferredCity && preferredCity !== 'all')
+            ? GRANULAR_SUBZONES.filter(z => z.city === preferredCity || z.id === preferredCity)
+            : GRANULAR_SUBZONES;
+
+        const candidateRubros = (preferredRubro && preferredRubro !== 'all')
+            ? RUBROS_CATALOG.filter(r => r.id === preferredRubro || r.query === preferredRubro)
+            : RUBROS_CATALOG;
+
+        const effectiveZones = candidateZones.length > 0 ? candidateZones : GRANULAR_SUBZONES;
+        const effectiveRubros = candidateRubros.length > 0 ? candidateRubros : RUBROS_CATALOG;
+
+        // 1. Buscar primera combinación virgen (priorizando rubros de mayor ticket / prioridad)
+        const sortedRubros = [...effectiveRubros].sort((a, b) => (b.priority || 5) - (a.priority || 5));
+
+        for (const rubro of sortedRubros) {
+            for (const zone of effectiveZones) {
+                const key = `${zone.id}::${rubro.id}`;
+                if (!scannedMap.has(key)) {
+                    const searchQuery = `${rubro.query} en ${zone.name.replace(/\(.*\)/, '').trim()}`;
+                    const encodedQuery = encodeURIComponent(rubro.query);
+                    return {
+                        success: true,
+                        isNewTarget: true,
+                        zone: {
+                            id: zone.id,
+                            name: zone.name,
+                            city: zone.city,
+                            center: { lat: zone.lat, lng: zone.lng },
+                            zoom: zone.zoom
+                        },
+                        rubro: {
+                            id: rubro.id,
+                            label: rubro.label,
+                            query: rubro.query,
+                            targetSolution: rubro.targetSolution,
+                            priority: rubro.priority || 8
+                        },
+                        searchQuery,
+                        googleMapsUrl: `https://www.google.com/maps/search/${encodedQuery}/@${zone.lat},${zone.lng},${zone.zoom}z`,
+                        reason: `Zona virgen de alta conversión NatoH Systems: nunca se escaneó "${rubro.label}" en ${zone.name}.`,
+                        totalScannedCount: scannedRecords.length,
+                        totalPossibleCombinations: GRANULAR_SUBZONES.length * RUBROS_CATALOG.length
+                    };
+                }
+            }
+        }
+
+        // 2. Si todas fueron escaneadas, devolver la más antigua dentro del filtro
+        let oldestCombo = null;
+        let oldestDate = new Date();
+
+        for (const rubro of effectiveRubros) {
+            for (const zone of effectiveZones) {
+                const rec = scannedMap.get(`${zone.id}::${rubro.id}`);
+                if (rec && new Date(rec.lastScannedAt) <= oldestDate) {
+                    oldestDate = new Date(rec.lastScannedAt);
+                    oldestCombo = { zone, rubro, rec };
+                }
+            }
+        }
+
+        const fallbackZone = oldestCombo?.zone || effectiveZones[0];
+        const fallbackRubro = oldestCombo?.rubro || effectiveRubros[0];
+        const searchQuery = `${fallbackRubro.query} en ${fallbackZone.name.replace(/\(.*\)/, '').trim()}`;
+        const encodedQuery = encodeURIComponent(fallbackRubro.query);
+
+        return {
+            success: true,
+            isNewTarget: false,
+            zone: {
+                id: fallbackZone.id,
+                name: fallbackZone.name,
+                city: fallbackZone.city,
+                center: { lat: fallbackZone.lat, lng: fallbackZone.lng },
+                zoom: fallbackZone.zoom
+            },
+            rubro: {
+                id: fallbackRubro.id,
+                label: fallbackRubro.label,
+                query: fallbackRubro.query,
+                targetSolution: fallbackRubro.targetSolution,
+                priority: fallbackRubro.priority || 8
+            },
+            searchQuery,
+            googleMapsUrl: `https://www.google.com/maps/search/${encodedQuery}/@${fallbackZone.lat},${fallbackZone.lng},${fallbackZone.zoom}z`,
+            reason: `Re-escaneo de ciclo: esta combinación fue la más antigua en memoria.`,
+            totalScannedCount: scannedRecords.length,
+            totalPossibleCombinations: GRANULAR_SUBZONES.length * RUBROS_CATALOG.length
+        };
+    }
+
+    /**
+     * Registra en la base de datos que una zona + rubro fue escaneada y actualiza sus métricas
+     */
+    async recordZoneScan({
+        zoneId,
+        zoneName,
+        city = 'caba',
+        keyword,
+        keywordLabel = '',
+        center = { lat: null, lng: null },
+        zoom = 15,
+        totalLeadsFound = 0,
+        validLeadsIngested = 0,
+        discardedLeads = 0,
+        status = 'completed',
+        notes = ''
+    }) {
+        if (!zoneId || !keyword) {
+            throw new Error('zoneId y keyword son obligatorios para registrar zona escaneada');
+        }
+
+        const normZoneId = String(zoneId).toLowerCase().trim();
+        const normKeyword = String(keyword).toLowerCase().trim();
+
+        const updated = await ScannedZone.findOneAndUpdate(
+            { zoneId: normZoneId, keyword: normKeyword },
+            {
+                $set: {
+                    zoneName: zoneName || normZoneId,
+                    city,
+                    keywordLabel: keywordLabel || normKeyword,
+                    center,
+                    zoom,
+                    status,
+                    lastScannedAt: new Date(),
+                    ...(notes ? { notes } : {})
+                },
+                $inc: {
+                    scanCount: 1,
+                    totalLeadsFound: Number(totalLeadsFound) || 0,
+                    validLeadsIngested: Number(validLeadsIngested) || 0,
+                    discardedLeads: Number(discardedLeads) || 0
+                }
+            },
+            { upsert: true, new: true }
+        );
+
+        return {
+            success: true,
+            scannedZone: updated
+        };
+    }
+
+    /**
+     * Obtiene el historial completo de zonas escaneadas y estadísticas de cobertura
+     */
+    async getScannedHistory(limit = 50) {
+        const records = await ScannedZone.find({})
+            .sort({ lastScannedAt: -1 })
+            .limit(limit)
+            .lean();
+
+        const totalPossible = GRANULAR_SUBZONES.length * RUBROS_CATALOG.length;
+        const totalScanned = await ScannedZone.countDocuments({});
+
+        return {
+            success: true,
+            coveragePercent: Math.min(100, Math.round((totalScanned / totalPossible) * 100)),
+            totalScannedCombinations: totalScanned,
+            totalPossibleCombinations: totalPossible,
+            records
         };
     }
 }
 
-module.exports = new GeoGridScanner();
+const scannerInstance = new GeoGridScanner();
+scannerInstance.GRANULAR_SUBZONES = GRANULAR_SUBZONES;
+scannerInstance.RUBROS_CATALOG = RUBROS_CATALOG;
+
+module.exports = scannerInstance;
