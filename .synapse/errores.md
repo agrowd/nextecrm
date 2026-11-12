@@ -419,3 +419,13 @@ Posteriormente `docker compose up -d` falla con `no space left on device`.
 2. Eliminado el bloque de inyección de 5to mensaje y activado aborto real cuando `/lead/check-messages` devuelve `safeToSend: false`.
 3. Corregido `await message.getContact()`, eliminada doble llamada a `this.client.initialize()` y sincronizados `bot/`, `bot_1/`, `bot_2/`, `bot_3/`, `bot_4/`.
 **Estado:** ✅ FIXED
+
+---
+
+## ERR-22: `MODULE_NOT_FOUND` para `cheerio` y `openai` dentro del contenedor `rascafull-crm` en `/app/server` (2026-11-12)
+**Síntoma:** Al reiniciar `nexte-backend` en producción tras sincronizar `webScraper.js`, `painAnalyzer.js` y `closerCopilot.js`, PM2 reportaba `Error: Cannot find module 'cheerio'` y luego `Error: Cannot find module 'openai'`.
+**Root Cause:** El contenedor Docker `rascafull-crm` instala dependencias aisladas por subcarpeta (`/app/server/node_modules`) donde están `axios`, `express`, `mongoose`, `socket.io`, `joi`, pero no `cheerio` ni el SDK `openai`.
+**Solución:**
+1. En `server/services/webScraper.js`, se reemplazó `cheerio` por extracción regex nativa ultrarrápida para `<title>`, `viewport`, links de Instagram/Facebook, widgets de reservas y chat.
+2. En `server/services/painAnalyzer.js`, `server/services/closerCopilot.js` y `bot*/services/aiTextGenerator.js`, se reemplazó `require('openai')` por llamadas HTTP directas vía `axios.post('https://api.openai.com/v1/chat/completions', ...)` sin dependencias externas adicionales.
+**Estado:** ✅ FIXED

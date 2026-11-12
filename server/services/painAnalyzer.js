@@ -7,7 +7,7 @@
  * (natohsystems.com / nextemarketing.com).
  */
 
-const OpenAI = require('openai');
+const axios = require('axios');
 
 const PAIN_KEYWORDS_DICTIONARY = [
     { regex: /no atienden|nunca atienden|imposible comunicarse|no contestan|tardan en responder|whatsapp/i, label: 'Demora o falta de respuesta en atención por WhatsApp/teléfono', boost: 15 },
@@ -293,8 +293,6 @@ async function analyzeLeadPains(lead) {
     }
 
     try {
-        const openai = new OpenAI({ apiKey });
-
         const reviewsText = Array.isArray(lead.reviews) && lead.reviews.length > 0
             ? lead.reviews.slice(0, 6).map(r => typeof r === 'string' ? r : (r.text || '')).filter(Boolean).join(' | ')
             : 'Sin texto de reseñas disponible';
@@ -336,15 +334,25 @@ Devolvé ÚNICAMENTE un JSON válido con esta estructura exacta:
   "suggestedOffer": "Oferta puntual con el precio promo correspondiente y pago 50% al iniciar / 50% contra entrega"
 }`;
 
-        const completion = await openai.chat.completions.create({
-            model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-            messages: [{ role: 'user', content: prompt }],
-            response_format: { type: 'json_object' },
-            temperature: 0.5,
-            max_tokens: 550
-        });
+        const response = await axios.post(
+            'https://api.openai.com/v1/chat/completions',
+            {
+                model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+                messages: [{ role: 'user', content: prompt }],
+                response_format: { type: 'json_object' },
+                temperature: 0.5,
+                max_tokens: 550
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 12000
+            }
+        );
 
-        const parsed = JSON.parse(completion.choices[0].message.content);
+        const parsed = JSON.parse(response.data.choices[0].message.content);
         return {
             analyzedAt: new Date(),
             primaryPain: parsed.primaryPain || baseDossier.primaryPain,

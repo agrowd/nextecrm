@@ -1,17 +1,15 @@
-const OpenAI = require('openai');
 const axios = require('axios');
 
 class AITextGenerator {
     constructor() {
-        this.openai = null;
+        this.apiKey = (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your-api-key')
+            ? process.env.OPENAI_API_KEY.trim()
+            : '';
         this.backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8484';
         this.cachedConfig = null;
         this.lastConfigFetch = 0;
 
-        if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your-api-key') {
-            this.openai = new OpenAI({
-                apiKey: process.env.OPENAI_API_KEY
-            });
+        if (this.apiKey) {
             console.log('🤖 [AI Generator] OpenAI inicializado correctamente (Modo Consultivo NatoH Systems + Nexte)');
         } else {
             console.log('⚠️ [AI Generator] OPENAI_API_KEY no configurada. Se usarán secuencias dinámicas por Dossier NatoH.');
@@ -105,7 +103,7 @@ class AITextGenerator {
     async generatePersonalizedSequence(lead) {
         const aiConfig = await this.getAiConfig();
 
-        if (!this.openai || aiConfig.enabled === false) {
+        if (!this.apiKey || aiConfig.enabled === false) {
             return this.buildDynamicFallbackSequence(lead);
         }
 
@@ -175,18 +173,28 @@ Respondé ÚNICAMENTE con un JSON válido: {"messages": ["msg1", "msg2", "msg3",
 - Calificación Maps: ${lead.rating ? `${lead.rating} ⭐ (${lead.reviewCount || 0} reseñas)` : 'Sin datos'}${webAuditContext}${dossierContext}`;
 
         try {
-            const response = await this.openai.chat.completions.create({
-                model: aiConfig.model || process.env.OPENAI_MODEL || 'gpt-4o-mini',
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt }
-                ],
-                response_format: { type: 'json_object' },
-                temperature: typeof aiConfig.temperature === 'number' ? aiConfig.temperature : 0.65,
-                max_tokens: 750
-            });
+            const response = await axios.post(
+                'https://api.openai.com/v1/chat/completions',
+                {
+                    model: aiConfig.model || process.env.OPENAI_MODEL || 'gpt-4o-mini',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt }
+                    ],
+                    response_format: { type: 'json_object' },
+                    temperature: typeof aiConfig.temperature === 'number' ? aiConfig.temperature : 0.65,
+                    max_tokens: 750
+                },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${this.apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 15000
+                }
+            );
 
-            const content = response.choices[0].message.content;
+            const content = response.data.choices[0].message.content;
             const parsed = JSON.parse(content);
 
             if (parsed.messages && Array.isArray(parsed.messages) && parsed.messages.length === 4) {

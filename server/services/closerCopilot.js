@@ -9,7 +9,7 @@
  * - Sugiere el siguiente paso comercial concreto
  */
 
-const OpenAI = require('openai');
+const axios = require('axios');
 
 const NATOH_PRICING_REFERENCE = `
 TARIFARIO PROMO OTOÑO 2026 (NatoH Systems https://natohsystems.com & Nexte Marketing https://nextemarketing.com):
@@ -103,8 +103,6 @@ class CloserCopilot {
         }
 
         try {
-            const openai = new OpenAI({ apiKey });
-
             const recentTranscript = messages.slice(-10).map(m => {
                 const role = (m.fromMe || m.direction === 'outbound') ? 'Agencia (NatoH/Nexte)' : `Cliente (${lead?.name || 'Prospecto'})`;
                 return `${role}: ${m.content || m.body || ''}`;
@@ -136,15 +134,25 @@ Analizá el último mensaje del cliente y devolvé ÚNICAMENTE un JSON válido c
   "suggestedReply": "Mensaje de WhatsApp exacto listo para copiar y enviar al cliente (español argentino natural, cálido, máximo 55 palabras, resolviendo su duda, mencionando https://natohsystems.com si pide ver trabajos y proponiendo llamada de 5 min o cierre)"
 }`;
 
-            const response = await openai.chat.completions.create({
-                model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-                messages: [{ role: 'user', content: prompt }],
-                response_format: { type: 'json_object' },
-                temperature: 0.55,
-                max_tokens: 450
-            });
+            const response = await axios.post(
+                'https://api.openai.com/v1/chat/completions',
+                {
+                    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+                    messages: [{ role: 'user', content: prompt }],
+                    response_format: { type: 'json_object' },
+                    temperature: 0.55,
+                    max_tokens: 450
+                },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 12000
+                }
+            );
 
-            const parsed = JSON.parse(response.choices[0].message.content);
+            const parsed = JSON.parse(response.data.choices[0].message.content);
             return {
                 stage: parsed.stage || heuristic.stage,
                 stageLabel: parsed.stageLabel || heuristic.stageLabel,
