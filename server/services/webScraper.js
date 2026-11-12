@@ -4,11 +4,10 @@
  * Visita la URL del negocio (si tiene), clasifica si es una red social o plataforma
  * de terceros (Instagram, Facebook, Linktree, PedidosYa, Tiendanube, Turnito, WhatsApp),
  * o audita su HTML real buscando CMS, píxeles, widgets de chat/turnos, links sociales,
- * adaptabilidad móvil y velocidad de respuesta.
+ * adaptabilidad móvil y velocidad de respuesta (Zero-Dependency Regex Engine).
  */
 
 const axios = require('axios');
-const cheerio = require('cheerio');
 
 function classifyExternalUrl(rawUrl) {
     if (!rawUrl) return null;
@@ -137,9 +136,12 @@ async function auditWebsite(rawUrl) {
 
         const html = typeof response.data === 'string' ? response.data : '';
         const lowerHtml = html.toLowerCase();
-        const $ = cheerio.load(html);
 
-        result.title = ($('title').first().text() || '').trim().substring(0, 120);
+        // Extraer <title>
+        const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+        if (titleMatch && titleMatch[1]) {
+            result.title = titleMatch[1].replace(/\s+/g, ' ').trim().substring(0, 120);
+        }
 
         // Detectar CMS / Plataforma
         if (lowerHtml.includes('tiendanube') || lowerHtml.includes('nuvemshop') || lowerHtml.includes('d26lpennugtm8s.cloudfront.net')) {
@@ -191,20 +193,17 @@ async function auditWebsite(rawUrl) {
             lowerHtml.includes('landbot');
 
         // Detectar Viewport Mobile
-        result.isMobileResponsive = $('meta[name="viewport"]').length > 0;
+        result.isMobileResponsive = /<meta[^>]+name=["']viewport["']/i.test(html);
 
-        // Extraer enlaces a Instagram y Facebook dentro de la web
-        $('a[href]').each((_, el) => {
-            const href = ($(el).attr('href') || '').trim();
-            if (!href) return;
-            const lHref = href.toLowerCase();
-            if (!result.instagramUrl && lHref.includes('instagram.com/') && !lHref.includes('/p/') && !lHref.includes('/reel/')) {
-                result.instagramUrl = href;
-            }
-            if (!result.facebookUrl && (lHref.includes('facebook.com/') || lHref.includes('fb.com/')) && !lHref.includes('sharer')) {
-                result.facebookUrl = href;
-            }
-        });
+        // Extraer enlaces a Instagram y Facebook dentro de la web mediante Regex
+        const igMatch = html.match(/https?:\/\/(?:www\.)?instagram\.com\/[a-zA-Z0-9_.\-]+/i);
+        if (igMatch && !igMatch[0].includes('/p/') && !igMatch[0].includes('/reel/')) {
+            result.instagramUrl = igMatch[0];
+        }
+        const fbMatch = html.match(/https?:\/\/(?:www\.)?(?:facebook|fb)\.com\/[a-zA-Z0-9_.\-]+/i);
+        if (fbMatch && !fbMatch[0].toLowerCase().includes('sharer') && !fbMatch[0].toLowerCase().includes('tr')) {
+            result.facebookUrl = fbMatch[0];
+        }
 
         // Construir Insights accionables para Agente 3 y Agente 4 (NatoH Systems)
         if (!result.hasWhatsAppWidget && !result.hasChatWidget) {
