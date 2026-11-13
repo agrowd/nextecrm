@@ -394,9 +394,10 @@ class WhatsAppBot {
         return;
       }
       const cleanDigits = phone.replace(/\D/g, '');
+      const formattedDigits = typeof formatForWhatsApp === 'function' ? formatForWhatsApp(cleanDigits) : `${cleanDigits}@c.us`;
       const whatsappId = phone.includes('@')
         ? phone
-        : (this.whatsappChecker ? this.whatsappChecker.formatForWhatsApp(cleanDigits) : `${cleanDigits}@c.us`);
+        : (formattedDigits.includes('@') ? formattedDigits : `${formattedDigits}@c.us`);
 
       console.log(`📤 Enviando respuesta manual desde CRM a ${whatsappId}...`);
 
@@ -2091,6 +2092,9 @@ class WhatsAppBot {
           });
           if (checkRes.data && checkRes.data.isCampaignLead === true) {
             isCampaignLead = true;
+            if (checkRes.data.resolvedPhone) {
+              contactNumber = `${checkRes.data.resolvedPhone}@c.us`;
+            }
           }
         } catch (err) {
           // Si falla la consulta, por seguridad NO consideramos que sea de la campaña

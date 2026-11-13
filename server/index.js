@@ -676,7 +676,7 @@ app.post('/messages', async (req, res) => {
       }
     }
 
-    // 2. Buscar Lead: Lógica mejorada (match por los últimos 10 dígitos)
+    // 2. Buscar Lead: Lógica mejorada (match por los últimos 10 dígitos o resolución de @lid en historial)
     let lead = null;
     if (cleanPhone.length >= 8) {
       const phoneSuffix = cleanPhone.slice(-10);
@@ -688,6 +688,21 @@ app.post('/messages', async (req, res) => {
     if (!lead && phone) {
       lead = await Lead.findOne({ phone: phone });
     }
+
+    if (!lead && cleanPhone.length >= 12) {
+      const lidMatchMsg = await Message.findOne({
+        leadId: { $ne: null },
+        $or: [
+          { whatsappMessageId: new RegExp(cleanPhone) },
+          { 'metadata.originalJid': `${cleanPhone}@lid` }
+        ]
+      }).populate('leadId');
+      if (lidMatchMsg && lidMatchMsg.leadId) {
+        lead = lidMatchMsg.leadId;
+      }
+    }
+
+    const effectivePhoneClean = (lead && lead.phone) ? String(lead.phone).replace(/\D/g, '') : cleanPhone;
 
     // Si es una sincronización offline y el contacto no es un lead del CRM, no contaminar la BD con chats personales
     if (onlyExistingLead && !lead) {
@@ -702,7 +717,7 @@ app.post('/messages', async (req, res) => {
     const effectiveDate = sentAt ? new Date(sentAt) : (timestamp ? new Date(timestamp) : new Date());
 
     const newMessage = new Message({
-      phone: cleanPhone,
+      phone: effectivePhoneClean,
       content,
       fromMe: resolvedFromMe,
       direction: resolvedDirection,
@@ -1688,7 +1703,15 @@ app.get(['/lead/by-phone/:phone', '/api/lead/by-phone/:phone'], async (req, res)
 
     // Si no se encontró por teléfono directo (ej. es un LID o número temporal), buscar en historial de mensajes
     if (!lead) {
-      const msg = await Message.findOne({ phone: rawPhone, leadId: { $ne: null } }).populate('leadId');
+      const msg = await Message.findOne({
+        leadId: { $ne: null },
+        $or: [
+          { phone: rawPhone },
+          { phone: cleanDigits },
+          { whatsappMessageId: new RegExp(cleanDigits) },
+          { 'metadata.originalJid': `${cleanDigits}@lid` }
+        ]
+      }).populate('leadId');
       if (msg && msg.leadId) {
         lead = msg.leadId;
       }
@@ -1721,7 +1744,7 @@ app.put(['/lead/by-phone/:phone', '/api/lead/by-phone/:phone'], async (req, res)
     const suffix = cleanDigits.length >= 8 ? cleanDigits.slice(-8) : cleanDigits;
 
     const updateData = { ...(req.body || {}), lastContactAt: new Date() };
-    const lead = await Lead.findOneAndUpdate(
+    let lead = await Lead.findOneAndUpdate(
       {
         $or: [
           { phone: rawPhone },
@@ -1732,6 +1755,19 @@ app.put(['/lead/by-phone/:phone', '/api/lead/by-phone/:phone'], async (req, res)
       { $set: updateData },
       { new: true }
     );
+
+    if (!lead && cleanDigits.length >= 12) {
+      const lidMsg = await Message.findOne({
+        leadId: { $ne: null },
+        $or: [
+          { whatsappMessageId: new RegExp(cleanDigits) },
+          { 'metadata.originalJid': `${cleanDigits}@lid` }
+        ]
+      });
+      if (lidMsg && lidMsg.leadId) {
+        lead = await Lead.findByIdAndUpdate(lidMsg.leadId, { $set: updateData }, { new: true });
+      }
+    }
 
     if (!lead) {
       return res.status(404).json({ success: false, message: 'Lead no encontrado' });
@@ -1850,14 +1886,27 @@ app.get(['/lead/is-campaign-lead', '/api/lead/is-campaign-lead'], async (req, re
     }
     const suffix = cleanPhone.length >= 8 ? cleanPhone.slice(-8) : cleanPhone;
 
-    // 1. Buscar si el Lead existe en MongoDB (colección de prospectos de Google Maps)
-    const lead = await Lead.findOne({
+    // 1. Buscar si el Lead existe en MongoDB (colección de prospectos de Google Maps o vía @lid en Message)
+    let lead = await Lead.findOne({
       $or: [
         { phone: phone },
         { phone: cleanPhone },
         { phone: new RegExp(suffix + '$') }
       ]
     });
+
+    if (!lead && cleanPhone.length >= 12) {
+      const lidMsg = await Message.findOne({
+        leadId: { $ne: null },
+        $or: [
+          { whatsappMessageId: new RegExp(cleanPhone) },
+          { 'metadata.originalJid': `${cleanPhone}@lid` }
+        ]
+      }).populate('leadId');
+      if (lidMsg && lidMsg.leadId) {
+        lead = lidMsg.leadId;
+      }
+    }
 
     // Si NO existe en la base de datos de leads de Maps -> 100% CONTACTO PERSONAL / AJENO
     if (!lead) {
@@ -1868,18 +1917,27 @@ app.get(['/lead/is-campaign-lead', '/api/lead/is-campaign-lead'], async (req, re
       });
     }
 
+    const effectiveLeadPhone = String(lead.phone || cleanPhone).replace(/\D/g, '');
+    const effectiveSuffix = effectiveLeadPhone.length >= 8 ? effectiveLeadPhone.slice(-8) : effectiveLeadPhone;
+
     // 2. Si existe en la BD de leads, verificar si alguna vez se le envió un mensaje saliente
     const hasOutbound = await Message.exists({
-      $or: [
-        { leadId: lead._id },
-        { phone: cleanPhone },
-        { phone: new RegExp(suffix + '$') }
-      ],
-      $or: [
-        { fromMe: true },
-        { direction: 'outbound' },
-        { type: { $in: ['oferta_servicio', 'respuesta_automatica', 'mensaje_manual'] } },
-        { messageNumber: { $gt: 0 } }
+      $and: [
+        {
+          $or: [
+            { leadId: lead._id },
+            { phone: effectiveLeadPhone },
+            { phone: new RegExp(effectiveSuffix + '$') }
+          ]
+        },
+        {
+          $or: [
+            { fromMe: true },
+            { direction: 'outbound' },
+            { type: { $in: ['oferta_servicio', 'respuesta_automatica', 'mensaje_manual'] } },
+            { messageNumber: { $gt: 0 } }
+          ]
+        }
       ]
     });
 
@@ -1890,6 +1948,7 @@ app.get(['/lead/is-campaign-lead', '/api/lead/is-campaign-lead'], async (req, re
         isCampaignLead: true,
         leadId: lead._id,
         leadName: lead.name,
+        resolvedPhone: effectiveLeadPhone,
         status: lead.status,
         botPaused: lead.botPaused || false,
         manualIntervention: lead.manualIntervention || false
@@ -2038,8 +2097,8 @@ app.post(['/api/fix-lid-messages', '/fix-lid-messages'], async (req, res) => {
   try {
     const lidMessages = await Message.find({
       $or: [
-        { phone: { $regex: '^\d{14,17}$' } },
-        { leadName: { $regex: '^\+?\d{14,17}$' } },
+        { phone: { $regex: /^\d{14,17}$/ } },
+        { leadName: { $regex: /^\+?\d{14,17}$/ } },
         { leadId: null }
       ]
     }).limit(200);
