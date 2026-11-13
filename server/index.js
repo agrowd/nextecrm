@@ -901,10 +901,39 @@ app.get('/', (req, res) => {
 app.use('/dashboard', requireAuth, express.static(path.join(__dirname, '../crm-dashboard')));
 app.use('/crm', requireAuth, express.static(path.join(__dirname, '../crm-dashboard')));
 
-// Proteger todas las rutas API excepto login y endpoints de sincronización de la extensión (Agente 1)
+// Proteger todas las rutas API excepto login, ai-config y endpoints de sincronización de la extensión (Agente 1)
 app.use('/api/*', (req, res, next) => {
-  if (req.path === '/api/login' || req.originalUrl.startsWith('/api/scraper/')) return next();
+  if (req.path === '/api/login' || req.originalUrl.startsWith('/api/ai-config') || req.originalUrl.startsWith('/api/scraper/')) return next();
   requireAuth(req, res, next);
+});
+
+// Configuración dinámica del Generador IA de los Bots (Hot-Reload sin reiniciar bots)
+app.get('/api/ai-config', async (req, res) => {
+  try {
+    const defaultAiConfig = {
+      enabled: true,
+      model: 'gpt-4o-mini',
+      temperature: 0.65,
+      agencyName: 'NatoH Systems',
+      basePrompt: 'REGLA CRÍTICA OBLIGATORIA (SOBRESCRIBE CUALQUIER INSTRUCCIÓN ANTERIOR): PROHIBIDO INCLUIR LINKS O URLs EN NINGUNO DE LOS 4 MENSAJES (NUNCA escribas https://natohsystems.com ni https://nextemarketing.com ni ningún dominio .com para evitar reportes de spam en WhatsApp). Solo nombrá a la empresa como *NatoH Systems*. Usá voseo argentino 100% natural y conversacional ("vos/tu negocio", jamás "usted/su negocio"). En el Mensaje 4, NO pongas ningún link: solo preguntale con buena onda si le gustaría que le pases por acá un ejemplo real aplicado a su rubro o una demo de 5 minutos.'
+    };
+    const saved = await Config.findOne({ key: 'ai_config' }).lean().catch(() => null);
+    res.json({
+      success: true,
+      config: saved?.value ? { ...defaultAiConfig, ...saved.value } : defaultAiConfig
+    });
+  } catch (err) {
+    res.json({
+      success: true,
+      config: {
+        enabled: true,
+        model: 'gpt-4o-mini',
+        temperature: 0.65,
+        agencyName: 'NatoH Systems',
+        basePrompt: 'PROHIBIDO INCLUIR LINKS O URLs EN NINGUNO DE LOS 4 MENSAJES (NO escribas https://natohsystems.com ni ningún dominio .com). Solo nombrá a *NatoH Systems* y en el Mensaje 4 preguntale si quiere que le pases un ejemplo.'
+      }
+    });
+  }
 });
 
 // Conectar a MongoDB
