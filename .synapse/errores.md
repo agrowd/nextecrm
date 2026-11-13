@@ -429,3 +429,18 @@ Posteriormente `docker compose up -d` falla con `no space left on device`.
 1. En `server/services/webScraper.js`, se reemplazó `cheerio` por extracción regex nativa ultrarrápida para `<title>`, `viewport`, links de Instagram/Facebook, widgets de reservas y chat.
 2. En `server/services/painAnalyzer.js`, `server/services/closerCopilot.js` y `bot*/services/aiTextGenerator.js`, se reemplazó `require('openai')` por llamadas HTTP directas vía `axios.post('https://api.openai.com/v1/chat/completions', ...)` sin dependencias externas adicionales.
 **Estado:** ✅ FIXED
+
+---
+
+## ERR-23: Falso positivo de `existing_messages` en `/lead/check-messages` por colisión de claves `$or` y fallo de validación de `status: 'received'` en `Message.js` (2026-11-13)
+**Síntoma:**
+1. Al escanear el QR en `bot_1` (`nexte-bot1`), el bot generaba los 4 mensajes con IA pero abortaba en el paso `4.5️⃣ Ejecutando DOBLE-CHECK de seguridad contra BD...` con razón `existing_messages`, marcando los leads como `contacted` sin enviar los mensajes.
+2. En `nexte-backend-error.log` aparecía `Message validation failed: status: 'received' is not a valid enum value for path 'status'`.
+**Root Cause:**
+1. En `GET /lead/check-messages` (`server/index.js`), el filtro de `Message.countDocuments` tenía dos propiedades literales `$or` al mismo nivel (`{ $or: [filtroTelefono], $or: [filtroSaliente] }`). En JavaScript la segunda clave `$or` sobrescribe la primera, haciendo que MongoDB contara todos los mensajes salientes de toda la base de datos sin filtrar por teléfono (`existingOutboundMessages > 0` siempre).
+2. En `server/models/Message.js`, el `enum` de `status` no incluía `'received'`, que es el valor asignado en `POST /messages` para mensajes entrantes (`fromMe: false`).
+**Solución:**
+1. Envuelto ambos bloques `$or` dentro de un `$and: [ { $or: [...] }, { $or: [...] } ]` en `GET /lead/check-messages` (`server/index.js`).
+2. Agregado `'received'` al `enum` de `status` en `server/models/Message.js`.
+3. Agregada rutina automática al iniciar `server/index.js` que devuelve a `status: 'pending'` los leads marcados como `contacted` en las últimas 12 horas que tengan `0` mensajes salientes reales en la colección `Message`.
+**Estado:** ✅ FIXED

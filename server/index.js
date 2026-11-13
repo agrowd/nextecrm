@@ -916,6 +916,37 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/gmaps-lea
     console.log('✅ Conectado a MongoDB');
     // Inicializar variantes si no existen
     await seedTemplatesIfNeeded();
+
+    // Recuperar leads marcados como 'contacted' recientemente por el falso positivo de check-messages (sin mensajes salientes reales)
+    try {
+      const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+      const recentContacted = await Lead.find({
+        status: 'contacted',
+        lastContactAt: { $gte: twelveHoursAgo }
+      }).select('_id name phone').lean();
+
+      let recovered = 0;
+      for (const l of recentContacted) {
+        const cleanP = String(l.phone || '').replace(/\D/g, '');
+        const sfx = cleanP.length >= 8 ? cleanP.slice(-8) : cleanP;
+        if (!sfx) continue;
+        const msgCount = await Message.countDocuments({
+          $and: [
+            { $or: [{ leadId: l._id }, { phone: new RegExp(sfx + '$') }] },
+            { $or: [{ fromMe: true }, { direction: 'outbound' }, { messageNumber: { $gt: 0 } }] }
+          ]
+        });
+        if (msgCount === 0) {
+          await Lead.findByIdAndUpdate(l._id, { $set: { status: 'pending', assignedTo: null } });
+          recovered++;
+        }
+      }
+      if (recovered > 0) {
+        console.log(`♻️ Recuperados ${recovered} leads a 'pending' que no tenían mensajes enviados.`);
+      }
+    } catch (recErr) {
+      console.warn('⚠️ Aviso en recuperación de leads:', recErr.message);
+    }
   })
   .catch((error) => {
     console.error('❌ Error conectando a MongoDB:', error);
@@ -1736,16 +1767,22 @@ app.get('/lead/check-messages', async (req, res) => {
 
     // Buscar únicamente mensajes SALIENTES enviados por nosotros a este teléfono
     const existingOutboundMessages = await Message.countDocuments({
-      $or: [
-        { phone: phone },
-        { phone: cleanPhone },
-        { phone: new RegExp(suffix + '$') }
-      ],
-      $or: [
-        { fromMe: true },
-        { direction: 'outbound' },
-        { type: { $in: ['oferta_servicio', 'respuesta_automatica', 'mensaje_manual'] } },
-        { messageNumber: { $gt: 0 } }
+      $and: [
+        {
+          $or: [
+            { phone: phone },
+            { phone: cleanPhone },
+            { phone: new RegExp(suffix + '$') }
+          ]
+        },
+        {
+          $or: [
+            { fromMe: true },
+            { direction: 'outbound' },
+            { type: { $in: ['oferta_servicio', 'respuesta_automatica', 'mensaje_manual'] } },
+            { messageNumber: { $gt: 0 } }
+          ]
+        }
       ]
     });
 
