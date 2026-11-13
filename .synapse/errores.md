@@ -444,3 +444,31 @@ Posteriormente `docker compose up -d` falla con `no space left on device`.
 2. Agregado `'received'` al `enum` de `status` en `server/models/Message.js`.
 3. Agregada rutina automática al iniciar `server/index.js` que devuelve a `status: 'pending'` los leads marcados como `contacted` en las últimas 12 horas que tengan `0` mensajes salientes reales en la colección `Message`.
 **Estado:** ✅ FIXED
+
+---
+
+## ERR-24: `this.whatsappChecker.formatForWhatsApp is not a function` en envío manual desde CRM y resolución `@lid` (2026-11-13)
+**Síntoma:**
+1. Al enviar un mensaje manual desde el chat del CRM, `bot/index.js` arrojaba `TypeError: this.whatsappChecker.formatForWhatsApp is not a function`.
+2. Cuando un cliente respondía desde una cuenta WhatsApp Business con identificador `@lid` (ej. `264257305936919@lid`), se guardaba el mensaje con el número del LID en lugar del teléfono real del lead.
+**Root Cause:**
+1. `this.whatsappChecker` en `bot/index.js` es un objeto plano con `verifyWithRetry`, mientras que `formatForWhatsApp` se importa como función independiente desde `./services/phoneValidator`.
+2. `handleIncomingMessage` guardaba el mensaje antes de resolver el `@lid` contra el contacto o el historial de `Message`.
+**Solución:**
+1. Reemplazado `this.whatsappChecker.formatForWhatsApp(cleanDigits)` por `formatForWhatsApp(cleanDigits)` en `handleManualReply` (`bot/index.js`) y añadida resolución de `@lid` en backend y bot.
+**Commit:** `af9bf83`
+**Estado:** ✅ FIXED
+
+---
+
+## ERR-25: Mención inexacta de estrellas (`⭐`) y falso `"sin reseñas"` en mensajes salientes de IA (2026-11-13)
+**Síntoma:**
+El bot envió como Mensaje 1: *"Noté que ANDINO CENTRO ODONTOLÓGICO tiene una calificación de 3.8 ⭐ pero sin reseñas"* y el cliente respondió *"tenemos 4.7 y si tenemos reseñasss chee"*.
+**Root Cause:**
+1. En `extension/content.js`, `main.querySelector('div.F7nice...')` buscaba dentro de todo `[role="main"]` (que en ciertos layouts de Google Maps incluye también la columna de resultados de búsqueda), pudiendo capturar las estrellas de otra tarjeta de la lista en vez del encabezado del local activo (`div.TIHn2`).
+2. Si el selector de cantidad de reseñas no hacía match (`lead.reviewCount === null`), la expresión `${lead.reviewCount || 0} reseñas` en `painAnalyzer.js` y `aiTextGenerator.js` convertía `null` en **`0 reseñas`**, haciendo que OpenAI redactara `"pero sin reseñas"` tanto en el mensaje como en `lead.dossier.consultativeHook`.
+**Solución:**
+1. **Eliminación 100% de Estrellas y Reseñas en Mensajes (`D-47`):** Se quitó por completo toda mención o variable de `rating` y `reviewCount` de `bot/services/aiTextGenerator.js` (`bot_1..4`), `server/services/painAnalyzer.js` y `/api/ai-config` (`server/index.js`), prohibiendo hablar de estrellas, puntajes o reseñas y agregando un filtro post-generación que reemplaza cualquier gancho que mencione reseñas o `⭐`.
+2. **Sanitización en MongoDB:** Al iniciar `server/index.js`, se limpian automáticamente todos los `dossier` existentes en la base de datos que contengan `"reseña"`, `"estrella"`, `"calificación"` o `"⭐"`.
+3. **Cabecera Estricta en Extensión (`extension/content.js`):** Se acotó la extracción de `rating` y `reviewCount` exclusivamente a `div.TIHn2, div.lMbq3e` y jamás se fuerza `0` cuando el dato no está disponible.
+**Estado:** ✅ FIXED

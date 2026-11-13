@@ -1,6 +1,26 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-11-12 (14:25 Argentina)
+## Current Session: 2026-11-13 (10:55 Argentina)
+- **Objective:** Eliminar al 100% cualquier mención a estrellas (`⭐`), calificaciones numéricas (`3.8`, `5`) y cantidad de reseñas (`sin reseñas`, `reseñas`) en los mensajes salientes de WhatsApp y en los Dossiers IA (`aiTextGenerator.js`, `painAnalyzer.js`, `/api/ai-config` y limpieza automática en MongoDB), además de blindar la extracción de cabecera en `extension/content.js` y evitar envíos de URLs en frío (`D-46`, `D-47`).
+- **Status:** ✅ COMPLETED, SYNCHRONIZED & DEPLOYED TO VPS
+- **Git Info:** master
+
+### 61. Eliminación Total de Estrellas/Reseñas y Links en Mensajes Salientes + Fixes de Cola y CRM
+- **Causa/Requerimiento:**
+  1. El bot envió mensajes diciendo *"tiene una calificación de 5 ⭐ / 3.8 ⭐ pero sin reseñas"* a negocios que sí tenían reseñas y otra calificación (ej. Odonto Andino con 4.7 ⭐).
+  2. Causa raíz comprobada: En `extension/content.js`, `main.querySelector('div.F7nice...')` podía capturar una tarjeta de la lista lateral de resultados en vez del encabezado del local abierto (`div.TIHn2`), y cuando `reviewCount` quedaba en `null`, la plantilla `${lead.reviewCount || 0} reseñas` en `painAnalyzer.js` y `aiTextGenerator.js` le inyectaba **`0 reseñas`** al prompt de OpenAI y al `dossier.consultativeHook`.
+- **Implementación Técnica Realizada:**
+  1. **Eliminación Total en Generador IA y Fallbacks (`bot/services/aiTextGenerator.js` y `bot_1..4`)**:
+     - Se quitó por completo la línea `- Calificación Maps:` del prompt de OpenAI para que la IA jamás reciba ni mencione estrellas ni cantidad de reseñas.
+     - Se añadió la regla obligatoria `PROHIBIDO MENCIONAR ESTRELLAS (⭐), CALIFICACIONES O RESEÑAS` y `PROHIBIDO INCLUIR LINKS O URLs`.
+     - Se añadió `isForbiddenHookOrPain()` y filtro post-generación que descarta cualquier `consultativeHook` o mensaje que contenga `reseña`, `estrella`, `calificación`, `⭐` o links `.com`.
+  2. **Eliminación en Generador de Dossier (`server/services/painAnalyzer.js` y `server/index.js`)**:
+     - Se removieron todas las referencias a `lead.rating` y `lead.reviewCount` de `buildHeuristicDossier()` y `analyzeLeadPains()`.
+     - Se actualizó `/api/ai-config` y se agregó en el arranque de MongoDB (`server/index.js`) una limpieza automática de todos los leads cuyos `dossier.consultativeHook` o `painPoints` pre-existentes mencionaban reseñas o estrellas.
+  3. **Fix de Extracción de Cabecera en Extensión (`extension/content.js`)**:
+     - Se restringió la lectura de `rating` y `reviewCount` exclusivamente al contenedor de cabecera del detalle activo (`div.TIHn2, div.lMbq3e`) y nunca se fuerza `0` cuando no hay dato.
+
+## Previous Session: 2026-11-12 (14:25 Argentina)
 - **Objective:** Análisis integral y potenciación punta a punta del sistema (Extensión Chrome "a mano" con HUD en Google Maps, Backend de Calificación y Lead Scoring B2B, Catálogo de 20 Rubros y Dossier IA alineado a `natohsystems.com`, Bot WhatsApp y Dashboard CRM) para maximizar la captación de clientes objetivo de NatoH Systems.
 - **Status:** ✅ COMPLETED, SYNCHRONIZED & DEPLOYING TO VPS
 - **Git Info:** master

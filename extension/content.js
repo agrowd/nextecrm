@@ -471,22 +471,39 @@
           category: getText(CAT_CSS, CAT_XP, main)
         };
 
-        // Extraer Rating
-        let ratingStr = getText(['div.F7nice span[aria-hidden="true"]'], [], main);
+        // Extraer Rating y ReviewCount exclusivamente de la cabecera del detalle activo (evita capturar cards de la lista lateral)
+        const headerScope = main.querySelector('div.TIHn2, div.lMbq3e') || main;
+        let ratingStr = getText(['div.F7nice span[aria-hidden="true"]'], [], headerScope);
         if (!ratingStr) {
-          const starsEl = main.querySelector('span[role="img"][aria-label*="estrella"], span[role="img"][aria-label*="star"]');
+          const starsEl = headerScope.querySelector('span[role="img"][aria-label*="estrella"], span[role="img"][aria-label*="star"]');
           if (starsEl && starsEl.getAttribute('aria-label')) {
             const match = starsEl.getAttribute('aria-label').match(/([\d,\.]+)/);
             if (match) ratingStr = match[1];
           }
         }
-        if (ratingStr) lead.rating = parseFloat(ratingStr.replace(',', '.'));
+        if (ratingStr) {
+          const parsedRating = parseFloat(ratingStr.replace(',', '.'));
+          if (!isNaN(parsedRating) && parsedRating > 0 && parsedRating <= 5) {
+            lead.rating = parsedRating;
+          }
+        }
 
-        // Extraer ReviewCount
-        let reviewsStr = getText(['span[aria-label*="reseña"]', 'span[aria-label*="review"]', 'button[jsaction*="pane.rating.moreReviews"]'], [], main);
+        // Extraer ReviewCount con múltiples selectores de Google Maps (aria-label y paréntesis en div.F7nice)
+        let reviewsStr = getText([
+          'span[aria-label*="reseña"]',
+          'span[aria-label*="review"]',
+          'button[jsaction*="pane.rating.moreReviews"]'
+        ], [], headerScope);
+        if (!reviewsStr) {
+          const f7El = headerScope.querySelector('div.F7nice');
+          if (f7El && f7El.innerText) {
+            const parenMatch = f7El.innerText.match(/\(([\d\.,]+)\)/);
+            if (parenMatch) reviewsStr = parenMatch[1];
+          }
+        }
         if (reviewsStr) {
           const val = parseInt(reviewsStr.replace(/\D/g, ''), 10);
-          if (!isNaN(val)) lead.reviewCount = val;
+          if (!isNaN(val) && val > 0) lead.reviewCount = val;
         }
 
         // Micro-scroll en el panel de detalle para que Google Maps cargue los snippets de reseñas

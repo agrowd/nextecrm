@@ -154,7 +154,7 @@ function buildHeuristicDossier(lead) {
         painPoints.push('Falta de portal B2B de pedidos o sistema centralizado a medida');
         if (!hasWeb) painPoints.push('Ausencia de catálogo web corporativo propio en Google Maps');
 
-        consultativeHook = `Hola, ¿cómo estás? Te escribo porque vimos a ${name} en Google Maps y notamos la excelente trayectoria que tienen en el rubro. En NatoH Systems (natohsystems.com) desarrollamos sistemas de gestión a medida, control de stock/pedidos y agentes de IA en WhatsApp que cotizan en segundos para distribuidoras y empresas.`;
+        consultativeHook = `Hola! ¿Cómo estás? Vimos a ${name} en Google Maps y el movimiento que manejan en el rubro. Te hago una consulta cortita: ¿hoy los pedidos, listas de precios y el stock los manejan con algún sistema propio o mayormente por WhatsApp y planillas?`;
         suggestedPitch = `Implementar un Sistema de Gestión / Catálogo de Pedidos a medida en la nube junto con un Agente IA 24/7 en WhatsApp que responda disponibilidad, tome pedidos y centralice clientes.`;
         suggestedOffer = `Sistema de Gestión / Pedidos a Medida $350.000 (antes $600.000) + Agente IA WhatsApp $180.000 en 2 pagos (50% al iniciar y 50% contra entrega).`;
     }
@@ -173,8 +173,8 @@ function buildHeuristicDossier(lead) {
         if (!hasWeb) painPoints.push(extPlat ? `En Google Maps redirigen a ${extPlat} sin dominio web propio` : 'Sin sitio web propio en su ficha de Google Maps');
 
         consultativeHook = !hasWeb
-            ? `Hola, ¿cómo estás? Vi a ${name} en Google Maps${lead.rating ? ` (¡felicitaciones por las ${lead.rating}⭐!)` : ''} y noté que hoy gestionan las consultas de forma manual sin un sistema de turnos web propio. ¿Les pasa que pierden mucho tiempo coordinando horarios por WhatsApp?`
-            : `Hola, ¿cómo estás? Estuve visitando la web de ${name} desde Google Maps y vi que tienen muy buena reputación, pero noté que aún no tienen integrado un turnero automático con recordatorios por WhatsApp.`;
+            ? `Hola! ¿Cómo estás? Vi a ${name} en Google Maps y noté que hoy gestionan las consultas de forma manual sin un sistema de turnos web propio. ¿Les pasa que pierden bastante tiempo coordinando horarios por WhatsApp?`
+            : `Hola! ¿Cómo estás? Estuve visitando la web de ${name} desde Google Maps y noté que aún no tienen integrado un turnero automático con recordatorios por WhatsApp. ¿Cómo manejan hoy la agenda de turnos?`;
 
         suggestedPitch = `En NatoH Systems desarrollamos un Sistema de Turnos y Gestión de Clientes a medida + Agente IA 24/7 en WhatsApp que agenda solo, envía recordatorios automáticos y reduce un 40% las inasistencias.`;
         suggestedOffer = `Sistema de Turnos & Gestión $350.000 (antes $600.000) o Agente IA WhatsApp 24/7 $180.000, abonando 50% al iniciar y 50% al entregar.`;
@@ -192,7 +192,7 @@ function buildHeuristicDossier(lead) {
         painPoints.push('Pérdida de margen por comisiones de plataformas externas o demora tomando pedidos por chat');
         painPoints.push('Oportunidad de recibir el pedido ya armado y calculado directo en el WhatsApp del local');
 
-        consultativeHook = `Hola, ¿cómo estás? Vi a ${name} en Google Maps${lead.reviewCount ? ` con más de ${lead.reviewCount} reseñas` : ''} y noté que ${extPlat === 'pedidosya' ? 'hoy el enlace lleva a una app con comisión' : 'no tienen cargada una Carta Digital interactiva propia para pedidos directos'}.`;
+        consultativeHook = `Hola! ¿Cómo estás? Vi a ${name} en Google Maps y noté que ${extPlat === 'pedidosya' ? 'hoy el enlace lleva a una app con comisión' : 'no tienen cargada una Carta Digital interactiva propia para recibir pedidos directos al WhatsApp'}.`;
         suggestedPitch = `Implementar su propio Sistema de Pedidos con Carta QR y Reservas de NatoH Systems: el cliente elige del menú, calcula el envío y el pedido entra listo al WhatsApp del local con 0% de comisión.`;
         suggestedOffer = `Sistema Gastronómico QR + Pedidos Directos $350.000 (pago único en 2 cuotas, sin comisiones mensuales).`;
     }
@@ -210,9 +210,9 @@ function buildHeuristicDossier(lead) {
         painPoints.push('Falta de pre-calificación automática de prospectos en WhatsApp');
 
         consultativeHook = hasWeb
-            ? `Hola, ¿cómo estás? Estuve viendo la presencia de ${name} en Google Maps y su sitio web. Noté que aún no tienen un Agente con Inteligencia Artificial en WhatsApp que pre-califique consultas y agende reuniones 24/7.`
-            : `Hola, ¿cómo estás? Vi el perfil de ${name} en Google Maps y noté que, pese a las buenas referencias, hoy no cuentan con un portal web corporativo propio vinculado a la ficha.`;
-        suggestedPitch = `Desarrollar con NatoH Systems (natohsystems.com) su portal corporativo de alta conversión y/o un Agente IA entrenado con la información de su empresa para atender y filtrar clientes 24/7 en WhatsApp.`;
+            ? `Hola! ¿Cómo estás? Estuve viendo la presencia de ${name} en Google Maps y su sitio web. Noté que aún no tienen un Agente con Inteligencia Artificial en WhatsApp que pre-califique consultas y agende reuniones 24/7.`
+            : `Hola! ¿Cómo estás? Vi el perfil de ${name} en Google Maps y noté que hoy no cuentan con un portal web corporativo propio vinculado a la ficha.`;
+        suggestedPitch = `Desarrollar con NatoH Systems su portal corporativo de alta conversión y/o un Agente IA entrenado con la información de su empresa para atender y filtrar clientes 24/7 en WhatsApp.`;
         suggestedOffer = `Portal Web Corporativo $250.000 o Agente IA WhatsApp 24/7 $180.000 (en 2 pagos sin interés).`;
     }
     // 5. Comercio Minorista / E-Commerce (Indumentaria, Mueblerías, Deco, Electrónica)
@@ -228,7 +228,7 @@ function buildHeuristicDossier(lead) {
         painPoints.push('Consultas repetitivas por talles, modelos y precios en WhatsApp e Instagram');
         painPoints.push('Falta de catálogo autogestionable conectado al WhatsApp de ventas');
 
-        consultativeHook = `Hola, ¿cómo estás? Vi el local de ${name} en Google Maps${extPlat === 'instagram' ? ' y su perfil de Instagram' : ''}, y noté que hoy no tienen un catálogo web propio donde el cliente pueda armar su pedido y enviarlo listo a su WhatsApp.`;
+        consultativeHook = `Hola! ¿Cómo estás? Vi el local de ${name} en Google Maps${extPlat === 'instagram' ? ' y su perfil de Instagram' : ''}, y noté que hoy no tienen un catálogo web propio donde el cliente pueda armar su pedido y enviarlo listo a su WhatsApp.`;
         suggestedPitch = `Crear una Tienda / Catálogo Online autogestionable junto con nuestro Agente IA NatoH que responde precios y stock las 24 hs.`;
         suggestedOffer = `Catálogo Web / E-Commerce $250.000 o Asistente IA WhatsApp $180.000 (50% al iniciar y 50% al entregar).`;
     }
@@ -242,7 +242,7 @@ function buildHeuristicDossier(lead) {
         painPoints.push('Clientes que buscan en Google Maps no encuentran una web oficial donde ver servicios y contactar rápido');
         painPoints.push('Dependencia de atención manual sin filtro automático en WhatsApp');
 
-        consultativeHook = `Hola, ¿cómo estás? Te contacto porque encontramos a ${name} en Google Maps${lead.rating ? ` con ${lead.rating}⭐ de calificación` : ''}, pero vimos que figura sin sitio web oficial propio. Hoy muchos clientes miran la web antes de escribir.`;
+        consultativeHook = `Hola! ¿Cómo estás? Te contacto porque encontramos a ${name} en Google Maps y vimos que hoy figura sin sitio web oficial propio. ¿Cómo están manejando actualmente las consultas y pedidos por WhatsApp?`;
         suggestedPitch = `En NatoH Systems & Nexte diseñamos sitios web profesionales rápidos, adaptados a celulares y con embudo directo a WhatsApp o sistema a medida, listos en 7 días.`;
         suggestedOffer = `Sitio Web Profesional $250.000 (antes $500.000) o Combo Web + Asistente IA 24/7, en 2 pagos.`;
     } else {
@@ -303,16 +303,19 @@ async function analyzeLeadPains(lead) {
                 ? `NO tiene sitio web propio (en Google Maps puso un link a: ${lead.externalPlatform || lead.website}).`
                 : 'NO tiene sitio web registrado en Google Maps.');
 
-        const prompt = `Sos el Director de Consultoría B2B de "NatoH Systems" (https://natohsystems.com) y "Nexte Marketing" (https://nextemarketing.com) en Argentina.
+        const prompt = `Sos el Director de Consultoría B2B de "NatoH Systems" en Argentina.
 Analizá este negocio extraído de Google Maps y devolvé un diagnóstico comercial hiper-preciso en JSON para venderle la solución exacta que necesita.
 
 DATOS DEL NEGOCIO:
 - Nombre: ${lead.name}
 - Rubro / Categoría: ${lead.category || lead.keyword || 'Comercio / PyME'}
 - Zona: ${lead.location || lead.address || 'Argentina'}
-- Calificación Maps: ${lead.rating || 'N/A'} ⭐ (${lead.reviewCount || 0} reseñas)
 - Estado Digital / Web: ${webInfo}
-- Reseñas reales de clientes: ${reviewsText}
+- Contexto de dolores operativos: ${reviewsText}
+
+REGLA CRÍTICA OBLIGATORIA:
+- PROHIBIDO mencionar estrellas (⭐), calificaciones numéricas (ej. "5 ⭐", "3.8 ⭐") o cantidad de reseñas (ej. "sin reseñas", "pocas reseñas") en "primaryPain", "painPoints" o "consultativeHook".
+- PROHIBIDO incluir URLs o dominios (.com, https://) en "consultativeHook" o "suggestedPitch".
 
 CATÁLOGO DE SOLUCIONES NATOH SYSTEMS (Elegí la que genere mayor ROI para este negocio):
 1. "software_custom_erp": Sistema de Gestión a Medida (ERP, Stock, Pedidos Mayoristas, Cotizador, Logística, CRM) — Promo $350.000 (ideal distribuidoras, corralones, fábricas, logística, mayoristas, empresas con operación compleja).
@@ -325,12 +328,12 @@ CATÁLOGO DE SOLUCIONES NATOH SYSTEMS (Elegí la que genere mayor ROI para este 
 
 Devolvé ÚNICAMENTE un JSON válido con esta estructura exacta:
 {
-  "primaryPain": "Descripción concreta de 1 oración sobre su cuello de botella comercial u operativo real",
-  "painPoints": ["Dolor específico 1", "Dolor específico 2", "Oportunidad detectada 3"],
+  "primaryPain": "Descripción concreta de 1 oración sobre su cuello de botella comercial u operativo real (SIN hablar de reseñas ni estrellas)",
+  "painPoints": ["Dolor operativo 1", "Dolor operativo 2", "Oportunidad detectada 3"],
   "targetService": "software_custom_erp | software_turnero | gastronomia_pedidos | ia_natoh | ecommerce | web_express | rediseño_web",
   "targetServiceLabel": "Nombre comercial atractivo de la solución NatoH Systems",
-  "consultativeHook": "Mensaje rompehielo de WhatsApp (máx 40 palabras, español argentino natural con voseo respetuoso, mencionando un dato real de su ficha de Maps, reseñas o web y terminando en una pregunta abierta sin parecer robot)",
-  "suggestedPitch": "Explicación de 1 párrafo corto de cómo el sistema de NatoH Systems (natohsystems.com) le resuelve ese problema",
+  "consultativeHook": "Mensaje rompehielo de WhatsApp (máx 38 palabras, español argentino natural con voseo cercano, PROHIBIDO mencionar estrellas ⭐, calificaciones o reseñas, enfocándose en cómo manejan hoy sus turnos, pedidos, stock o web, terminando en una pregunta abierta)",
+  "suggestedPitch": "Explicación de 1 párrafo corto de cómo el sistema de NatoH Systems le resuelve ese problema (SIN URLs)",
   "suggestedOffer": "Oferta puntual con el precio promo correspondiente y pago 50% al iniciar / 50% contra entrega"
 }`;
 
@@ -353,13 +356,21 @@ Devolvé ÚNICAMENTE un JSON válido con esta estructura exacta:
         );
 
         const parsed = JSON.parse(response.data.choices[0].message.content);
+        const forbiddenRx = /reseña|estrella|calificaci[oó]n|⭐|★|https?:\/\/|natohsystems\.com|nextemarketing\.com/i;
+        const safeHook = (parsed.consultativeHook && !forbiddenRx.test(parsed.consultativeHook))
+            ? parsed.consultativeHook
+            : baseDossier.consultativeHook;
+        const safePains = Array.isArray(parsed.painPoints)
+            ? parsed.painPoints.filter(p => !forbiddenRx.test(p))
+            : [];
+
         return {
             analyzedAt: new Date(),
-            primaryPain: parsed.primaryPain || baseDossier.primaryPain,
-            painPoints: Array.isArray(parsed.painPoints) && parsed.painPoints.length > 0 ? parsed.painPoints : baseDossier.painPoints,
+            primaryPain: (parsed.primaryPain && !forbiddenRx.test(parsed.primaryPain)) ? parsed.primaryPain : baseDossier.primaryPain,
+            painPoints: safePains.length > 0 ? safePains : baseDossier.painPoints,
             targetService: parsed.targetService || baseDossier.targetService,
             targetServiceLabel: parsed.targetServiceLabel || baseDossier.targetServiceLabel,
-            consultativeHook: parsed.consultativeHook || baseDossier.consultativeHook,
+            consultativeHook: safeHook,
             suggestedPitch: parsed.suggestedPitch || baseDossier.suggestedPitch,
             suggestedOffer: parsed.suggestedOffer || baseDossier.suggestedOffer,
             confidence: 0.95

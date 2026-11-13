@@ -108,7 +108,7 @@ const Config = require('./models/Config');
 const TemplateVariant = require('./models/TemplateVariant');
 const ScannedZone = require('./models/ScannedZone');
 const { auditWebsite, classifyExternalUrl } = require('./services/webScraper');
-const { analyzeLeadPains, calculateLeadScore } = require('./services/painAnalyzer');
+const { analyzeLeadPains, buildHeuristicDossier, calculateLeadScore } = require('./services/painAnalyzer');
 const geoGridScanner = require('./services/geoGridScanner');
 const { closerCopilot } = require('./services/closerCopilot');
 const { cleanAndFormatArgentinianNumber } = require('./services/phoneValidator');
@@ -930,12 +930,12 @@ app.get('/api/ai-config', async (req, res) => {
       model: 'gpt-4o-mini',
       temperature: 0.65,
       agencyName: 'NatoH Systems',
-      basePrompt: 'REGLA CRÍTICA OBLIGATORIA (SOBRESCRIBE CUALQUIER INSTRUCCIÓN ANTERIOR): PROHIBIDO INCLUIR LINKS O URLs EN NINGUNO DE LOS 4 MENSAJES (NUNCA escribas https://natohsystems.com ni https://nextemarketing.com ni ningún dominio .com para evitar reportes de spam en WhatsApp). Solo nombrá a la empresa como *NatoH Systems*. Usá voseo argentino 100% natural y conversacional ("vos/tu negocio", jamás "usted/su negocio"). En el Mensaje 4, NO pongas ningún link: solo preguntale con buena onda si le gustaría que le pases por acá un ejemplo real aplicado a su rubro o una demo de 5 minutos.'
+      basePrompt: 'REGLAS CRÍTICAS OBLIGATORIAS (SOBRESCRIBEN CUALQUIER INSTRUCCIÓN ANTERIOR): 1) PROHIBIDO MENCIONAR ESTRELLAS (⭐), CALIFICACIONES NUMÉRICAS (ej. "5 ⭐", "3.8 ⭐") O CANTIDAD DE RESEÑAS ("sin reseñas", "pocas reseñas", "reseñas") EN NINGUNO DE LOS 4 MENSAJES. 2) PROHIBIDO INCLUIR LINKS O URLs EN NINGUNO DE LOS 4 MENSAJES (NUNCA escribas https://natohsystems.com ni https://nextemarketing.com ni ningún dominio .com para evitar reportes de spam). Solo nombrá a la empresa como *NatoH Systems*. 3) Usá voseo argentino 100% natural y conversacional ("vos/tu negocio", jamás "usted/su negocio"). En el Mensaje 1 preguntá de forma natural cómo manejan hoy sus turnos, pedidos, stock o consultas de WhatsApp. En el Mensaje 4 preguntá sin link si le gustaría que le pases por acá un ejemplo real aplicado a su rubro o una demo rápida.'
     };
     const saved = await Config.findOne({ key: 'ai_config' }).lean().catch(() => null);
     res.json({
       success: true,
-      config: saved?.value ? { ...defaultAiConfig, ...saved.value } : defaultAiConfig
+      config: saved?.value ? { ...defaultAiConfig, ...saved.value, basePrompt: defaultAiConfig.basePrompt } : defaultAiConfig
     });
   } catch (err) {
     res.json({
@@ -945,7 +945,7 @@ app.get('/api/ai-config', async (req, res) => {
         model: 'gpt-4o-mini',
         temperature: 0.65,
         agencyName: 'NatoH Systems',
-        basePrompt: 'PROHIBIDO INCLUIR LINKS O URLs EN NINGUNO DE LOS 4 MENSAJES (NO escribas https://natohsystems.com ni ningún dominio .com). Solo nombrá a *NatoH Systems* y en el Mensaje 4 preguntale si quiere que le pases un ejemplo.'
+        basePrompt: 'PROHIBIDO MENCIONAR ESTRELLAS (⭐), CALIFICACIONES O RESEÑAS. PROHIBIDO INCLUIR LINKS O URLs EN NINGUNO DE LOS 4 MENSAJES. Solo nombrá a *NatoH Systems* y en el Mensaje 4 preguntale si quiere que le pases un ejemplo.'
       }
     });
   }
@@ -987,6 +987,24 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/gmaps-lea
       }
       if (recovered > 0) {
         console.log(`♻️ Recuperados ${recovered} leads a 'pending' que no tenían mensajes enviados.`);
+      }
+
+      // Limpiar Dossiers pre-existentes que mencionen estrellas (⭐), calificaciones o "sin reseñas"
+      const dirtyDossierLeads = await Lead.find({
+        $or: [
+          { 'dossier.consultativeHook': /reseña|estrella|calificaci[oó]n|⭐|★|natohsystems\.com/i },
+          { 'dossier.primaryPain': /reseña|estrella|calificaci[oó]n|⭐|★/i },
+          { 'dossier.painPoints': /reseña|estrella|calificaci[oó]n|⭐|★/i }
+        ]
+      });
+      if (dirtyDossierLeads.length > 0) {
+        let cleanedCount = 0;
+        for (const dl of dirtyDossierLeads) {
+          const cleanDossier = buildHeuristicDossier(dl);
+          await Lead.findByIdAndUpdate(dl._id, { $set: { dossier: cleanDossier } });
+          cleanedCount++;
+        }
+        console.log(`🧹 Sanitized ${cleanedCount} lead dossiers removing star/review mentions.`);
       }
     } catch (recErr) {
       console.warn('⚠️ Aviso en recuperación de leads:', recErr.message);

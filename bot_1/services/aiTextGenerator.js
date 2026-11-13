@@ -24,7 +24,7 @@ class AITextGenerator {
                 `Si te sirve para ordenar tiempos en *${lead.name}*, avisame por acá y te paso una demo rápida o un par de ejemplos reales para que chusmees sin compromiso.`
             ],
             software_turnero: (lead, city, hook) => [
-                hook || `Hola! ¿Cómo estás? Vi el perfil de *${lead.name}* en Google Maps en ${city}${lead.rating ? ` (¡muy buenas las ${lead.rating}⭐!)` : ''} y noté que hoy coordinan los turnos manualmente. ¿No les saca bastante tiempo estar respondiendo horarios disponibles por WhatsApp todo el día?`,
+                hook || `Hola! ¿Cómo estás? Vi el perfil de *${lead.name}* en Google Maps ahí en ${city} y noté que hoy coordinan los turnos de forma manual. ¿No les saca bastante tiempo estar respondiendo horarios disponibles por WhatsApp todo el día?`,
                 `Te escribo porque en *NatoH Systems* armamos un *Sistema de Turnos Online y Gestión de Pacientes/Clientes* conectado a WhatsApp: reservan solos 24/7, les llega recordatorio automático y bajás un 40% las ausencias.`,
                 `Con la promo actual te queda todo el *Sistema de Turnos Online* configurado por *$350.000* (o sumando el *Asistente IA en WhatsApp 24/7* por *$180.000*), pagando 50% al arrancar y 50% al entregarlo funcionando.`,
                 `¿Te gustaría que te pase por acá un ejemplo interactivo para que veas cómo quedaría la agenda de *${lead.name}*?`
@@ -54,12 +54,17 @@ class AITextGenerator {
                 `¿Te parece si te comento rápido qué 2 cositas vimos para mejorar en la web de *${lead.name}* y te muestro un ejemplo?`
             ],
             web_express: (lead, city, hook) => [
-                hook || `Hola! ¿Cómo estás? Te escribo porque vimos a *${lead.name}* en Google Maps ahí en ${city}${lead.rating ? ` con re buenas reseñas (${lead.rating}⭐)` : ''}, pero notamos que ${lead.externalPlatform === 'instagram' ? 'solo tienen cargado el Instagram y todavía no cuentan con su propia página web' : 'figuran sin página web propia'}.`,
+                hook || `Hola! ¿Cómo estás? Te escribo porque vimos a *${lead.name}* en Google Maps ahí en ${city} y notamos que ${lead.externalPlatform === 'instagram' ? 'hoy solo tienen cargado el Instagram y todavía no cuentan con su propia página web' : 'figuran sin página web propia'}.`,
                 `Hoy la mayoría de la gente que busca en Google Maps entra a ver la web antes de consultar. En *NatoH Systems* armamos *Páginas Web Profesionales y Sistemas de Turnos/Pedidos* listos en 7 días, diseñados para que cada visita te escriba directo al WhatsApp.`,
                 `Estamos con una promo de 50% OFF donde el *Sitio Web Profesional Completo* queda en *$250.000* (abonando 50% al iniciar y 50% recién contra entrega conforme).`,
                 `Si te interesa chusmear, avisame por acá y te paso 2 ejemplos reales de tu rubro para que veas cómo quedan.`
             ]
         };
+    }
+
+    isForbiddenHookOrPain(text) {
+        if (!text || typeof text !== 'string') return false;
+        return /reseña|estrella|calificaci[oó]n|puntaje|⭐|★|https?:\/\/|natohsystems\.com|nextemarketing\.com/i.test(text);
     }
 
     async getAiConfig() {
@@ -89,7 +94,8 @@ class AITextGenerator {
     buildDynamicFallbackSequence(lead) {
         const city = lead.location ? lead.location.split(',')[0].trim() : 'tu zona';
         const targetSvc = lead.dossier?.targetService || (lead.hasWebsite && !lead.webAudit?.isSocialOnly ? 'rediseño_web' : 'web_express');
-        const hook = lead.dossier?.consultativeHook || null;
+        const rawHook = lead.dossier?.consultativeHook || null;
+        const hook = (rawHook && !this.isForbiddenHookOrPain(rawHook)) ? rawHook : null;
 
         const builder = this.serviceFallbacks[targetSvc] || this.serviceFallbacks.web_express;
         return builder(lead, city, hook);
@@ -135,12 +141,14 @@ class AITextGenerator {
         let dossierContext = '';
         if (lead.dossier && lead.dossier.primaryPain) {
             const d = lead.dossier;
+            const cleanPains = (d.painPoints || []).filter(p => !this.isForbiddenHookOrPain(p));
+            const cleanHook = (d.consultativeHook && !this.isForbiddenHookOrPain(d.consultativeHook)) ? d.consultativeHook : '';
+            const cleanPrimaryPain = !this.isForbiddenHookOrPain(d.primaryPain) ? d.primaryPain : 'Oportunidad de digitalización y automatización de atención y ventas';
             dossierContext = `\n- DOSSIER ESTRATÉGICO (AGENTE 3 - NATOH SYSTEMS):
-  * Dolor Principal Detectado: ${d.primaryPain}
-  * Puntos de Dolor: ${(d.painPoints || []).join(' | ')}
+  * Dolor Principal Detectado: ${cleanPrimaryPain}
+  * Puntos de Dolor: ${cleanPains.join(' | ') || 'Optimización operativa y comercial'}
   * Solución NatoH a Ofrecer: ${d.targetServiceLabel || d.targetService}
-  * Gancho Consultivo Base: "${d.consultativeHook || ''}"
-  * Propuesta de Valor: ${d.suggestedPitch || ''}
+  ${cleanHook ? `* Gancho Consultivo Base: "${cleanHook}"\n  ` : ''}* Propuesta de Valor: ${d.suggestedPitch || ''}
   * Oferta Específica: ${d.suggestedOffer || ''}`;
         }
 
@@ -149,17 +157,18 @@ Tu objetivo es escribir una secuencia de 4 mensajes cortos de WhatsApp para inic
 
 REGLAS DE ORO ANTI-SPAM Y ESTILO HUMANO (OBLIGATORIAS):
 1. PROHIBIDO INCLUIR LINKS O URLs: NUNCA escribas "http://", "https://", "www.", ".com", "natohsystems.com" ni ningún enlace web en ninguno de los 4 mensajes. Enviar links en frío hace que WhatsApp lo marque como spam. Solo nombrá a la empresa como *NatoH Systems*.
-2. Español Rioplatense 100% natural y hablado (usá "vos/ustedes" cercano: "vimos", "noté", "te escribo", "¿cómo estás?", "tu negocio", NUNCA uses el "usted" formal como "potenciar su negocio" ni "¿han considerado?"). Escribí como una persona real mandando WhatsApp desde el teléfono.
-3. Sé hiper-específico con el negocio: mencioná el nombre real (*${businessName}*), su zona (${location}) y un dato puntual real que vimos en Google Maps (ej: sus ${lead.rating || 'buenas'}⭐, que hoy solo tienen Instagram/Linktree sin web propia, que su web no tiene turnero/botón de WhatsApp, o el cuello de botella real de su rubro *${category}*).
-4. Ofrecé UNA SOLUCIÓN CLARA según el Dossier de NatoH Systems:
+2. PROHIBIDO MENCIONAR ESTRELLAS (⭐), CALIFICACIONES O RESEÑAS: NUNCA menciones cuántas estrellas tiene el negocio, ni su calificación numérica (ej: "5 ⭐", "3.8 ⭐"), ni si tiene "sin reseñas", "pocas reseñas" o "muchas reseñas". Está 100% prohibido hablar de reseñas o puntajes de Google Maps.
+3. Español Rioplatense 100% natural y hablado (usá "vos/ustedes" cercano: "vimos", "noté", "te escribo", "¿cómo estás?", "tu negocio", NUNCA uses el "usted" formal como "potenciar su negocio" ni "¿han considerado?"). Escribí como una persona real mandando WhatsApp desde el teléfono.
+4. Sé hiper-específico con el negocio: mencioná el nombre real (*${businessName}*), su zona (${location}) y un dato operativo real (ej: que hoy solo tienen Instagram/Linktree sin web propia, que figuran sin página web en Google Maps, que su web no tiene turnero/botón de WhatsApp, o cómo manejan hoy los pedidos, turnos o consultas en su rubro *${category}*).
+5. Ofrecé UNA SOLUCIÓN CLARA según el Dossier de NatoH Systems:
    - Si es Distribuidora, Mayorista, Corralón, Logística, Fábrica: ofrecé el *Sistema de Gestión ERP/Pedidos a Medida ($350.000)* + *Agente IA Cotizador en WhatsApp ($180.000)*.
    - Si es Clínica, Odontología, Estética, Veterinaria, Taller, Gimnasio, Hotel: ofrecé el *Sistema de Turnos/Reservas Online con recordatorios por WhatsApp ($350.000)* y el *Agente IA 24/7 ($180.000)*.
    - Si es Gastronomía (Restaurante, Bar, Café): ofrecé la *Carta Digital QR + Sistema de Pedidos directos al WhatsApp sin comisiones ($350.000)*.
    - Si es Comercio / Indumentaria / Mueblería: ofrecé *Catálogo / Tienda Online E-commerce ($250.000)* + *Agente IA de Ventas ($180.000)*.
    - Si NO tiene web (o solo tiene Instagram/Linktree): ofrecé *Sitio Web Profesional de Alta Conversión ($250.000, promo 50% OFF)* listo en 7 días.
    - Si YA tiene web: ofrecé *Agente de IA 24/7 en WhatsApp ($180.000)* o *Renovación Web / Sistema a Medida ($250.000-$350.000)*.
-5. Estructura de los 4 mensajes (cortos, ágiles, sin bloques largos):
-   - Mensaje 1 (Gancho Real): Saludo natural ("Hola! ¿Cómo estás?"), comentale qué vimos en la ficha de Google Maps de *${businessName}* en ${location} y hacele una pregunta simple sobre cómo manejan eso hoy (máx 38 palabras).
+6. Estructura de los 4 mensajes (cortos, ágiles, sin bloques largos):
+   - Mensaje 1 (Gancho Real Operativo): Saludo natural ("Hola! ¿Cómo estás?"), mencioná que viste a *${businessName}* en Google Maps en ${location} y hacele una pregunta simple sobre su operatoria actual (turnos, pedidos, stock, web o atención por WhatsApp) (máx 38 palabras, SIN mencionar estrellas ni reseñas).
    - Mensaje 2 (Solución NatoH Systems): Contale de forma conversacional cómo lo resolvemos en *NatoH Systems* con esa solución puntual para ahorrarles tiempo o captar más clientes (máx 40 palabras, SIN links).
    - Mensaje 3 (Propuesta Accesible): Comentale que estamos con una promo donde queda en $180.000 (Agente IA), $250.000 (Web/Tienda) o $350.000 (Sistema a Medida/Turnero), abonando 50% al iniciar y 50% recién contra entrega funcionando (máx 38 palabras).
    - Mensaje 4 (Cierre pidiendo permiso, SIN LINK): Preguntale con buena onda si le gustaría que le pases por acá un ejemplo real aplicado a su rubro o una demo rápida para que vea cómo funciona, sin compromiso (máx 30 palabras, CERO URLs).
@@ -167,11 +176,10 @@ REGLAS DE ORO ANTI-SPAM Y ESTILO HUMANO (OBLIGATORIAS):
 ${aiConfig.basePrompt ? `\nINSTRUCCIONES ADICIONALES:\n${aiConfig.basePrompt}\n` : ''}
 Respondé ÚNICAMENTE con un JSON válido: {"messages": ["msg1", "msg2", "msg3", "msg4"]}`;
 
-        const userPrompt = `Generá los 4 mensajes para este prospecto (RECORDÁ: CERO LINKS/URLs, tono argentino natural de vos):
+        const userPrompt = `Generá los 4 mensajes para este prospecto (RECORDÁ: CERO LINKS/URLs, CERO MENCIÓN A ESTRELLAS O RESEÑAS, tono argentino natural de vos):
 - Nombre del negocio: ${businessName}
 - Rubro: ${category}
-- Ubicación: ${location}
-- Calificación Maps: ${lead.rating ? `${lead.rating} ⭐ (${lead.reviewCount || 0} reseñas)` : 'Sin datos'}${webAuditContext}${dossierContext}`;
+- Ubicación: ${location}${webAuditContext}${dossierContext}`;
 
         try {
             const response = await axios.post(
@@ -199,16 +207,21 @@ Respondé ÚNICAMENTE con un JSON válido: {"messages": ["msg1", "msg2", "msg3",
             const parsed = JSON.parse(content);
 
             if (parsed.messages && Array.isArray(parsed.messages) && parsed.messages.length === 4) {
-                // Sanitizador Anti-Spam: eliminar cualquier URL o dominio que la IA haya podido incluir
-                const cleanMessages = parsed.messages.map(m =>
-                    String(m || '')
+                const fallbackSeq = this.buildDynamicFallbackSequence(lead);
+                // Sanitizador Anti-Spam y Anti-Reseñas/Estrellas: eliminar URLs y reemplazar cualquier mensaje que mencione estrellas o reseñas
+                const cleanMessages = parsed.messages.map((m, idx) => {
+                    let text = String(m || '')
                         .replace(/\(?\s*https?:\/\/[^\s)]+\s*\)?/gi, '')
                         .replace(/\b(?:www\.)?(?:natohsystems|nextemarketing)\.com(?:\.ar)?\b/gi, '*NatoH Systems*')
                         .replace(/\s{2,}/g, ' ')
                         .replace(/\s+([.,!?])/g, '$1')
-                        .trim()
-                );
-                console.log(`✨ [AI Generator] Secuencia NatoH Systems (Sin Links Anti-Spam) generada para "${businessName}" (${lead.dossier?.targetService || 'custom'})`);
+                        .trim();
+                    if (/reseña|estrella|calificaci[oó]n|⭐|★/i.test(text)) {
+                        return fallbackSeq[idx] || text;
+                    }
+                    return text;
+                });
+                console.log(`✨ [AI Generator] Secuencia NatoH Systems (Sin Links / Sin Estrellas) generada para "${businessName}" (${lead.dossier?.targetService || 'custom'})`);
                 return cleanMessages;
             } else {
                 throw new Error('Formato de respuesta inválido de OpenAI');
