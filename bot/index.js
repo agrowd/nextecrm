@@ -1950,8 +1950,24 @@ class WhatsAppBot {
         return;
       }
 
-      const contactNumber = message.from;
+      let contactNumber = message.from;
       const messageBody = message.body;
+
+      // Resolver @lid (WhatsApp Business ID) al número real antes de filtrar
+      if (contactNumber.includes('@lid')) {
+        try {
+          const contact = await message.getContact().catch(() => null);
+          if (contact && contact.number) {
+            contactNumber = `${contact.number.replace(/\D/g, '')}@c.us`;
+          } else if (this.currentlyProcessingLead && this.currentlyProcessingLead.phone) {
+            contactNumber = `${this.currentlyProcessingLead.phone.replace(/\D/g, '')}@c.us`;
+          }
+        } catch (e) {
+          if (this.currentlyProcessingLead && this.currentlyProcessingLead.phone) {
+            contactNumber = `${this.currentlyProcessingLead.phone.replace(/\D/g, '')}@c.us`;
+          }
+        }
+      }
 
       console.log(`📨 Mensaje recibido de ${contactNumber}: "${messageBody}"`);
 
@@ -2952,7 +2968,7 @@ class WhatsAppBot {
         // B) Resolver número real vía Puppeteer Contact API
         if (!resolvedLeadName || resolvedPhone === rawPhone) {
           try {
-            const contact = await message.getContact().catch(() => null);
+            const contact = await msg.getContact().catch(() => null);
             if (contact && contact.number) {
               resolvedPhone = contact.number.replace(/\D/g, '');
             } else {
