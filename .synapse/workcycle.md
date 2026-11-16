@@ -1,6 +1,18 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-11-13 (10:55 Argentina)
+## Current Session: 2026-11-16 (20:05 Argentina)
+- **Objective:** Diagnosticar por qué `bot_1` no envió mensajes hoy y blindar el auto-arranque de `nexte-bot1` ante reinicios del VPS o contenedor Docker (`ERR-26`).
+- **Status:** ✅ COMPLETED, SYNCHRONIZED & DEPLOYED TO VPS
+- **Git Info:** master
+
+### 62. Auto-Arranque Persistente de `nexte-bot1` tras Reinicio de VPS/Docker (`ERR-26`)
+- **Causa/Requerimiento:** El contenedor/VPS se reinició y `ecosystem.config.js` solo levantaba `nexte-backend` y `nexte-frontend` en `pm2-runtime`, dejando `nexte-bot1` apagado hasta que alguien lo iniciara manualmente.
+- **Implementación Técnica Realizada:**
+  1. Se incorporó `nexte-bot1` en `ecosystem.config.js` con `AUTO_START: "true"` y `BOT_INSTANCE_ID: "bot_1"`.
+  2. Se añadió un **Auto-Start Watchdog** en `server/index.js` que 10s después de conectar a MongoDB verifica si existe `bot/sessions/session-bot_1` y si `bot_1` no está conectado, iniciando `nexte-bot1` automáticamente en PM2.
+  3. Se actualizó `ProfileManager` (`bot/services/profileManager.js`) para limpiar `DevToolsActivePort` además de `SingletonLock/Cookie/Socket` y procesos `session-bot_1`, y se amplió la ventana horaria vespertina de `rateLimiter.js` hasta las 21:00-21:30 hs.
+
+## Previous Session: 2026-11-13 (10:55 Argentina)
 - **Objective:** Eliminar al 100% cualquier mención a estrellas (`⭐`), calificaciones numéricas (`3.8`, `5`) y cantidad de reseñas (`sin reseñas`, `reseñas`) en los mensajes salientes de WhatsApp y en los Dossiers IA (`aiTextGenerator.js`, `painAnalyzer.js`, `/api/ai-config` y limpieza automática en MongoDB), además de blindar la extracción de cabecera en `extension/content.js` y evitar envíos de URLs en frío (`D-46`, `D-47`).
 - **Status:** ✅ COMPLETED, SYNCHRONIZED & DEPLOYED TO VPS
 - **Git Info:** master

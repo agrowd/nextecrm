@@ -43,13 +43,13 @@ class ProfileManager {
                 return;
             }
 
-            const targetKey = `browser-${instanceId}`;
-            const result = execSync(`pgrep -f "${targetKey}" || true`, { encoding: 'utf8' }).trim();
+            const targetKey = `(browser-${instanceId}|session-${instanceId})`;
+            const result = execSync(`pgrep -E -f "${targetKey}" || true`, { encoding: 'utf8' }).trim();
             if (result) {
                 const pids = result.split('\n').filter(p => p.trim());
                 console.log(`🧹 Encontrados ${pids.length} procesos Chrome zombie para ${instanceId}. Matando...`);
                 try {
-                    execSync(`pkill -9 -f "${targetKey}" || true`, { encoding: 'utf8' });
+                    execSync(`pkill -9 -e -f "session-${instanceId}" || true; pkill -9 -e -f "browser-${instanceId}" || true`, { encoding: 'utf8' });
                     console.log(`✅ Procesos Chrome zombie de ${instanceId} eliminados.`);
                 } catch (e) {
                     // pkill puede dar exit code 1 si no hay procesos, ignorar
@@ -79,7 +79,7 @@ class ProfileManager {
             return;
         }
 
-        const lockNames = ['SingletonLock', 'SingletonCookie', 'SingletonSocket'];
+        const lockNames = ['SingletonLock', 'SingletonCookie', 'SingletonSocket', 'DevToolsActivePort'];
 
         // Buscar en el directorio de sessions Y en el directorio padre del bot
         const botDir = path.dirname(sessionsDir); // /app/bot_2

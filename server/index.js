@@ -1009,6 +1009,39 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/gmaps-lea
     } catch (recErr) {
       console.warn('⚠️ Aviso en recuperación de leads:', recErr.message);
     }
+
+    // 🔄 AUTO-START WATCHDOG: Si el contenedor o VPS se reinició y existe sesión de bot_1, levantar nexte-bot1 automáticamente
+    setTimeout(async () => {
+      try {
+        if (!connectedBots.has('bot_1')) {
+          const bot1SessionDir = path.join(__dirname, '..', 'bot', 'sessions', 'session-bot_1');
+          const botPath = path.join(__dirname, '..', 'bot');
+          const botScript = path.join(botPath, 'index.js');
+          if (fsSync.existsSync(bot1SessionDir) && fsSync.existsSync(botScript)) {
+            console.log('🚀 [AUTO-RECOVERY] Sesión de bot_1 detectada tras reinicio del servidor. Iniciando nexte-bot1 en PM2...');
+            const envVars = {
+              ...process.env,
+              BOT_INSTANCE_ID: 'bot_1',
+              AUTO_START: 'true',
+              BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8484',
+              HEADLESS: 'true'
+            };
+            exec(`pm2 describe nexte-bot1 > /dev/null 2>&1 && pm2 restart nexte-bot1 --update-env || pm2 start "${botScript}" --name nexte-bot1 --watch=false --update-env`, {
+              cwd: botPath,
+              env: envVars
+            }, (err, stdout) => {
+              if (err) {
+                console.warn('⚠️ [AUTO-RECOVERY] Error iniciando nexte-bot1 con pm2:', err.message);
+              } else {
+                console.log('✅ [AUTO-RECOVERY] nexte-bot1 levantado automáticamente en PM2.');
+              }
+            });
+          }
+        }
+      } catch (autoErr) {
+        console.warn('⚠️ [AUTO-RECOVERY] Error verificando bot_1:', autoErr.message);
+      }
+    }, 10000);
   })
   .catch((error) => {
     console.error('❌ Error conectando a MongoDB:', error);

@@ -472,3 +472,17 @@ El bot envió como Mensaje 1: *"Noté que ANDINO CENTRO ODONTOLÓGICO tiene una 
 2. **Sanitización en MongoDB:** Al iniciar `server/index.js`, se limpian automáticamente todos los `dossier` existentes en la base de datos que contengan `"reseña"`, `"estrella"`, `"calificación"` o `"⭐"`.
 3. **Cabecera Estricta en Extensión (`extension/content.js`):** Se acotó la extracción de `rating` y `reviewCount` exclusivamente a `div.TIHn2, div.lMbq3e` y jamás se fuerza `0` cuando el dato no está disponible.
 **Estado:** ✅ FIXED
+
+---
+
+## ERR-26: `nexte-bot1` no iniciaba automáticamente tras reinicio del VPS o del contenedor Docker (2026-11-16)
+**Síntoma:**
+El usuario reporta que hoy no se enviaron mensajes. Al revisar `npx pm2 list` dentro de `rascafull-crm`, solo figuraban `nexte-backend` y `nexte-frontend`, mientras que `nexte-bot1` no estaba corriendo.
+**Root Cause:**
+1. El VPS (`149.50.128.73`) tuvo un reinicio de sistema/contenedor (`reboot system boot 6.1.0-56-amd64`), y el archivo `ecosystem.config.js` que ejecuta `pm2-runtime` al levantar el contenedor solo incluía `nexte-backend` y `nexte-frontend`, omitiendo `nexte-bot1`.
+2. Además, en `session-bot_1` quedaban archivos de bloqueo huérfanos (`SingletonLock`, `SingletonCookie`, `SingletonSocket`, `DevToolsActivePort`) tras un apagado abrupto del contenedor, y `ProfileManager.killZombieChrome` solo buscaba `browser-bot_1` en vez de `session-bot_1`.
+**Solución:**
+1. Agregado `nexte-bot1` (con `AUTO_START: "true"`, `BOT_INSTANCE_ID: "bot_1"`) a `ecosystem.config.js`.
+2. Agregado un **Auto-Start Watchdog** en `server/index.js` que 10 segundos después de iniciar `nexte-backend` verifica si existe `bot/sessions/session-bot_1` y si `bot_1` no está conectado a Socket.IO, levantando automáticamente `nexte-bot1` en PM2.
+3. Mejorado `ProfileManager` para limpiar también `DevToolsActivePort` y procesos huérfanos de `session-${instanceId}`.
+**Estado:** ✅ FIXED

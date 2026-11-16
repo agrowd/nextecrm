@@ -139,10 +139,10 @@ class IntelligentRateLimiter {
             console.log(`📊 [RateLimiter] Stats archivo: ${stats.leadsProcessed}/${stats.currentDayLimit} leads`);
 
             // Asegurar que existan dailyStartHour y dailyEndHour para hoy
-            if (stats.dailyStartHour === undefined || stats.dailyEndHour === undefined) {
-                stats.dailyStartHour = 9.0 + Math.random(); // 9:00 a 10:00 AM
-                stats.dailyEndHour = 19.0 + Math.random();  // 7:00 a 8:00 PM (19:00 a 20:00)
-                console.log(`⏰ [RateLimiter] Generados horarios aleatorios faltantes para hoy: ${this.formatDecimalHour(stats.dailyStartHour)} a ${this.formatDecimalHour(stats.dailyEndHour)}`);
+            if (stats.dailyStartHour === undefined || stats.dailyEndHour === undefined || stats.dailyEndHour < 20.5) {
+                stats.dailyStartHour = 9.0 + Math.random() * 0.5; // 9:00 a 9:30 AM
+                stats.dailyEndHour = 21.0 + Math.random() * 0.5;  // 9:00 a 9:30 PM (21:00 a 21:30)
+                console.log(`⏰ [RateLimiter] Generados horarios para hoy: ${this.formatDecimalHour(stats.dailyStartHour)} a ${this.formatDecimalHour(stats.dailyEndHour)}`);
             }
 
             // Forzar límite a targetLeads si excede (por cambio de configuración)
@@ -173,8 +173,8 @@ class IntelligentRateLimiter {
         } catch (error) {
             console.log(`📊 [RateLimiter] Archivo no existe, creando nuevo con fecha ${this.getArgentinaDate()}`);
             // Inicializar por primera vez con horarios aleatorios
-            const dailyStartHour = 9.0 + Math.random();
-            const dailyEndHour = 19.0 + Math.random();
+            const dailyStartHour = 9.0 + Math.random() * 0.5;
+            const dailyEndHour = 21.0 + Math.random() * 0.5;
             this.stats = {
                 date: this.getArgentinaDate(),
                 leadsProcessed: 0,
@@ -205,8 +205,8 @@ class IntelligentRateLimiter {
         const previousPhase = this.stats.scalingPhase || 1;
 
         // Generar horario aleatorio para el nuevo día
-        const dailyStartHour = 9.0 + Math.random(); // 9:00 a 10:00 AM
-        const dailyEndHour = 19.0 + Math.random();  // 7:00 a 8:00 PM (19:00 a 20:00)
+        const dailyStartHour = 9.0 + Math.random() * 0.5; // 9:00 a 9:30 AM
+        const dailyEndHour = 21.0 + Math.random() * 0.5;  // 9:00 a 9:30 PM (21:00 a 21:30)
 
         this.stats = {
             date: this.getArgentinaDate(),

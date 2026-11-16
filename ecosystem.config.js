@@ -20,6 +20,18 @@ module.exports = {
                 PM2_SERVE_SPA: "true",
                 PM2_SERVE_HOMEPAGE: "/index.html"
             }
+        },
+        {
+            name: "nexte-bot1",
+            cwd: "./bot",
+            script: "./index.js",
+            env: {
+                NODE_ENV: "production",
+                BOT_INSTANCE_ID: "bot_1",
+                AUTO_START: "true",
+                BACKEND_URL: "http://localhost:8484",
+                HEADLESS: "true"
+            }
         }
     ]
 };
