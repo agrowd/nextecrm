@@ -12,13 +12,13 @@
 const axios = require('axios');
 
 const NATOH_PRICING_REFERENCE = `
-TARIFARIO PROMO OTOÑO 2026 (NatoH Systems https://natohsystems.com & Nexte Marketing https://nextemarketing.com):
-1. ⚙️ Sistema a Medida (ERP, Stock, Pedidos Mayoristas, Turnero Online o Carta QR Gastronómica): $350.000 ARS (antes $600.000)
-2. 🤖 Agente de IA Conversacional 24/7 en WhatsApp: $180.000 ARS (antes $350.000)
-3. 🌐 Sitio Web Corporativo / Catálogo E-Commerce: $250.000 ARS (antes $500.000)
-4. 📍 Posicionamiento SEO Local en Google Maps: $150.000 ARS (antes $350.000)
-5. 🎁 Combo Integral Completo (Web/Sistema + Agente IA + SEO Maps): $690.000 ARS
-Forma de pago: 50% de anticipo al iniciar el desarrollo y 50% contra entrega funcionando (en 7 a 10 días hábiles).
+PLANES Y PRECIOS OFICIALES NATOH SYSTEMS (https://natohsystems.com) - IDIOMA DUEÑO DE NEGOCIO:
+1. ⭐ PLAN RECOMENDADO (MENSUAL): Doble Agente de IA + Sistema CRM / Turnero / Pedidos y Página Web Incluidos -> $175.000 / mes (Armado completo + Mes 1: $350.000 en 2 pagos).
+   - Incluye: Agente IA #1 (responde WhatsApp y Web en <15s las 24 hs) + Agente IA #2 (carga clientes, agenda turnos con recordatorios o anota pedidos y sigue presupuestos automáticamente) + el Sistema (CRM de Ventas, Turnero Online o Gestor de Pedidos) + Página Web mantenida al día.
+2. 🤖 PLAN AGENTE IA RESPONDEDOR 24/7 (MENSUAL): $115.000 / mes (Instalación y entrenamiento + Mes 1: $180.000).
+   - Incluye: El Agente de IA entrenado con tus precios, catálogo y horarios respondiendo consultas 24/7 en WhatsApp y en tu Web.
+3. 🌐 PÁGINA WEB PROFESIONAL (PAGO ÚNICO SIN ABONO MENSUAL): $250.000 pago único (50% al iniciar y 50% al entregar lista en 5 a 7 días).
+4. ⚙️ SISTEMA DE GESTIÓN / STOCK / PEDIDOS / TURNERO A MEDIDA (PAGO ÚNICO): $350.000 pago único (50% al iniciar y 50% contra entrega funcionando).
 `;
 
 class CloserCopilot {

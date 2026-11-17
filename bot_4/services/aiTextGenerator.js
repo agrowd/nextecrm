@@ -15,49 +15,49 @@ class AITextGenerator {
             console.log('⚠️ [AI Generator] OPENAI_API_KEY no configurada. Se usarán secuencias dinámicas por Dossier NatoH.');
         }
 
-        // Secuencias Dinámicas por Solución NatoH Systems (Fallback Inteligente sin sonar a robot y SIN links para evitar Spam)
+        // Secuencias Dinámicas por Solución NatoH Systems (100% idioma dueño de negocio, Doble Agente IA + CRM/Turnero/Pedidos y SIN links)
         this.serviceFallbacks = {
             software_custom_erp: (lead, city, hook) => [
-                hook || `Hola! ¿Cómo estás? Vi a *${lead.name}* en Google Maps ahí en ${city} y el movimiento que tienen. Te hago una consulta cortita: ¿hoy los pedidos, listas de precios y stock los manejan con algún sistema propio o mayormente por WhatsApp y Excel?`,
-                `Te pregunto porque en *NatoH Systems* desarrollamos *Sistemas de Gestión a Medida (Stock, Pedidos Mayoristas, Cotizadores y CRM)* conectados a *Agentes de IA en WhatsApp* que cotizan y cargan pedidos solos las 24 hs.`,
-                `Estamos con una promo para PyMEs donde armamos el *Sistema de Gestión / Pedidos a Medida* en *$350.000* (o el *Agente IA WhatsApp 24/7* en *$180.000*), abonando 50% al iniciar y 50% contra entrega funcionando.`,
-                `Si te sirve para ordenar tiempos en *${lead.name}*, avisame por acá y te paso una demo rápida o un par de ejemplos reales para que chusmees sin compromiso.`
+                hook || `Hola! ¿Cómo estás? Vi a *${lead.name}* en Google Maps ahí en ${city} y el movimiento que tienen. Te hago una consulta cortita: ¿hoy las consultas de precios, los pedidos y el seguimiento de clientes los llevan a mano por WhatsApp y planillas?`,
+                `Te pregunto porque en *NatoH Systems* instalamos *2 Agentes de IA + tu propio Sistema CRM y de Pedidos*: un Agente IA responde precios y dudas en WhatsApp las 24 hs, y el segundo Agente IA carga cada pedido y hace seguimiento automático en el sistema sin que anotes nada a mano.`,
+                `Tenés el servicio mensual de *Doble Agente IA + CRM/Sistema incluido* por *$175.000/mes* (o el *Agente IA Respondedor 24/7* solo por *$115.000/mes*, y si preferís el *Sistema a Medida de pago único* queda en *$350.000* en 2 pagos).`,
+                `Si te sirve para ahorrar horas en *${lead.name}*, avisame por acá y te paso una muestra rápida de 2 minutos para que veas cómo responde y cómo ordena todo solo.`
             ],
             software_turnero: (lead, city, hook) => [
-                hook || `Hola! ¿Cómo estás? Vi el perfil de *${lead.name}* en Google Maps ahí en ${city} y noté que hoy coordinan los turnos de forma manual. ¿No les saca bastante tiempo estar respondiendo horarios disponibles por WhatsApp todo el día?`,
-                `Te escribo porque en *NatoH Systems* armamos un *Sistema de Turnos Online y Gestión de Pacientes/Clientes* conectado a WhatsApp: reservan solos 24/7, les llega recordatorio automático y bajás un 40% las ausencias.`,
-                `Con la promo actual te queda todo el *Sistema de Turnos Online* configurado por *$350.000* (o sumando el *Asistente IA en WhatsApp 24/7* por *$180.000*), pagando 50% al arrancar y 50% al entregarlo funcionando.`,
-                `¿Te gustaría que te pase por acá un ejemplo interactivo para que veas cómo quedaría la agenda de *${lead.name}*?`
+                hook || `Hola! ¿Cómo estás? Vi a *${lead.name}* en Google Maps ahí en ${city} y te quería hacer una consulta cortita: ¿hoy los turnos y las dudas de precios por WhatsApp los siguen contestando y anotando todos a mano?`,
+                `Te escribo porque en *NatoH Systems* te instalamos *2 Agentes de IA + Agenda de Turnos y CRM incluido*: el primer Agente IA responde consultas en WhatsApp en 10 segundos las 24 hs, y el segundo Agente IA anota el turno solo en el sistema y manda recordatorios para que nadie falte.`,
+                `El plan completo con los *2 Agentes de IA + Turnero/CRM y Web incluidos* queda en *$175.000/mes* (o solo el *Agente IA que responde 24/7* por *$115.000/mes*, o el *Turnero de pago único* por *$350.000* en 2 veces).`,
+                `¿Te gustaría que te muestre por acá en 2 minutos un ejemplo de cómo atiende al paciente y le agenda el turno solo?`
             ],
             gastronomia_pedidos: (lead, city, hook) => [
-                hook || `Hola! ¿Cómo va? Vi a *${lead.name}* en Google Maps en ${city} y noté que ${lead.externalPlatform === 'pedidosya' ? 'hoy derivan los pedidos a una app con comisión' : 'no tienen cargada una Carta Digital interactiva propia para tomar pedidos directos'}.`,
-                `En *NatoH Systems* armamos tu propia *Carta Digital QR + Sistema de Pedidos y Reservas*: el cliente elige del menú en el celu, calcula el envío y el pedido te entra armado directo al WhatsApp con *0% de comisión*.`,
-                `Con la promo actual te queda todo el sistema propio listo por *$350.000* (pago único en 2 veces, sin comisiones por venta ni alquiler mensual).`,
-                `Si te interesa, decime y te paso por acá una demo en vivo para que pruebes cómo entran los pedidos al WhatsApp.`
+                hook || `Hola! ¿Cómo va? Vi a *${lead.name}* en Google Maps en ${city} y noté que ${lead.externalPlatform === 'pedidosya' ? 'hoy derivan los pedidos a una app que les cobra comisión' : 'no tienen una Carta Digital con recepción automática de pedidos en WhatsApp'}.`,
+                `En *NatoH Systems* te armamos tu propia *Carta Digital QR + Agentes de IA en WhatsApp*: un Agente IA responde consultas y toma el pedido 24/7, y el segundo lo carga directo en tu pantalla de comandas y clientes con *0% de comisión*.`,
+                `Podés tener el *Sistema de Pedidos QR de pago único* por *$350.000* (mitad al empezar y mitad al entregar) o sumar el servicio mensual con los *Agentes de IA 24/7* desde *$115.000/mes*.`,
+                `Si te interesa, decime y te paso por acá una muestra en vivo para que pruebes desde el celu cómo entran los pedidos listos.`
             ],
             ecommerce: (lead, city, hook) => [
-                hook || `Hola! ¿Cómo estás? Estuve viendo a *${lead.name}* en Google Maps en ${city} y noté que hoy no tienen cargado un catálogo o tienda web propia donde los clientes vean todo y armen el pedido directo al WhatsApp.`,
-                `En *NatoH Systems* desarrollamos *Catálogos y Tiendas Online autogestionables* integradas con un *Asistente de IA en WhatsApp* que responde precios, talles y stock las 24 hs sin que tengas que estar pegado al teléfono.`,
-                `Hoy tenemos el *Catálogo / Tienda Web Profesional* en *$250.000* y el *Agente IA de Ventas 24/7* en *$180.000*, abonando 50% al iniciar y 50% contra entrega.`,
-                `¿Querés que te pase por acá 2 ejemplos de tiendas que armamos para que veas cómo funcionan?`
+                hook || `Hola! ¿Cómo estás? Estuve viendo a *${lead.name}* en Google Maps en ${city} y te quería consultar: ¿hoy cuando les escriben por WhatsApp preguntando precios, talles o stock llegan a contestar rápido o se les acumulan los chats?`,
+                `En *NatoH Systems* te armamos tu *Catálogo Web + 2 Agentes de IA*: el primer Agente IA contesta precios y muestra productos en WhatsApp las 24 hs, y el segundo Agente IA guarda al cliente en tu *CRM de Ventas* y le hace seguimiento si pidió precio y todavía no compró.`,
+                `Podés arrancar con tu *Catálogo / Página Web de pago único* en *$250.000* (en 2 pagos), sumar el *Agente IA Respondedor 24/7* por *$115.000/mes* o el plan completo con *Doble Agente IA + CRM incluido* por *$175.000/mes*.`,
+                `¿Querés que te pase por acá un ejemplo rápido aplicado a tu rubro para que veas cómo atiende y ordena los pedidos?`
             ],
             ia_natoh: (lead, city, hook) => [
-                hook || `Hola! ¿Cómo estás? Estuve viendo el perfil de *${lead.name}* en Google Maps en ${city} y el caudal de consultas que manejan. ¿Hoy llegan a responder rápido todos los mensajes de WhatsApp fuera de horario o los fines de semana?`,
-                `Te consulto porque en *NatoH Systems* entrenamos *Agentes de IA para WhatsApp* con toda la info de tu negocio: responde en segundos 24/7, asesora, presupuesta y te agenda solo a los clientes listos para avanzar.`,
-                `Con la promo actual la implementación completa del *Agente IA 24/7* queda en *$180.000* (o el combo con *Sistema CRM a Medida* en *$450.000*), en 2 pagos.`,
-                `¿Te gustaría que te muestre por acá cómo responde en vivo en un negocio como el tuyo?`
+                hook || `Hola! ¿Cómo estás? Vi a *${lead.name}* en Google Maps en ${city} y te hago una consulta rápida: ¿les pasa que entran consultas por WhatsApp fuera de horario o mientras están ocupados y después quedan presupuestos sin seguimiento?`,
+                `En *NatoH Systems* instalamos *2 Empleados con IA para tu negocio*: un *Agente IA Vendedor* que contesta WhatsApp y tu Web en 10 segundos las 24 hs, y un *Agente IA Gestor* que carga cada cliente en un *CRM o Turnero que te incluimos* y persigue a los presupuestos abiertos para que cierres más ventas.`,
+                `El servicio mensual del *Agente IA que responde 24/7* es de *$115.000/mes* (instalación + mes 1: $180.000), o los *2 Agentes IA + el CRM/Turnero incluido* por *$175.000/mes*.`,
+                `¿Te gustaría que te pase por acá una muestra rápida para que veas cómo contesta en WhatsApp y cómo te deja todo anotado en el CRM?`
             ],
             rediseño_web: (lead, city, hook) => [
-                hook || `Hola! ¿Cómo estás? Entré a la web de *${lead.name}* desde Google Maps y vi un par de detalles técnicos (sobre todo en celular y en la conexión rápida a WhatsApp) que hoy hacen que varias visitas se vayan sin escribirte.`,
-                `En *NatoH Systems* nos dedicamos a desarrollar *Páginas Web de alta velocidad y Sistemas con IA en WhatsApp* para que cada persona que te busque en Google termine hablándote directo al celular.`,
-                `Con la promo actual hacemos la *Renovación Web Profesional* por *$250.000* (o sumando el *Agente IA en WhatsApp 24/7* por *$180.000*), abonando 50% al empezar y 50% al entregar.`,
-                `¿Te parece si te comento rápido qué 2 cositas vimos para mejorar en la web de *${lead.name}* y te muestro un ejemplo?`
+                hook || `Hola! ¿Cómo estás? Entré a la página web de *${lead.name}* desde Google Maps y vi que hoy quien entra no tiene un asistente que le responda en el acto ni conecte directo con un sistema de seguimiento en WhatsApp.`,
+                `En *NatoH Systems* renovamos tu *Página Web* y le sumamos *2 Agentes de IA*: uno que responde consultas en tu Web y WhatsApp en 10 segundos las 24 hs, y otro que carga a cada interesado en tu propio *CRM o Agenda de Turnos* haciendo seguimiento automático.`,
+                `Podés hacer solo la *Renovación Web de pago único* por *$250.000* (50% al iniciar y 50% al entregar), o el plan mensual completo de *Web + Doble Agente IA + CRM/Turnero incluido* por *$175.000/mes*.`,
+                `¿Te parece si te muestro por acá un ejemplo rápido de cómo quedaría funcionando en *${lead.name}*?`
             ],
             web_express: (lead, city, hook) => [
-                hook || `Hola! ¿Cómo estás? Te escribo porque vimos a *${lead.name}* en Google Maps ahí en ${city} y notamos que ${lead.externalPlatform === 'instagram' ? 'hoy solo tienen cargado el Instagram y todavía no cuentan con su propia página web' : 'figuran sin página web propia'}.`,
-                `Hoy la mayoría de la gente que busca en Google Maps entra a ver la web antes de consultar. En *NatoH Systems* armamos *Páginas Web Profesionales y Sistemas de Turnos/Pedidos* listos en 7 días, diseñados para que cada visita te escriba directo al WhatsApp.`,
-                `Estamos con una promo de 50% OFF donde el *Sitio Web Profesional Completo* queda en *$250.000* (abonando 50% al iniciar y 50% recién contra entrega conforme).`,
-                `Si te interesa chusmear, avisame por acá y te paso 2 ejemplos reales de tu rubro para que veas cómo quedan.`
+                hook || `Hola! ¿Cómo estás? Te escribo porque vimos a *${lead.name}* en Google Maps ahí en ${city} y notamos que ${lead.externalPlatform === 'instagram' ? 'hoy solo tienen cargado el Instagram y todavía no cuentan con su propia página web ni atención automática en WhatsApp' : 'figuran sin página web propia para mostrar lo que hacen'}.`,
+                `En *NatoH Systems* te armamos tu *Página Web Profesional* lista en 7 días, y además podemos sumarte nuestros *Agentes de IA en WhatsApp* (uno que contesta precios y dudas 24/7 y otro que te anota los clientes, turnos o pedidos en un *CRM propio* sin usar planillas).`,
+                `La *Página Web Profesional* queda en *$250.000 pago único* (50% al empezar y 50% al entregar, sin abono mensual), o podés elegir el plan mensual de *Web + Agentes de IA + CRM/Turnero incluido* desde *$115.000 a $175.000/mes*.`,
+                `Si te interesa chusmear sin compromiso, avisame por acá y te paso 2 ejemplos reales de tu rubro para que veas cómo funcionan.`
             ]
         };
     }
@@ -152,26 +152,24 @@ class AITextGenerator {
   * Oferta Específica: ${d.suggestedOffer || ''}`;
         }
 
-        const systemPrompt = `Sos Fede, consultor comercial B2B argentino súper humano, cercano y directo de "*NatoH Systems*".
+        const systemPrompt = `Sos Fede, consultor comercial argentino súper humano, cercano y directo de "*NatoH Systems*".
 Tu objetivo es escribir una secuencia de 4 mensajes cortos de WhatsApp para iniciar una conversación genuina con el dueño o encargado de un negocio que encontramos en Google Maps.
 
-REGLAS DE ORO ANTI-SPAM Y ESTILO HUMANO (OBLIGATORIAS):
-1. PROHIBIDO INCLUIR LINKS O URLs: NUNCA escribas "http://", "https://", "www.", ".com", "natohsystems.com" ni ningún enlace web en ninguno de los 4 mensajes. Enviar links en frío hace que WhatsApp lo marque como spam. Solo nombrá a la empresa como *NatoH Systems*.
-2. PROHIBIDO MENCIONAR ESTRELLAS (⭐), CALIFICACIONES O RESEÑAS: NUNCA menciones cuántas estrellas tiene el negocio, ni su calificación numérica (ej: "5 ⭐", "3.8 ⭐"), ni si tiene "sin reseñas", "pocas reseñas" o "muchas reseñas". Está 100% prohibido hablar de reseñas o puntajes de Google Maps.
-3. Español Rioplatense 100% natural y hablado (usá "vos/ustedes" cercano: "vimos", "noté", "te escribo", "¿cómo estás?", "tu negocio", NUNCA uses el "usted" formal como "potenciar su negocio" ni "¿han considerado?"). Escribí como una persona real mandando WhatsApp desde el teléfono.
-4. Sé hiper-específico con el negocio: mencioná el nombre real (*${businessName}*), su zona (${location}) y un dato operativo real (ej: que hoy solo tienen Instagram/Linktree sin web propia, que figuran sin página web en Google Maps, que su web no tiene turnero/botón de WhatsApp, o cómo manejan hoy los pedidos, turnos o consultas en su rubro *${category}*).
-5. Ofrecé UNA SOLUCIÓN CLARA según el Dossier de NatoH Systems:
-   - Si es Distribuidora, Mayorista, Corralón, Logística, Fábrica: ofrecé el *Sistema de Gestión ERP/Pedidos a Medida ($350.000)* + *Agente IA Cotizador en WhatsApp ($180.000)*.
-   - Si es Clínica, Odontología, Estética, Veterinaria, Taller, Gimnasio, Hotel: ofrecé el *Sistema de Turnos/Reservas Online con recordatorios por WhatsApp ($350.000)* y el *Agente IA 24/7 ($180.000)*.
-   - Si es Gastronomía (Restaurante, Bar, Café): ofrecé la *Carta Digital QR + Sistema de Pedidos directos al WhatsApp sin comisiones ($350.000)*.
-   - Si es Comercio / Indumentaria / Mueblería: ofrecé *Catálogo / Tienda Online E-commerce ($250.000)* + *Agente IA de Ventas ($180.000)*.
-   - Si NO tiene web (o solo tiene Instagram/Linktree): ofrecé *Sitio Web Profesional de Alta Conversión ($250.000, promo 50% OFF)* listo en 7 días.
-   - Si YA tiene web: ofrecé *Agente de IA 24/7 en WhatsApp ($180.000)* o *Renovación Web / Sistema a Medida ($250.000-$350.000)*.
-6. Estructura de los 4 mensajes (cortos, ágiles, sin bloques largos):
-   - Mensaje 1 (Gancho Real Operativo): Saludo natural ("Hola! ¿Cómo estás?"), mencioná que viste a *${businessName}* en Google Maps en ${location} y hacele una pregunta simple sobre su operatoria actual (turnos, pedidos, stock, web o atención por WhatsApp) (máx 38 palabras, SIN mencionar estrellas ni reseñas).
-   - Mensaje 2 (Solución NatoH Systems): Contale de forma conversacional cómo lo resolvemos en *NatoH Systems* con esa solución puntual para ahorrarles tiempo o captar más clientes (máx 40 palabras, SIN links).
-   - Mensaje 3 (Propuesta Accesible): Comentale que estamos con una promo donde queda en $180.000 (Agente IA), $250.000 (Web/Tienda) o $350.000 (Sistema a Medida/Turnero), abonando 50% al iniciar y 50% recién contra entrega funcionando (máx 38 palabras).
-   - Mensaje 4 (Cierre pidiendo permiso, SIN LINK): Preguntale con buena onda si le gustaría que le pases por acá un ejemplo real aplicado a su rubro o una demo rápida para que vea cómo funciona, sin compromiso (máx 30 palabras, CERO URLs).
+REGLAS DE ORO (IDIOMA DUEÑO DE NEGOCIO, ANTI-SPAM Y CERO TECNICISMOS):
+1. PROHIBIDO INCLUIR LINKS O URLs: NUNCA escribas "http://", "https://", "www.", ".com", "natohsystems.com" ni ningún enlace web en ninguno de los 4 mensajes. Solo nombrá a la empresa como *NatoH Systems*.
+2. PROHIBIDO MENCIONAR ESTRELLAS (⭐), CALIFICACIONES O RESEÑAS: NUNCA menciones cuántas estrellas tiene el negocio, ni su calificación numérica, ni si tiene "sin reseñas" o "pocas reseñas".
+3. HABLÁ EN EL IDIOMA DEL DUEÑO DEL NEGOCIO (CERO PALABRAS DE PROGRAMADOR): Prohibido usar palabras técnicas como "Next.js", "React", "PageSpeed", "ERP", "arquitectura digital", "leads" o "conversión". Hablá de cosas reales que le duelen todos los días: contestar mensajes de WhatsApp fuera de horario, pasar precios, anotar turnos sin que la gente falte, hacer seguimiento a presupuestos que quedaron colgados, o no perder pedidos por tardar en responder.
+4. Español Rioplatense 100% natural y hablado (usá "vos/tu negocio": "vimos", "noté", "te escribo", "¿cómo estás?", jamás uses "usted/su negocio").
+5. EXPLICÁ NUESTRA PROPUESTA ESTRELLA SEGÚN SU RUBRO (2 Agentes de IA + Sistema CRM / Turnero / Pedidos incluido + Página Web):
+   - En *NatoH Systems* instalamos **2 Agentes de IA + el Sistema que su negocio necesita incluido**:
+     * **Agente IA #1 (El que atiende y vende 24/7):** responde consultas de WhatsApp y de la Web en 10 segundos día y noche con la info real del negocio (precios, catálogo, horarios, dudas).
+     * **Agente IA #2 (El que ordena todo en el sistema):** carga automáticamente cada cliente en el **CRM de Ventas** (haciendo seguimiento a los que pidieron presupuesto y no compraron), o agenda y recuerda turnos en la **Agenda de Turnos** (si es clínica/odontología/estética/taller), o anota pedidos y descuenta stock en el **Sistema de Pedidos** (si es mayorista/distribuidora/comercio/gastronomía).
+     * Y si todavía no tiene página web propia (o solo tiene Instagram), le armamos su **Página Web Profesional**.
+6. ESTRUCTURA Y PRECIOS CLAROS EN LOS 4 MENSAJES:
+   - Mensaje 1 (Gancho Real en su idioma, máx 36 palabras): Saludo natural ("Hola! ¿Cómo estás?"), mencioná que viste a *${businessName}* en Google Maps en ${location} y hacele una pregunta simple sobre su día a día (ej: si hoy contestan todas las consultas y anotan turnos/pedidos/presupuestos a mano por WhatsApp o si cuentan con página web/sistema).
+   - Mensaje 2 (La Solución de los 2 Agentes IA + Sistema incluido, máx 42 palabras): Contale en criollo que en *NatoH Systems* le instalamos un *Agente de IA que responde WhatsApp 24/7 en segundos* + un *segundo Agente de IA que carga todo solo en el CRM, Turnero o Sistema de Pedidos* que ya le incluimos (o su Página Web si no tiene).
+   - Mensaje 3 (Valores Claros Mensuales y Pago Único, máx 42 palabras): Contale que puede sumar el *Agente IA Respondedor 24/7 por $115.000/mes*, el plan completo de *Doble Agente IA + CRM/Turnero y Web incluidos por $175.000/mes*, o hacer su *Página Web ($250.000)* o *Sistema a Medida ($350.000)* de pago único (50% al iniciar y 50% al entregar).
+   - Mensaje 4 (Cierre pidiendo permiso, SIN LINK, máx 28 palabras): Preguntale con buena onda si le gustaría que le pases por acá un ejemplo real de su rubro para que vea en 2 minutos cómo atiende el Agente y cómo carga todo solo en el sistema.
 
 ${aiConfig.basePrompt ? `\nINSTRUCCIONES ADICIONALES:\n${aiConfig.basePrompt}\n` : ''}
 Respondé ÚNICAMENTE con un JSON válido: {"messages": ["msg1", "msg2", "msg3", "msg4"]}`;

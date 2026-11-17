@@ -1,6 +1,23 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-11-16 (20:05 Argentina)
+## Current Session: 2026-11-17 (14:15 Argentina)
+- **Objective:** Transformar el sitio web `https://natohsystems.com` (`/srv/natohsystems`) y toda la secuencia de mensajes de WhatsApp (`aiTextGenerator.js`, `painAnalyzer.js`, `closerCopilot.js`, `server/index.js`) al **idioma real del dueño de negocio (cero tecnicismos)**, incorporando el servicio mensual del **Agente IA #1 (Respondedor 24/7 en WhatsApp y Web - $115.000/mes)** y el **Doble Agente IA (Respondedor + Gestor automático) con el Sistema CRM, Agenda de Turnos o Gestor de Pedidos Incluido ($175.000/mes)**, junto con las opciones de pago único (Web $250.000 y Sistema $350.000) (`D-48`).
+- **Status:** ✅ COMPLETED, SYNCHRONIZED & DEPLOYED TO VPS
+- **Git Info:** master
+
+### 63. Rediseño Comercial de `natohsystems.com` y Mensajes WhatsApp: Doble Agente IA + CRM/Turnero Incluido en Idioma Dueño (`D-48`)
+- **Causa/Requerimiento:** Solicitud del usuario: *"analiza el sitio web de https://natohsystems.com , hay que agregar y ofrecer el servicio mensual de agente de ia que responda y otro que gestione un crm que tambien se le ofrece, o turnero o lo que sea que necesite el servicio. Pasar todo a idioma del publico objetivo . Pensaaaaa"* y *"me parece bien, aplicalo tambien en el envio de los mensajes"*.
+- **Implementación Técnica Realizada:**
+  1. **Generador de Mensajes de WhatsApp y Dossiers (`bot/services/aiTextGenerator.js`, `bot_1..4`, `server/services/painAnalyzer.js`, `server/services/closerCopilot.js`, `server/index.js`)**:
+     - Se eliminaron todos los términos técnicos de programación y se redactaron los ganchos y propuestas en el lenguaje cotidiano del dueño de negocio (contestar rápido en WhatsApp fuera de horario, no perder ventas por tardar en pasar precios, no olvidar el seguimiento de presupuestos y evitar que los clientes falten a los turnos).
+     - Se incorporó la oferta del **Agente IA #1 (Respondedor 24/7 por $115.000/mes)** y el **Doble Agente IA + Sistema CRM, Turnero o Pedidos Incluido ($175.000/mes)**, además de las opciones de pago único (**Página Web Profesional $250.000** y **Sistema a Medida $350.000**).
+  2. **Sitio Web Oficial `https://natohsystems.com` (`/srv/natohsystems` en VPS)**:
+     - Actualización integral de `app/page.tsx`, `components/nexte-ia-showcase.tsx`, `data/services-info.ts`, `app/servicios/page.tsx` y `components/navbar.tsx` al idioma del público objetivo:
+       * Hero enfocado en *"Que ningún cliente se vaya sin respuesta. Que ninguna venta quede sin seguimiento."*
+       * Simulador interactivo mostrando en cada caso real: **1) Qué responde el Agente IA #1 en WhatsApp en <15s** y **2) Qué guarda/agenda automáticamente el Agente IA #2 en el CRM o Turnero incluido**.
+       * Grilla de 4 Planes claros (Agente IA Respondedor 24/7 $115.000/mes, Doble Agente IA + CRM/Turnero/Web Incluido $175.000/mes, Página Web Pago Único $250.000, y Sistema de Gestión / Stock a Medida $350.000).
+
+## Previous Session: 2026-11-16 (20:05 Argentina)
 - **Objective:** Diagnosticar por qué `bot_1` no envió mensajes hoy y blindar el auto-arranque de `nexte-bot1` ante reinicios del VPS o contenedor Docker (`ERR-26`).
 - **Status:** ✅ COMPLETED, SYNCHRONIZED & DEPLOYED TO VPS
 - **Git Info:** master

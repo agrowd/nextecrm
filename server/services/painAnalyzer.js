@@ -148,125 +148,116 @@ function buildHeuristicDossier(lead) {
     // 1. Rubros B2B / PyMEs Operativas (Distribuidoras, Mayoristas, Logística, Corralones, Fábricas, Repuestos)
     if (/distribuidor|mayorista|logistica|transporte|flete|corralon|ferreteria|fabrica|metalurgic|industria|repuesto|mayor|importador|papelera|quimica|frigorifico|maderera/.test(cat)) {
         targetService = 'software_custom_erp';
-        targetServiceLabel = 'Sistema de Gestión ERP/CRM, Stock y Cotizador IA (NatoH Systems)';
-        primaryPain = 'Gestión manual de pedidos, listas de precios, stock y cotizaciones por WhatsApp que frena la escala comercial';
-        painPoints.push('Tiempo operativo perdido cotizando manualmente o buscando stock en planillas Excel');
-        painPoints.push('Falta de portal B2B de pedidos o sistema centralizado a medida');
-        if (!hasWeb) painPoints.push('Ausencia de catálogo web corporativo propio en Google Maps');
+        targetServiceLabel = 'Doble Agente IA (Respondedor 24/7 + Gestor) + Sistema CRM y Pedidos Incluido';
+        primaryPain = 'Consultas de precios, toma de pedidos y seguimiento de presupuestos hechos a mano por WhatsApp y planillas';
+        painPoints.push('Tiempo perdido pasando precios o revisando stock a mano en vez de tener respuesta en segundos');
+        painPoints.push('Presupuestos enviados por WhatsApp que quedan sin seguimiento ni registro en un CRM');
+        if (!hasWeb) painPoints.push('Sin catálogo o página web propia en Google Maps');
 
-        consultativeHook = `Hola! ¿Cómo estás? Vimos a ${name} en Google Maps y el movimiento que manejan en el rubro. Te hago una consulta cortita: ¿hoy los pedidos, listas de precios y el stock los manejan con algún sistema propio o mayormente por WhatsApp y planillas?`;
-        suggestedPitch = `Implementar un Sistema de Gestión / Catálogo de Pedidos a medida en la nube junto con un Agente IA 24/7 en WhatsApp que responda disponibilidad, tome pedidos y centralice clientes.`;
-        suggestedOffer = `Sistema de Gestión / Pedidos a Medida $350.000 (antes $600.000) + Agente IA WhatsApp $180.000 en 2 pagos (50% al iniciar y 50% contra entrega).`;
+        consultativeHook = `Hola! ¿Cómo estás? Vimos a ${name} en Google Maps y el movimiento que manejan en el rubro. Te hago una consulta cortita: ¿hoy las consultas de precios, los pedidos y el seguimiento de clientes los llevan a mano por WhatsApp y planillas?`;
+        suggestedPitch = `Instalar 2 Agentes de IA + tu propio Sistema CRM y de Pedidos incluido: un Agente IA responde precios y dudas en WhatsApp las 24 hs, y el segundo Agente IA carga cada pedido y hace seguimiento automático en el sistema.`;
+        suggestedOffer = `Servicio mensual Doble Agente IA + CRM/Sistema incluido $175.000/mes (o Agente IA Respondedor 24/7 $115.000/mes, o Sistema a Medida de pago único $350.000 en 2 pagos).`;
     }
     // 2. Rubros de Salud, Turnos y Servicios con Agenda (Clínicas, Odontología, Estética, Veterinaria, Talleres, Hoteles, Gimnasios)
     else if (/odont|dent|clinic|medic|salud|kinesi|psicol|veterin|peluquer|barber|estetic|spa|depil|gimnasio|crossfit|pilates|taller|lubricentro|cancha|futbol|padel|hotel|cabañ|alojamiento/.test(cat)) {
         targetService = 'software_turnero';
-        targetServiceLabel = 'Sistema de Gestión de Turnos/Reservas + Agente IA WhatsApp (NatoH Systems)';
+        targetServiceLabel = 'Doble Agente IA (Atención 24/7 + Gestor de Agenda) + Turnero y CRM Incluido';
         primaryPain = !hasWeb
             ? (extPlat === 'instagram'
-                ? 'Centralizan turnos por Instagram/WhatsApp manual sin un sistema propio que agende 24/7 y envíe recordatorios'
-                : 'No cuentan con web ni turnero online en Google Maps; toda la coordinación de turnos recae en responder mensajes a mano')
-            : 'Tienen presencia web pero carecen de un sistema automatizado de turnos y asistente IA que confirme asistencias por WhatsApp';
+                ? 'Coordinan turnos por Instagram/WhatsApp a mano sin un Agente IA que responda en el acto y agende solo en el turnero'
+                : 'No cuentan con web ni turnero automático en Google Maps; pierden horas respondiendo horarios y anotando turnos a mano')
+            : 'Tienen web pero carecen de los 2 Agentes IA que respondan en WhatsApp 24/7, anoten el turno en la agenda y manden recordatorios';
 
-        painPoints.push('Horas de recepción invertidas en coordinar y reprogramar horarios manualmente');
-        painPoints.push('Ausentismo de clientes/pacientes por falta de recordatorios automáticos por WhatsApp');
-        if (!hasWeb) painPoints.push(extPlat ? `En Google Maps redirigen a ${extPlat} sin dominio web propio` : 'Sin sitio web propio en su ficha de Google Maps');
+        painPoints.push('Horas de recepción invertidas en pasar precios y coordinar horarios a mano por WhatsApp');
+        painPoints.push('Pacientes/clientes que faltan al turno por no recibir recordatorio automático el día anterior');
+        if (!hasWeb) painPoints.push(extPlat ? `En Google Maps redirigen a ${extPlat} sin página web propia` : 'Sin página web propia en su ficha de Google Maps');
 
         consultativeHook = !hasWeb
-            ? `Hola! ¿Cómo estás? Vi a ${name} en Google Maps y noté que hoy gestionan las consultas de forma manual sin un sistema de turnos web propio. ¿Les pasa que pierden bastante tiempo coordinando horarios por WhatsApp?`
-            : `Hola! ¿Cómo estás? Estuve visitando la web de ${name} desde Google Maps y noté que aún no tienen integrado un turnero automático con recordatorios por WhatsApp. ¿Cómo manejan hoy la agenda de turnos?`;
+            ? `Hola! ¿Cómo estás? Vi a ${name} en Google Maps y te quería hacer una consulta cortita: ¿hoy los turnos y las dudas de precios por WhatsApp los siguen contestando y anotando todos a mano?`
+            : `Hola! ¿Cómo estás? Estuve visitando la página de ${name} desde Google Maps y noté que aún no tienen un asistente que responda WhatsApp 24/7 y agende los turnos solo con recordatorios. ¿Cómo manejan hoy los turnos?`;
 
-        suggestedPitch = `En NatoH Systems desarrollamos un Sistema de Turnos y Gestión de Clientes a medida + Agente IA 24/7 en WhatsApp que agenda solo, envía recordatorios automáticos y reduce un 40% las inasistencias.`;
-        suggestedOffer = `Sistema de Turnos & Gestión $350.000 (antes $600.000) o Agente IA WhatsApp 24/7 $180.000, abonando 50% al iniciar y 50% al entregar.`;
+        suggestedPitch = `En NatoH Systems instalamos 2 Agentes de IA + Agenda de Turnos y CRM incluido: el primer Agente IA responde dudas y precios en WhatsApp en 10 segundos 24/7, y el segundo Agente IA anota el turno solo y envía recordatorios automáticos.`;
+        suggestedOffer = `Plan Doble Agente IA + Turnero/CRM y Web incluidos $175.000/mes (o solo Agente IA Respondedor 24/7 $115.000/mes, o Turnero pago único $350.000 en 2 pagos).`;
     }
     // 3. Rubros Gastronómicos (Restaurantes, Bares, Cafeterías, Heladerías, Panaderías)
     else if (/restauran|bar|cervecer|cafe|helader|pizz|hamburgues|sushi|gastronom|parrill|pasteleria|panaderia|rotiseria|comida/.test(cat)) {
         targetService = 'gastronomia_pedidos';
-        targetServiceLabel = 'Carta Digital QR + Sistema de Pedidos y Reservas (0% Comisión)';
+        targetServiceLabel = 'Carta Digital QR + Agentes de IA Tomadores de Pedidos y Reservas (0% Comisión)';
         primaryPain = extPlat === 'pedidosya'
             ? 'Derivan sus clientes de Google Maps a apps de delivery pagando hasta 30% de comisión por pedido'
             : (!hasWeb
-                ? 'Sin Carta QR interactiva ni sistema de pedidos directos en su ficha de Google Maps'
-                : 'Falta de sistema de pedidos propios por WhatsApp y reservas automatizadas sin comisiones');
+                ? 'Sin Carta QR interactiva ni Agente IA que tome pedidos y reservas directos en WhatsApp'
+                : 'Falta de sistema de pedidos propios con Agente IA en WhatsApp sin comisiones');
 
-        painPoints.push('Pérdida de margen por comisiones de plataformas externas o demora tomando pedidos por chat');
-        painPoints.push('Oportunidad de recibir el pedido ya armado y calculado directo en el WhatsApp del local');
+        painPoints.push('Pérdida de ganancia en comisiones de apps o demora respondiendo el WhatsApp en hora pico');
+        painPoints.push('Oportunidad de que un Agente IA tome el pedido o reserva y lo cargue directo en el sistema');
 
-        consultativeHook = `Hola! ¿Cómo estás? Vi a ${name} en Google Maps y noté que ${extPlat === 'pedidosya' ? 'hoy el enlace lleva a una app con comisión' : 'no tienen cargada una Carta Digital interactiva propia para recibir pedidos directos al WhatsApp'}.`;
-        suggestedPitch = `Implementar su propio Sistema de Pedidos con Carta QR y Reservas de NatoH Systems: el cliente elige del menú, calcula el envío y el pedido entra listo al WhatsApp del local con 0% de comisión.`;
-        suggestedOffer = `Sistema Gastronómico QR + Pedidos Directos $350.000 (pago único en 2 cuotas, sin comisiones mensuales).`;
+        consultativeHook = `Hola! ¿Cómo estás? Vi a ${name} en Google Maps y noté que ${extPlat === 'pedidosya' ? 'hoy el enlace lleva a una app que cobra comisión' : 'no tienen cargada una Carta Digital propia con recepción automática de pedidos en WhatsApp'}.`;
+        suggestedPitch = `Armamos tu propia Carta Digital QR + Agentes de IA en WhatsApp: un Agente responde dudas y toma el pedido 24/7, y el segundo lo carga directo en tu pantalla de comandas y clientes con 0% de comisión.`;
+        suggestedOffer = `Sistema de Pedidos QR pago único $350.000 (en 2 pagos) o Plan Mensual con Agentes de IA 24/7 desde $115.000/mes.`;
     }
     // 4. Inmobiliarias, Concesionarias, Institutos, Estudios Profesionales (Agentes IA + CRM + Web)
     else if (/inmobiliar|propiedad|concesionari|automotor|autos|instituto|academia|colegio|capacitacion|abogad|juridic|contabl|contador|arquitect|constructora|seguros|consultor/.test(cat)) {
-        targetService = hasWeb ? 'ia_natoh' : 'web_express';
-        targetServiceLabel = hasWeb
-            ? 'Agente de IA Conversacional 24/7 + CRM de Seguimiento (NatoH Systems)'
-            : 'Portal Web Corporativo + Agente IA Calificador en WhatsApp';
+        targetService = 'ia_natoh';
+        targetServiceLabel = 'Doble Agente de IA (Respondedor 24/7 + Gestor de CRM) + CRM y Web Incluidos';
         primaryPain = hasWeb
-            ? 'Tráfico en Google Maps y web sin un Agente IA que filtre consultas, responda al instante 24/7 y agende entrevistas'
-            : 'En un rubro de alta confianza y ticket alto, no contar con un portal web corporativo propio en Google Maps resta autoridad frente a competidores';
+            ? 'Entran consultas por WhatsApp y la web sin un Agente IA que responda en 10 segundos 24/7 ni un segundo Agente IA que cargue y haga seguimiento en un CRM'
+            : 'Sin página web propia en Google Maps ni Agentes de IA que respondan consultas 24/7 y ordenen el seguimiento de interesados en un CRM';
 
-        painPoints.push('Consultas fuera de horario comercial que se enfrían antes de recibir respuesta');
-        painPoints.push('Falta de pre-calificación automática de prospectos en WhatsApp');
+        painPoints.push('Consultas fuera de horario o fines de semana que se van con otro por no recibir respuesta rápida');
+        painPoints.push('Interesados y presupuestos que quedan sueltos en el chat de WhatsApp sin seguimiento en un CRM');
 
-        consultativeHook = hasWeb
-            ? `Hola! ¿Cómo estás? Estuve viendo la presencia de ${name} en Google Maps y su sitio web. Noté que aún no tienen un Agente con Inteligencia Artificial en WhatsApp que pre-califique consultas y agende reuniones 24/7.`
-            : `Hola! ¿Cómo estás? Vi el perfil de ${name} en Google Maps y noté que hoy no cuentan con un portal web corporativo propio vinculado a la ficha.`;
-        suggestedPitch = `Desarrollar con NatoH Systems su portal corporativo de alta conversión y/o un Agente IA entrenado con la información de su empresa para atender y filtrar clientes 24/7 en WhatsApp.`;
-        suggestedOffer = `Portal Web Corporativo $250.000 o Agente IA WhatsApp 24/7 $180.000 (en 2 pagos sin interés).`;
+        consultativeHook = `Hola! ¿Cómo estás? Vi a ${name} en Google Maps y te hago una consulta rápida: ¿les pasa que entran consultas por WhatsApp fuera de horario o mientras están ocupados y después quedan interesados sin seguimiento?`;
+        suggestedPitch = `Instalamos 2 Empleados con IA para tu negocio: un Agente IA Vendedor que contesta WhatsApp y tu Web en 10 segundos las 24 hs, y un Agente IA Gestor que carga cada interesado en el CRM que te incluimos y hace seguimiento automático.`;
+        suggestedOffer = `Agente IA Respondedor 24/7 por $115.000/mes, o Doble Agente IA + CRM y Web incluidos por $175.000/mes.`;
     }
     // 5. Comercio Minorista / E-Commerce (Indumentaria, Mueblerías, Deco, Electrónica)
     else if (/ropa|indumentaria|calzado|zapateria|muebler|colchon|decoracion| Bazar|electronica|computacion|jugueteria|joyeria|optica|regaleria|vivero|vinoteca/.test(cat)) {
         targetService = 'ecommerce';
-        targetServiceLabel = 'Catálogo E-Commerce + Asistente de Ventas IA en WhatsApp';
+        targetServiceLabel = 'Catálogo Web + Doble Agente IA (Vendedor 24/7 + Gestor de CRM y Pedidos)';
         primaryPain = !hasWeb
             ? (extPlat === 'instagram'
-                ? 'Venden por Instagram pero carecen de una Tienda/Catálogo Web propio en Google Maps con carrito directo a WhatsApp'
-                : 'Sin catálogo online en Google Maps para que los clientes vean productos y compren desde el celular')
-            : 'Tienen tienda/web pero les falta automatizar las consultas de precios y stock por WhatsApp con IA';
+                ? 'Venden por Instagram pero carecen de Catálogo Web propio y de Agentes IA que respondan precios/stock 24/7 y carguen pedidos en un CRM'
+                : 'Sin catálogo online en Google Maps ni Agente IA que responda consultas de precios y anote pedidos 24/7')
+            : 'Tienen web pero les falta el Agente IA que responda precios/stock en WhatsApp 24/7 y el Agente que haga seguimiento en el CRM';
 
-        painPoints.push('Consultas repetitivas por talles, modelos y precios en WhatsApp e Instagram');
-        painPoints.push('Falta de catálogo autogestionable conectado al WhatsApp de ventas');
+        painPoints.push('Horas contestando las mismas preguntas de precios, talles, modelos y stock por WhatsApp');
+        painPoints.push('Clientes que preguntan precio y quedan sin seguimiento por no tener un Agente IA con CRM');
 
-        consultativeHook = `Hola! ¿Cómo estás? Vi el local de ${name} en Google Maps${extPlat === 'instagram' ? ' y su perfil de Instagram' : ''}, y noté que hoy no tienen un catálogo web propio donde el cliente pueda armar su pedido y enviarlo listo a su WhatsApp.`;
-        suggestedPitch = `Crear una Tienda / Catálogo Online autogestionable junto con nuestro Agente IA NatoH que responde precios y stock las 24 hs.`;
-        suggestedOffer = `Catálogo Web / E-Commerce $250.000 o Asistente IA WhatsApp $180.000 (50% al iniciar y 50% al entregar).`;
+        consultativeHook = `Hola! ¿Cómo estás? Estuve viendo a ${name} en Google Maps y te quería consultar: ¿hoy cuando les escriben por WhatsApp preguntando precios o stock llegan a contestar rápido o se les acumulan los mensajes?`;
+        suggestedPitch = `Te armamos tu Catálogo Web + 2 Agentes de IA: el primero contesta precios y muestra productos en WhatsApp las 24 hs, y el segundo guarda al cliente en tu CRM de Ventas y le hace seguimiento si pidió precio y todavía no compró.`;
+        suggestedOffer = `Catálogo Web pago único $250.000 (en 2 pagos), Agente IA Respondedor $115.000/mes o Doble Agente IA + CRM incluido $175.000/mes.`;
     }
     // 6. Caso General (Con o Sin Web)
     else if (!hasWeb) {
         targetService = 'web_express';
-        targetServiceLabel = 'Sitio Web Profesional + Embudo WhatsApp (NatoH Systems)';
+        targetServiceLabel = 'Página Web Profesional + Doble Agente IA con CRM/Turnero Incluido';
         primaryPain = isSocialOnly
-            ? `En Google Maps redirigen a ${extPlat || 'redes sociales'} en vez de contar con un sitio web corporativo propio`
-            : 'Negocio activo en Google Maps pero sin sitio web propio (pierde clientes que buscan validar sus servicios)';
-        painPoints.push('Clientes que buscan en Google Maps no encuentran una web oficial donde ver servicios y contactar rápido');
-        painPoints.push('Dependencia de atención manual sin filtro automático en WhatsApp');
+            ? `En Google Maps solo tienen ${extPlat || 'redes sociales'} sin página web propia ni Agente IA que atienda y ordene clientes en WhatsApp`
+            : 'Negocio activo en Google Maps pero sin página web propia ni sistema que atienda y registre consultas de WhatsApp 24/7';
+        painPoints.push('Clientes que buscan en Google Maps no encuentran una página web donde ver qué ofrecen');
+        painPoints.push('Consultas de WhatsApp atendidas 100% a mano sin un Agente IA ni un CRM de seguimiento');
 
-        consultativeHook = `Hola! ¿Cómo estás? Te contacto porque encontramos a ${name} en Google Maps y vimos que hoy figura sin sitio web oficial propio. ¿Cómo están manejando actualmente las consultas y pedidos por WhatsApp?`;
-        suggestedPitch = `En NatoH Systems & Nexte diseñamos sitios web profesionales rápidos, adaptados a celulares y con embudo directo a WhatsApp o sistema a medida, listos en 7 días.`;
-        suggestedOffer = `Sitio Web Profesional $250.000 (antes $500.000) o Combo Web + Asistente IA 24/7, en 2 pagos.`;
+        consultativeHook = `Hola! ¿Cómo estás? Te escribo porque vimos a ${name} en Google Maps y notamos que hoy figuran sin página web propia. ¿Las consultas, presupuestos o turnos de WhatsApp los están manejando todos a mano?`;
+        suggestedPitch = `En NatoH Systems te armamos tu Página Web Profesional lista en 7 días, y podemos sumarte nuestros 2 Agentes de IA en WhatsApp (uno que responde precios y dudas 24/7 y otro que te anota todo en un CRM o Turnero incluido).`;
+        suggestedOffer = `Página Web Profesional $250.000 pago único (50% y 50%), o Plan Mensual de Web + Agentes de IA + CRM/Turnero incluido desde $115.000 a $175.000/mes.`;
     } else {
         targetService = 'rediseño_web';
-        targetServiceLabel = 'Optimización Web + Agente IA WhatsApp 24/7 (NatoH Systems)';
+        targetServiceLabel = 'Doble Agente IA (Atención 24/7 + Gestor de CRM/Turnero) + Renovación Web';
         const missingItems = [];
-        if (!audit.hasWhatsAppWidget) missingItems.push('botón interactivo de WhatsApp');
-        if (!audit.hasGA4 && !audit.hasMetaPixel) missingItems.push('píxeles de seguimiento (Meta/Google)');
-        if (!audit.ssl) missingItems.push('certificado de seguridad SSL');
+        if (!audit.hasWhatsAppWidget) missingItems.push('conexión directa a WhatsApp');
+        if (!audit.hasBookingSystem) missingItems.push('asistente automático de atención y turnos');
 
-        primaryPain = missingItems.length > 0
-            ? `Tienen web (${audit.cms || 'activa'}), pero detectamos que carece de ${missingItems.join(' y ')}`
-            : `Tienen web activa, con oportunidad de sumar un Agente IA 24/7 o Sistema de Gestión NatoH para automatizar atención`;
+        primaryPain = `Tienen página web activa, pero hoy no cuenta con un Agente de IA que atienda en segundos 24/7 ni un sistema CRM/Turnero que registre y siga a cada cliente automáticamente`;
 
         if (Array.isArray(audit.insights) && audit.insights.length > 0) {
             painPoints.push(...audit.insights.slice(0, 3));
         }
 
-        consultativeHook = missingItems.length > 0
-            ? `Hola, ¿cómo estás? Estuve visitando el sitio web de ${name} desde Google Maps y noté un detalle técnico importante: hoy la página no tiene ${missingItems[0]}, lo que suele hacer que muchas visitas se vayan sin escribirles.`
-            : `Hola, ¿cómo estás? Vi el perfil y la web de ${name} en Google Maps. Te escribo de NatoH Systems porque estamos implementando Agentes de IA en WhatsApp y sistemas a medida para empresas de ${lead.location || 'la zona'} que quieren automatizar su atención 24/7.`;
+        consultativeHook = `Hola! ¿Cómo estás? Entré a la página web de ${name} desde Google Maps y vi que hoy quien los busca no tiene un asistente que le responda en el acto ni conecte con un sistema de seguimiento en WhatsApp. ¿Cómo manejan hoy las consultas que entran?`;
 
-        suggestedPitch = `Optimizar su captación digital e integrar un Agente IA en WhatsApp o sistema a medida que atienda consultas las 24 hs y derive solo clientes listos para comprar.`;
-        suggestedOffer = `Asistente IA WhatsApp 24/7 $180.000 o Renovación Web / Sistema desde $250.000 en 2 pagos.`;
+        suggestedPitch = `Sumar nuestros 2 Agentes de IA en WhatsApp y en tu Web: el primero responde consultas de clientes en 10 segundos las 24 hs, y el segundo carga a cada interesado en tu propio CRM o Agenda de Turnos que te incluimos.`;
+        suggestedOffer = `Agente IA Respondedor 24/7 $115.000/mes, Doble Agente IA + CRM/Turnero y Web incluidos $175.000/mes, o Renovación Web pago único $250.000.`;
     }
 
     const dossier = {
@@ -317,14 +308,14 @@ REGLA CRÍTICA OBLIGATORIA:
 - PROHIBIDO mencionar estrellas (⭐), calificaciones numéricas (ej. "5 ⭐", "3.8 ⭐") o cantidad de reseñas (ej. "sin reseñas", "pocas reseñas") en "primaryPain", "painPoints" o "consultativeHook".
 - PROHIBIDO incluir URLs o dominios (.com, https://) en "consultativeHook" o "suggestedPitch".
 
-CATÁLOGO DE SOLUCIONES NATOH SYSTEMS (Elegí la que genere mayor ROI para este negocio):
-1. "software_custom_erp": Sistema de Gestión a Medida (ERP, Stock, Pedidos Mayoristas, Cotizador, Logística, CRM) — Promo $350.000 (ideal distribuidoras, corralones, fábricas, logística, mayoristas, empresas con operación compleja).
-2. "software_turnero": Sistema de Turnos Online, Agenda Profesional y Recordatorios por WhatsApp — Promo $350.000 (ideal clínicas, odontólogos, estética, veterinarias, talleres, gimnasios, hoteles).
-3. "gastronomia_pedidos": Carta Digital QR + Sistema de Pedidos Directos por WhatsApp con 0% comisión — Promo $350.000 (ideal restaurantes, bares, cafeterías, heladerías).
-4. "ia_natoh": Agente de IA Conversacional 24/7 en WhatsApp (responde dudas, cotiza, califica leads y agenda reuniones) — Promo $180.000 (ideal inmobiliarias, concesionarias, institutos o negocios que ya tienen buena web pero tardan en contestar).
-5. "ecommerce": Tienda Online / Catálogo E-Commerce con carrito a WhatsApp — Promo $250.000 (ideal indumentaria, mueblerías, deco, comercios de productos).
-6. "web_express": Sitio Web Corporativo de Alta Conversión (cuando NO tienen web o solo tienen Instagram/Linktree) — Promo $250.000.
-7. "rediseño_web": Modernización Web + Botón WhatsApp + Píxeles de Conversión — Promo $250.000.
+CATÁLOGO DE SOLUCIONES NATOH SYSTEMS (Elegí la que genere mayor resultado para el dueño del negocio, usando lenguaje claro de dueño y CERO tecnicismos):
+1. "software_custom_erp": 2 Agentes de IA (uno que responde consultas 24/7 + otro que carga pedidos y sigue presupuestos) + Sistema de Gestión / CRM / Stock incluido — Plan mensual $175.000/mes o Sistema a medida pago único $350.000 (ideal distribuidoras, mayoristas, corralones, fábricas, logística).
+2. "software_turnero": 2 Agentes de IA (uno que atiende dudas 24/7 + otro que anota el turno y envía recordatorios) + Agenda de Turnos y CRM incluido — Plan mensual $175.000/mes o Turnero pago único $350.000 (ideal clínicas, odontólogos, estética, veterinarias, talleres, gimnasios, hoteles).
+3. "gastronomia_pedidos": Carta Digital QR + Agentes de IA en WhatsApp que toman pedidos y reservas con 0% comisión — Pago único $350.000 o Plan mensual con IA desde $115.000/mes (ideal restaurantes, bares, cafeterías, heladerías).
+4. "ia_natoh": 2 Agentes de IA en WhatsApp y Web (el Agente Respondedor 24/7 en <15s + el Agente Gestor que carga y persigue presupuestos en el CRM que incluimos) — $115.000/mes (Solo Respondedor) o $175.000/mes (Doble Agente + CRM/Turnero y Web incluidos).
+5. "ecommerce": Catálogo / Tienda Online + 2 Agentes de IA en WhatsApp que responden precios/stock 24/7 y anotan pedidos en el CRM — Web pago único $250.000 o Plan mensual con Agentes IA y CRM $175.000/mes.
+6. "web_express": Página Web Profesional llave en mano ($250.000 pago único sin abono) + opción de sumar Agentes de IA y CRM/Turnero mensual ($115.000 a $175.000/mes).
+7. "rediseño_web": Renovación de Página Web ($250.000) + Doble Agente de IA en WhatsApp y CRM/Turnero incluido ($175.000/mes).
 
 Devolvé ÚNICAMENTE un JSON válido con esta estructura exacta:
 {
