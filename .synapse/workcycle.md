@@ -5,6 +5,14 @@
 - **Status:** ✅ COMPLETED, SYNCHRONIZED & DEPLOYED TO VPS
 - **Git Info:** master
 
+### 66. Corrección Completa UX/UI Desktop & Móvil + Bugs Críticos de Navegación en `/demos` (`ERR-27`, `ERR-28`)
+- **Causa/Requerimiento:** Auditoría real en desktop (`1440×900`) y móvil (`390×844`) detectó bloqueo del selector de rubros cuando había `?rubro=` en URL, ruptura global de `position: sticky` por `overflow-x-hidden`, desnivel de columnas en `Tu Web + Chat`, pill huérfano en escritorio, vista vacía sin guía en Tab 2 de CRM y contraste desigual en sliders ROI.
+- **Implementación Técnica Realizada (`/srv/natohsystems` en VPS):**
+  1. **Bug URL-Lock en `DemoUrlSync` (`app/demos/page.tsx`)**: Referencia estable vía `onParamsRef = useRef(onParams)` con `[r, n]`, permitiendo cambiar libremente entre los 8 rubros aun entrando por `?rubro=odontologia&negocio=...`.
+  2. **Sticky Pinning Global (`app/layout.tsx` & `app/globals.css`)**: Reemplazado `overflow-x-hidden` → `overflow-x-clip` (`overflow-x: clip`), restaurando `Navbar` (`sticky top-0`) y el switcher móvil (`sticky top-16`, fijado en `y = 64px` comprobado).
+  3. **Pulido Desktop y Móvil (`app/demos/page.tsx` + `globals.css`)**: Grilla simétrica `4×2` (`sm:grid-cols-4`), cabecera del chat en 1 sola línea en móvil, botones activos reales en `Web + Chat` + normalización de tildes en URL mockup, estado vacío informativo en Pestaña 2 CRM, títulos Kanban sin huérfanos, `demo-dark-scroll`, `whitespace-nowrap shrink-0` en Gastronomía, feedback de micrófono/grabación + `toastTimerRef`, e igualación visual de `.roi-slider` + badge ROI en 1 línea.
+- **Verificación Visual Real (`1440×900` + `390×844`):** Compilado en VPS (`npm run build` + `pm2 restart natohsystems`) y verificado con capturas [final_step_89.png](file:///C:/Users/Try%20Hard/.gemini/antigravity/brain/e5927738-8113-4797-99f7-08d76501456f/browser_evidence/fdb59ab2-c377-46da-b0bb-8feba16a3949/final_step_89.png) y [final_step_108.png](file:///C:/Users/Try%20Hard/.gemini/antigravity/brain/e5927738-8113-4797-99f7-08d76501456f/browser_evidence/fdb59ab2-c377-46da-b0bb-8feba16a3949/final_step_108.png).
+
 ### 65. Optimización Móvil 390×844 y Guía Visual de 3 Pasos en `/demos` (`/srv/natohsystems`)
 - **Causa/Requerimiento:** En celulares (`390×844`), las burbujas flotantes (`NatoHFloat` + toast y `WhatsAppFloat`) tapaban la tabla de precios de la calculadora ROI, el formulario `?negocio=` abierto empujaba el chat fuera de la primera pantalla (`y = 978px`) y faltaba una guía rápida arriba + cambio simple entre Chat IA y Sistema sin scroll anidado.
 - **Implementación Técnica Realizada (`/srv/natohsystems` en VPS):**

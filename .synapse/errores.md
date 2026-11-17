@@ -486,3 +486,20 @@ El usuario reporta que hoy no se enviaron mensajes. Al revisar `npx pm2 list` de
 2. Agregado un **Auto-Start Watchdog** en `server/index.js` que 10 segundos después de iniciar `nexte-backend` verifica si existe `bot/sessions/session-bot_1` y si `bot_1` no está conectado a Socket.IO, levantando automáticamente `nexte-bot1` en PM2.
 3. Mejorado `ProfileManager` para limpiar también `DevToolsActivePort` y procesos huérfanos de `session-${instanceId}`.
 **Estado:** ✅ FIXED
+
+
+---
+
+## ERR-27: `?rubro=...&negocio=...` bloqueaba el cambio de rubro en `/demos` por `useEffect` sobre callback inestable (2026-11-17)
+**Síntoma:** Al ingresar a `natohsystems.com/demos?rubro=odontologia&negocio=ONE%20Smile`, hacer clic en otro rubro (*CRM Presupuestos*, *Carta QR*, etc.) devolvía instantáneamente la vista a `odontologia`.
+**Root Cause:** `DemoUrlSync` tenía `[r, n, onParams]` como dependencias de `useEffect`, pero `handleUrlParams` (`onParams`) se recreaba en cada render de `DemosInteractiveContent`. Cualquier `setActiveRubro` disparaba re-render -> recreaba `onParams` -> re-ejecutaba el `useEffect` reseteando el rubro al de la URL.
+**Solución:** Guardar `onParams` en `useRef` dentro de `DemoUrlSync` y depender únicamente de `[r, n]`.
+**Estado:** ✅ FIXED
+
+---
+
+## ERR-28: `overflow-x-hidden` en `html` y `body` anulaba `position: sticky` en todo `natohsystems.com` (2026-11-17)
+**Síntoma:** Tanto el `Navbar` (`sticky top-0`) como la barra móvil de `/demos` (`sticky top-16`) se desplazaban 1:1 fuera de pantalla al scrollear hacia abajo.
+**Root Cause:** `app/layout.tsx` (`html` y `body` con `overflow-x-hidden`) y `app/globals.css` (`overflow-x: hidden`) fuerzan en CSS que `overflow-y` compute a `auto`, rompiendo todo descendiente `position: sticky`.
+**Solución:** Reemplazar `overflow-x-hidden` / `overflow-x: hidden` por `overflow-x-clip` / `overflow-x: clip` en ambos archivos.
+**Estado:** ✅ FIXED
