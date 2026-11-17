@@ -5,6 +5,17 @@
 - **Status:** ✅ COMPLETED, SYNCHRONIZED & DEPLOYED TO VPS
 - **Git Info:** master
 
+### 65. Optimización Móvil 390×844 y Guía Visual de 3 Pasos en `/demos` (`/srv/natohsystems`)
+- **Causa/Requerimiento:** En celulares (`390×844`), las burbujas flotantes (`NatoHFloat` + toast y `WhatsAppFloat`) tapaban la tabla de precios de la calculadora ROI, el formulario `?negocio=` abierto empujaba el chat fuera de la primera pantalla (`y = 978px`) y faltaba una guía rápida arriba + cambio simple entre Chat IA y Sistema sin scroll anidado.
+- **Implementación Técnica Realizada (`/srv/natohsystems` en VPS):**
+  1. **`components/natoh-float.tsx` y `components/whatsapp-float.tsx`**: Ocultados automáticamente cuando `pathname?.startsWith("/demos")` para evitar superposiciones sobre la demo interactiva y precios móviles.
+  2. **`app/demos/page.tsx`**:
+     - **Guía visual rápida en 3 pasos** arriba del selector (*1. Elegí rubro / o tus precios · 2. Probá el Chat / texto, audio o seña · 3. Mirá Sistema / se actualiza solo*).
+     - **Selector de 8 rubros en grilla 2×4 (`grid-cols-2`)** en móviles sin ícono SVG duplicado, y barra `✨ {negocio} · Editar precios` + `Copiar` en una sola fila con formulario colapsado por defecto.
+     - **Switcher móvil `1. Chat WhatsApp` / `📊 2. Sistema` (`lg:hidden`)** con badge pulsante `¡Nuevo!`, banner `⚡ Sistema actualizado ... Ver →` dentro del chat y cambio automático entre paneles al interactuar desde cualquiera de los dos lados.
+     - Eliminado el scroll interno anidado en móvil (`lg:max-h-[440px] lg:overflow-y-auto`), textos neutralizados (sin `"izquierda/derecha"`), botones táctiles ampliados (`min-h-[40-44px]`) y espaciado corregido en sliders y valores oficiales ROI (`whitespace-nowrap shrink-0` + `gap-3`).
+- **Verificación Visual Real (`390×844` vía Playwright):** Compilado en VPS (`npm run build` + `pm2 restart natohsystems`) y validado con capturas (`final_step_42.png` y `final_step_53.png`): 0 overflow horizontal (`374.67px`), 0 overlays superpuestos y actualización en vivo de turno `Jue 17:00 hs` (`🤖 Reservado por IA`).
+
 ### 64. Sala de Demos Interactivas en Vivo (`natohsystems.com/demos`) con OpenAI Real, Whisper, Vision y Copiloto Personalizado (`D-49`)
 - **Causa/Requerimiento:** Prospectos que respondían `"Sí"` pidiendo ver un ejemplo real (como *ONE Smile Odontología Trifiro*) necesitaban poder probar en vivo los 2 Agentes de IA + el Sistema (Turnero / CRM / Stock / Carta QR) con Inteligencia Artificial real y adaptado a su propio negocio.
 - **Implementación Técnica Realizada (`/srv/natohsystems` + `rascafull`):**
