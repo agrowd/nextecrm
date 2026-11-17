@@ -5,6 +5,14 @@
 - **Status:** ✅ COMPLETED, SYNCHRONIZED & DEPLOYED TO VPS
 - **Git Info:** master
 
+### 68. Auditoría y Optimización Integral de Subpáginas (`/servicios`, `/casos-de-exito`, `/plataforma`, `/productos/*`, `404`, `AuditExpress`)
+- **Causa/Requerimiento:** Solicitud del usuario: *"busca mas cosas que mejorar y hacelo"*. El escaneo completo del sitio detectó que las subpáginas carecían de `metadata`/`canonical` propias y de etiqueta `<main>`, `app/not-found.tsx` seguía mostrando *"Nexte Marketing"* con fondo blanco, `/servicios` y `/plataforma` tenían precios viejos (`$95.000/mes`), `/productos/nexteweb` tenía `$390.000`, `AuditExpress` no enlazaba a `/demos` con el nombre auditado y persistía jerga técnica (`Next.js`, `React`, `PageSpeed`, `Docker`, `PostgreSQL`, `TipTap`, `ERP`) en `data/success-cases.ts`, `components/success-cases.tsx` y `/productos/ejemplos/*`.
+- **Implementación Técnica Realizada (20 archivos en `/srv/natohsystems`):**
+  1. **Layouts SEO + Canonical por Ruta:** Creados `layout.tsx` con `title`, `description`, `openGraph` y `alternates.canonical` propios para `/servicios`, `/casos-de-exito`, `/plataforma`, `/productos/nexteweb`, `/productos/ejemplos` y `/productos/natoh`, más `<main>` semántico en todas las vistas.
+  2. **Rediseño Dark 404 (`app/not-found.tsx`) y Manifests (`app/manifest.ts`, `public/manifest.json`, `components/footer.tsx`):** Eliminada la referencia a *"Nexte Marketing"* y fondo blanco en `404`, incorporando tema `#0D0D0D`, `Navbar`, `Footer` y acceso directo a `/demos`.
+  3. **Embudo Personalizado en `AuditExpress` (`components/audit-express.tsx`):** Al auditar una web en `/`, ahora aparece el botón **`Probar Demo IA con mi Negocio`** que abre `/demos?negocio=...` pre-cargado con el nombre detectado.
+  4. **Unificación de Precios 2026, Cero Jerga Técnica y Enlaces a `/demos` en Todo el Sitio:** Corregidos `$95.000` → `$115.000 / $175.000` en `/servicios` y `/plataforma`, `$390.000` → `$350.000` en `/productos/nexteweb`, `$350.000` en Pila 3 de `/plataforma`, y eliminadas todas las menciones a `Next.js`, `PageSpeed`, `Docker`, `PostgreSQL`, `Tailwind`, `Vite + React`, `TipTap` y `ERP` en `data/success-cases.ts`, `components/success-cases.tsx` y `/productos/*`.
+
 ### 67. Upgrade Integral UI/UX/SEO del Inicio (`/`) e Integración Total con `/demos` (`D-50`)
 - **Causa/Requerimiento:** Auditoría de `natohsystems.com/` mostró que `/demos` heredaba `<link rel="canonical" href="https://natohsystems.com/">` del root layout, faltaba en `sitemap.ts`/`robots.txt`, el inicio solo tenía 2 enlaces a `/demos` arriba (ninguno en rubros/planes/footer), el botón `☰` móvil tenía bajo contraste y los widgets flotantes tapaban las tarjetas del Hero y la grilla de precios.
 - **Implementación Técnica Realizada (`/srv/natohsystems` en VPS):**
