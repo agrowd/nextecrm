@@ -20,14 +20,32 @@ PLANES Y PRECIOS OFICIALES NATOH SYSTEMS (https://natohsystems.com) - IDIOMA DUE
 3. 🌐 PÁGINA WEB PROFESIONAL (PAGO ÚNICO SIN ABONO MENSUAL): $250.000 pago único (50% al iniciar y 50% al entregar lista en 5 a 7 días).
 4. ⚙️ SISTEMA DE GESTIÓN / STOCK / PEDIDOS / TURNERO A MEDIDA (PAGO ÚNICO): $350.000 pago único (50% al iniciar y 50% contra entrega funcionando).
 
-LINKS DE DEMOS INTERACTIVAS EN VIVO (CON CHATGPT REAL + SISTEMA EN VIVO):
+LINKS DE DEMOS INTERACTIVAS EN VIVO (PERSONALIZABLES CON &negocio=Nombre):
 - Sala general de Demos: https://natohsystems.com/demos
-- Consultorios / Odontología / Estética (Turnero + CRM): https://natohsystems.com/demos?rubro=odontologia
-- Mayoristas / Distribuidoras (Pedidos + Stock + CRM): https://natohsystems.com/demos?rubro=mayorista
-- Gastronomía / Restaurantes (Carta QR + Comandas): https://natohsystems.com/demos?rubro=gastronomia
-- Tiendas / Comercios (Catálogo + CRM): https://natohsystems.com/demos?rubro=ecommerce
-- Empresas / Inmobiliarias / Servicios (Tablero CRM): https://natohsystems.com/demos?rubro=crm
+- Odontología / Salud (Turnero + CRM): https://natohsystems.com/demos?rubro=odontologia
+- Estética / Depilación / Peluquería (Turnero + Señas): https://natohsystems.com/demos?rubro=estetica
+- Taller / Lubricentro / Canchas (Boxes + Señas): https://natohsystems.com/demos?rubro=taller
+- Mayoristas / Distribuidoras (Stock en vivo + Pedidos + CRM): https://natohsystems.com/demos?rubro=mayorista
+- Gastronomía / Restaurantes (Carta QR + Comandas $0 comisión): https://natohsystems.com/demos?rubro=gastronomia
+- Tiendas / Comercios (Catálogo + Stock + CRM): https://natohsystems.com/demos?rubro=ecommerce
+- Inmobiliarias / Concesionarias (Agenda visitas + CRM): https://natohsystems.com/demos?rubro=inmobiliaria
+- Empresas / Servicios (Tablero Kanban CRM + Seguimiento 24h): https://natohsystems.com/demos?rubro=crm
 `;
+
+function buildPersonalizedDemoUrl(lead) {
+    const cat = `${lead?.category || ''} ${lead?.keyword || ''} ${lead?.name || ''}`.toLowerCase();
+    let rubroKey = 'odontologia';
+    if (/estetic|depil|peluquer|barber|spa/.test(cat)) rubroKey = 'estetica';
+    else if (/odont|dent|clinic|medic|salud|kinesi|psicol|veterin/.test(cat)) rubroKey = 'odontologia';
+    else if (/taller|lubricent|mecan|cancha|futbol|padel|gimnasio/.test(cat)) rubroKey = 'taller';
+    else if (/mayor|distrib|corralon|ferreter|fabric|logist/.test(cat)) rubroKey = 'mayorista';
+    else if (/restaur|bar|cafe|pizz|hamburg|gastro|panad|helad/.test(cat)) rubroKey = 'gastronomia';
+    else if (/ropa|indument|zapater|muebler|tienda|comercio|optica/.test(cat)) rubroKey = 'ecommerce';
+    else if (/inmobiliar|propiedad|concesionar|auto/.test(cat)) rubroKey = 'inmobiliaria';
+    else if (/construct|estudio|contab|abogad|empres|consult/.test(cat)) rubroKey = 'crm';
+    const negocioParam = lead?.name ? `&negocio=${encodeURIComponent(lead.name)}` : '';
+    return `https://natohsystems.com/demos?rubro=${rubroKey}${negocioParam}`;
+}
 
 class CloserCopilot {
     buildHeuristicSuggestion(lead, messages = []) {
@@ -60,20 +78,14 @@ class CloserCopilot {
         }
 
         if (/^(si|sí|dale|bueno|ok|claro|pasame|mandame|de una)\b|como funciona|info|mas informacion|contame|explica|ver|ejemplo|demo|muestra|web|sistema/i.test(text)) {
-            const cat = `${lead?.category || ''} ${lead?.keyword || ''} ${lead?.name || ''}`.toLowerCase();
-            let demoUrl = 'https://natohsystems.com/demos';
-            if (/odont|dent|clinic|medic|salud|estetic|peluquer|veterin|taller|gimnasio/.test(cat)) demoUrl = 'https://natohsystems.com/demos?rubro=odontologia';
-            else if (/mayor|distrib|corralon|ferreter|fabric|logist/.test(cat)) demoUrl = 'https://natohsystems.com/demos?rubro=mayorista';
-            else if (/restaur|bar|cafe|pizz|hamburg|gastro/.test(cat)) demoUrl = 'https://natohsystems.com/demos?rubro=gastronomia';
-            else if (/ropa|indument|zapater|muebler|tienda|comercio/.test(cat)) demoUrl = 'https://natohsystems.com/demos?rubro=ecommerce';
-            else if (/inmobiliar|concesionar|construct|estudio|empresa/.test(cat)) demoUrl = 'https://natohsystems.com/demos?rubro=crm';
+            const demoUrl = buildPersonalizedDemoUrl(lead);
 
             return {
                 stage: 'interes_demo',
                 stageLabel: '🔥 Interés Activo / Pide Ver la Demo',
                 detectedObjection: 'Aceptó ver el ejemplo de cómo responde el Agente IA y cómo se carga en el sistema',
-                coachingTip: 'Enviale el link directo a la Sala de Demos Interactiva de su rubro para que pruebe en 1 clic cómo contesta la IA y cómo se actualiza el sistema.',
-                suggestedReply: `¡Genial! Mirá, te armé este enlace directo donde podés probarlo vos mismo desde el celu o la compu sin instalar nada:\n👉 ${demoUrl}\n\nAhí a la izquierda podés escribirle al *Agente IA #1* como si fueras un cliente/paciente (o tocar las preguntas rápidas), y a la derecha vas a ver en vivo cómo el *Agente IA #2* anota el turno y la ficha en el sistema automáticamente. Probalo y decime qué te parece!`,
+                coachingTip: 'Enviale el link personalizado con el nombre de su negocio a la Sala de Demos Interactiva para que lo pruebe en vivo.',
+                suggestedReply: `¡Genial! Mirá, te armé este enlace directo personalizado para *${name}* donde podés probarlo vos mismo desde el celu sin instalar nada:\n👉 ${demoUrl}\n\nAhí a la izquierda podés escribirle al *Agente IA #1* (o mandar audio/comprobante), y a la derecha vas a ver en vivo cómo el *Agente IA #2* actualiza todo en el sistema. ¡Probalo y decime qué te parece!`,
                 confidence: 0.96
             };
         }

@@ -5,6 +5,19 @@
 - **Status:** ✅ COMPLETED, SYNCHRONIZED & DEPLOYED TO VPS
 - **Git Info:** master
 
+### 64. Sala de Demos Interactivas en Vivo (`natohsystems.com/demos`) con OpenAI Real, Whisper, Vision y Copiloto Personalizado (`D-49`)
+- **Causa/Requerimiento:** Prospectos que respondían `"Sí"` pidiendo ver un ejemplo real (como *ONE Smile Odontología Trifiro*) necesitaban poder probar en vivo los 2 Agentes de IA + el Sistema (Turnero / CRM / Stock / Carta QR) con Inteligencia Artificial real y adaptado a su propio negocio.
+- **Implementación Técnica Realizada (`/srv/natohsystems` + `rascafull`):**
+  1. **Motor Backend de Demos en Vivo (`app/api/demos/chat/route.ts` y `app/api/demos/transcribe/route.ts`)**:
+     - Conectado a OpenAI real (`gpt-4o-mini` con soporte multimodal Vision para leer capturas de comprobantes de transferencia bancaria/Mercado Pago + `whisper-1` para notas de voz en WhatsApp).
+     - Consciente del estado en vivo (`freeSlots`, `takenSlots`, `stock`): evita doble reserva en horarios ocupados, descuenta stock real al tomar pedidos y devuelve `agent2Action` + `ownerAlert`.
+  2. **Interfaz Dual Ultra-Vendible (`app/demos/page.tsx`)**:
+     - **8 Presets por Rubro:** `odontologia`, `estetica`, `taller`, `mayorista`, `gastronomia`, `ecommerce`, `inmobiliaria`, `crm`, además de personalización instantánea por URL (`?rubro=...&negocio=...`) o barra **"Efecto Espejo"** (nombre y precios reales del cliente).
+     - **Vistas Específicas del Sistema (Columna Derecha):** Grilla horaria real para Turneros, Stock + Remitos en vivo para Mayoristas/Tiendas, Tablero Kanban de 3 columnas + botón `"Simular 24 hs"` para CRM, y Comandas + Comparador de Ahorro vs apps de delivery para Gastronomía.
+     - **Experiencia WhatsApp + Web + Control Humano:** Switch `WhatsApp IA` vs `Tu Web + Chat`, botón `Pausar IA / Modo Humano`, envío/simulación de comprobante de seña, grabación de audio, recordatorios bidireccionales y calculadora de retorno.
+  3. **Alineación Total del Sitio (`natoh-float.tsx`, `api/natoh/chat/route.ts`, `casos-de-exito/page.tsx`, `success-cases.tsx`) & Copiloto (`closerCopilot.js`)**:
+     - Se eliminaron precios viejos y jerga técnica del chat flotante y casos de éxito, enlazando directo a `/demos`. `closerCopilot.js` genera links con `&negocio=` automáticamente.
+
 ### 63. Rediseño Comercial de `natohsystems.com` y Mensajes WhatsApp: Doble Agente IA + CRM/Turnero Incluido en Idioma Dueño (`D-48`)
 - **Causa/Requerimiento:** Solicitud del usuario: *"analiza el sitio web de https://natohsystems.com , hay que agregar y ofrecer el servicio mensual de agente de ia que responda y otro que gestione un crm que tambien se le ofrece, o turnero o lo que sea que necesite el servicio. Pasar todo a idioma del publico objetivo . Pensaaaaa"* y *"me parece bien, aplicalo tambien en el envio de los mensajes"*.
 - **Implementación Técnica Realizada:**
