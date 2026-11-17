@@ -5,6 +5,21 @@
 - **Status:** ✅ COMPLETED, SYNCHRONIZED & DEPLOYED TO VPS
 - **Git Info:** master
 
+### 67. Upgrade Integral UI/UX/SEO del Inicio (`/`) e Integración Total con `/demos` (`D-50`)
+- **Causa/Requerimiento:** Auditoría de `natohsystems.com/` mostró que `/demos` heredaba `<link rel="canonical" href="https://natohsystems.com/">` del root layout, faltaba en `sitemap.ts`/`robots.txt`, el inicio solo tenía 2 enlaces a `/demos` arriba (ninguno en rubros/planes/footer), el botón `☰` móvil tenía bajo contraste y los widgets flotantes tapaban las tarjetas del Hero y la grilla de precios.
+- **Implementación Técnica Realizada (`/srv/natohsystems` en VPS):**
+  1. **SEO Técnico & Schemas (`app/layout.tsx`, `app/page.tsx`, `app/demos/layout.tsx`, `app/sitemap.ts`, `public/robots.txt`)**:
+     - Eliminado `alternates.canonical` global de `layout.tsx` y movido por ruta (`/` en `app/page.tsx` y `/demos` en `app/demos/layout.tsx`).
+     - Actualizados `<title>`, `<meta description>` (<155 chars), `OfferCatalog` JSON-LD con los **4 planes** (`$115k`, `$175k`, `$250k`, `$350k`) sin jerga técnica (`Next.js`), más `SoftwareApplication` en `/demos` y `FAQPage` (5 preguntas reales) en `/`.
+     - Añadido `/demos` a `sitemap.ts` (prioridad `0.95`) y `Allow: /demos` en `robots.txt`.
+  2. **Integración Total de `/demos` en `/` (`app/home-client.tsx`, `components/nexte-ia-showcase.tsx`, `components/footer.tsx`)**:
+     - Escalado a **23 enlaces** directos hacia `/demos` desde `/` (Hero, `NexteIaShowcase` CTA + 4 chips de rubros + enlace inferior, Planes `$115k`/`$175k`, las **8 tarjetas clickeables de rubros** hacia `?rubro=...`, tarjeta puente `DemoAndWebBridgeCard` y `Footer` sin *"En Construcción"*).
+     - Añadido `<main>`, corregida jerarquía `h1 -> h2 -> h3` en `#diagnostico-web` y `ProjectsTicker`, y eliminados los `<img>` vacíos en las ondas decorativas del Hero.
+  3. **UI/UX Móvil y Flotantes (`components/navbar.tsx`, `components/natoh-float.tsx`, `components/whatsapp-float.tsx`)**:
+     - Botón hamburguesa móvil con alto contraste (`min-w-[44px] min-h-[44px] bg-white/10 border-purple-500/40 text-white`).
+     - Widgets flotantes ocultos en Hero (`scrollY <= 420`) y coordinados con evento `whatsapp_float_state` para nunca colisionar entre sí.
+- **Verificación Visual & SSR (`1440×900` y `390×844`):** `next build` (0 errores, 41 rutas), verificación SSR SEO (`/`, `/demos`, `sitemap.xml`, `robots.txt`) y capturas reales post-deploy confirmando `final_step_160.png` (Hero móvil limpio sin flotantes ni desbordes) + ajuste final sin backticks en `home-client.tsx`.
+
 ### 66. Corrección Completa UX/UI Desktop & Móvil + Bugs Críticos de Navegación en `/demos` (`ERR-27`, `ERR-28`)
 - **Causa/Requerimiento:** Auditoría real en desktop (`1440×900`) y móvil (`390×844`) detectó bloqueo del selector de rubros cuando había `?rubro=` en URL, ruptura global de `position: sticky` por `overflow-x-hidden`, desnivel de columnas en `Tu Web + Chat`, pill huérfano en escritorio, vista vacía sin guía en Tab 2 de CRM y contraste desigual en sliders ROI.
 - **Implementación Técnica Realizada (`/srv/natohsystems` en VPS):**
