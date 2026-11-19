@@ -1003,3 +1003,6 @@ docker compose logs -f
   2. **Cuota de MongoDB Atlas Llena al 100% (`512 MB / 512 MB` - `ERR-30`, `D-51`):**
      - Purgada la colección `logs` (`494.443` documentos, `435,41 MB`), reduciendo el uso total del cluster a **`25,20 MB`** y restableciendo todas las escrituras de leads y mensajes.
      - Desactivada la inserción en MongoDB de cada `console.log` interceptado (`safeLog` y `bot_log`) y añadido índice TTL de 24h (`expires: 86400`) en `server/models/Log.js`.
+  3. **Aislamiento de Secuencia Activa ante Mensajes Entrantes de Otros Contactos (`isCurrentProcessingLead`):**
+     - En `handleIncomingMessage` (`bot/index.js` y `bot_1..4`), si un contacto anterior o con etiqueta activa (ej. `VENTA`) enviaba un mensaje mientras el bot estaba en medio de una secuencia de 4 mensajes hacia un lead nuevo, `this.abortCurrentSequence = true` se activaba globalmente y cortaba la secuencia del lead actual en el Mensaje 1/4.
+     - Ahora `this.abortCurrentSequence` y `this.currentlyProcessingLead.stopSending` solo se activan cuando `isCurrentProcessingLead === true` (el remitente coincide con el lead que está recibiendo la secuencia en ese momento).

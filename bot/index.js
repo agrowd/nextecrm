@@ -2378,19 +2378,15 @@ class WhatsAppBot {
       let contactNumber = message.from;
       const messageBody = message.body;
 
-      // Resolver @lid (WhatsApp Business ID) al número real antes de filtrar
+      // Resolver @lid (WhatsApp Business ID) al número real antes de filtrar (sin asumir que es el lead actual)
       if (contactNumber.includes('@lid')) {
         try {
           const contact = await message.getContact().catch(() => null);
           if (contact && contact.number) {
             contactNumber = `${contact.number.replace(/\D/g, '')}@c.us`;
-          } else if (this.currentlyProcessingLead && this.currentlyProcessingLead.phone) {
-            contactNumber = `${this.currentlyProcessingLead.phone.replace(/\D/g, '')}@c.us`;
           }
         } catch (e) {
-          if (this.currentlyProcessingLead && this.currentlyProcessingLead.phone) {
-            contactNumber = `${this.currentlyProcessingLead.phone.replace(/\D/g, '')}@c.us`;
-          }
+          // Si falla getContact, /lead/is-campaign-lead resolverá el @lid contra el historial de mensajes en BD
         }
       }
 
@@ -2499,12 +2495,15 @@ class WhatsAppBot {
       // 🛡️ REGLA FUNDAMENTAL DE SEGURIDAD: VERIFICAR SI EL NÚMERO PERTENECE A UN LEAD CONTACTADO POR LA CAMPAÑA
       const cleanIncomingPhone = cleanContactPhone;
       let isCampaignLead = false;
+      let isCurrentProcessingLead = false;
 
       // 1. Verificar si es el lead actualmente en procesamiento in-memory
       if (this.currentlyProcessingLead) {
         const currentPhone = this.currentlyProcessingLead.phone.replace(/\D/g, '');
-        if (cleanIncomingPhone === currentPhone || cleanIncomingPhone.endsWith(currentPhone.slice(-8)) || currentPhone.endsWith(cleanIncomingPhone.slice(-8))) {
+        if (cleanIncomingPhone.length >= 8 && currentPhone.length >= 8 &&
+            (cleanIncomingPhone === currentPhone || cleanIncomingPhone.endsWith(currentPhone.slice(-8)) || currentPhone.endsWith(cleanIncomingPhone.slice(-8)))) {
           isCampaignLead = true;
+          isCurrentProcessingLead = true;
         }
       }
 
@@ -2518,6 +2517,14 @@ class WhatsAppBot {
             isCampaignLead = true;
             if (checkRes.data.resolvedPhone) {
               contactNumber = `${checkRes.data.resolvedPhone}@c.us`;
+              if (this.currentlyProcessingLead) {
+                const currentPhone = this.currentlyProcessingLead.phone.replace(/\D/g, '');
+                const resolvedClean = String(checkRes.data.resolvedPhone).replace(/\D/g, '');
+                if (resolvedClean.length >= 8 && currentPhone.length >= 8 &&
+                    (resolvedClean === currentPhone || resolvedClean.endsWith(currentPhone.slice(-8)) || currentPhone.endsWith(resolvedClean.slice(-8)))) {
+                  isCurrentProcessingLead = true;
+                }
+              }
             }
           }
         } catch (err) {
@@ -2559,10 +2566,12 @@ class WhatsAppBot {
       }
 
       // B) Comprobar estado en CRM (MongoDB)
+      let incomingLeadFromDb = null;
       try {
         const leadDbCheck = await axios.get(`${this.backendUrl}/lead/by-phone/${encodeURIComponent(contactNumber)}`).catch(() => null);
         if (leadDbCheck && leadDbCheck.data && leadDbCheck.data.lead) {
           const leadData = leadDbCheck.data.lead;
+          incomingLeadFromDb = leadData;
           if (leadData.botPaused === true) {
             isLabeledOrPaused = true;
             labelReason = 'IA pausada manualmente desde el CRM';
@@ -2584,10 +2593,12 @@ class WhatsAppBot {
       // 🛑 SI ESTÁ ETIQUETADO O PAUSADO -> NO RESPONDER CON IA
       if (isLabeledOrPaused) {
         console.log(`🏷️ [IGNORADO POR ETIQUETA / PAUSA] Contacto ${contactNumber} tiene regla activa: "${labelReason}". La IA NO responderá automáticamente.`);
-        // Si hay una secuencia de prospección en frío en curso, abortarla para no molestar
-        this.abortCurrentSequence = true;
-        if (this.currentlyProcessingLead) {
-          this.currentlyProcessingLead.stopSending = true;
+        // SOLO abortar la secuencia en curso si el contacto etiquetado ES el mismo lead que estamos procesando ahora
+        if (isCurrentProcessingLead) {
+          this.abortCurrentSequence = true;
+          if (this.currentlyProcessingLead) {
+            this.currentlyProcessingLead.stopSending = true;
+          }
         }
         return;
       }
@@ -2648,17 +2659,20 @@ class WhatsAppBot {
       }
 
       // ✅ ANALIZAR RESPUESTA CON IA CONSOLIDADA (Gemini/OpenAI)
-      const leadName = this.currentlyProcessingLead?.lead?.name || 'Cliente';
-      const leadCategory = this.currentlyProcessingLead?.lead?.category || 'General';
+      const activeLeadObj = (isCurrentProcessingLead ? this.currentlyProcessingLead?.lead : null) || incomingLeadFromDb;
+      const leadName = activeLeadObj?.name || 'Cliente';
+      const leadCategory = activeLeadObj?.category || 'General';
 
       const analysis = await this.responseAnalyzer.analyzeIncomingMessage(messageBody, leadName, leadCategory);
       console.log(`🤖 [ANALIZADOR IA] Intención: ${analysis.intent.toUpperCase()} (${(analysis.confidence * 100).toFixed(0)}%) - Razón: ${analysis.reason}`);
 
-      // Abortar secuencia saliente ya que el usuario respondió (para evitar mandarle el siguiente mensaje de frío)
-      this.abortCurrentSequence = true;
-      if (this.currentlyProcessingLead) {
-        this.currentlyProcessingLead.stopSending = true;
-        this.currentlyProcessingLead.respondedAt = new Date().toISOString();
+      // Abortar secuencia saliente SOLO si el usuario que respondió es el lead actualmente en envío
+      if (isCurrentProcessingLead) {
+        this.abortCurrentSequence = true;
+        if (this.currentlyProcessingLead) {
+          this.currentlyProcessingLead.stopSending = true;
+          this.currentlyProcessingLead.respondedAt = new Date().toISOString();
+        }
       }
 
       // 1. Actualizar estado en base de datos en base al análisis de intención y puntuación
