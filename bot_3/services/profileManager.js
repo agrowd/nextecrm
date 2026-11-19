@@ -44,12 +44,12 @@ class ProfileManager {
             }
 
             const targetKey = `(browser-${instanceId}|session-${instanceId})`;
-            const result = execSync(`pgrep -E -f "${targetKey}" || true`, { encoding: 'utf8' }).trim();
+            const result = execSync(`pgrep -f "${targetKey}" || true`, { encoding: 'utf8' }).trim();
             if (result) {
                 const pids = result.split('\n').filter(p => p.trim());
                 console.log(`🧹 Encontrados ${pids.length} procesos Chrome zombie para ${instanceId}. Matando...`);
                 try {
-                    execSync(`pkill -9 -e -f "session-${instanceId}" || true; pkill -9 -e -f "browser-${instanceId}" || true`, { encoding: 'utf8' });
+                    execSync(`pkill -9 -f "session-${instanceId}" || true; pkill -9 -f "browser-${instanceId}" || true`, { encoding: 'utf8' });
                     console.log(`✅ Procesos Chrome zombie de ${instanceId} eliminados.`);
                 } catch (e) {
                     // pkill puede dar exit code 1 si no hay procesos, ignorar

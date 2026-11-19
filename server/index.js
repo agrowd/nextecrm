@@ -25,19 +25,8 @@ function safeLog(level, args, originalFn) {
       return arg.toString();
     }).join(' ');
 
-    if (typeof mongoose !== 'undefined' && mongoose.connection && mongoose.connection.readyState === 1) {
-      const LogModel = mongoose.models.Log || (typeof Log !== 'undefined' ? Log : null);
-      if (LogModel) {
-        const logEntry = new LogModel({
-          level,
-          component: 'server',
-          instanceId: 'server',
-          message
-        });
-        logEntry.save().catch(err => originalConsoleError('Error saving intercepted log:', err));
-      }
-    }
-
+    // NOTA (D-51): No persistir cada console.log interceptado en MongoDB Atlas (512MB M0 free tier).
+    // Los logs viven en PM2 en disco y se transmiten en tiempo real por Socket.IO al dashboard.
     if (global.io) {
       global.io.emit('realtime_bot_log', {
         instanceId: 'server',
@@ -1026,7 +1015,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/gmaps-lea
               BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8484',
               HEADLESS: 'true'
             };
-            exec(`pm2 describe nexte-bot1 > /dev/null 2>&1 && pm2 restart nexte-bot1 --update-env || pm2 start "${botScript}" --name nexte-bot1 --watch=false --update-env`, {
+            exec(`pm2 describe nexte-bot1 > /dev/null 2>&1 && pm2 restart nexte-bot1 --update-env || pm2 start "${botScript}" --name nexte-bot1 --update-env`, {
               cwd: botPath,
               env: envVars
             }, (err, stdout) => {
@@ -1160,17 +1149,20 @@ app.post('/bot/qr', (req, res) => {
   const { instanceId, qr } = req.body;
   if (!instanceId || !qr) return res.status(400).send('Missing data');
 
+  const status = botStatuses.get(instanceId) || {};
+  if (status.status === 'ready' || status.status === 'authenticated') {
+    return res.send('IGNORED_ALREADY_CONNECTED');
+  }
+
   botQRS.set(instanceId, qr);
 
   // Actualizar también en botStatuses para que el dashboard lo vea inmediatamente
-  const status = botStatuses.get(instanceId) || {};
   status.status = 'qr_required';
   status.qr = qr;
   status.lastSeen = Date.now();
   botStatuses.set(instanceId, status);
 
   io.emit('bot_status_update', { instanceId, status: 'qr_required', qr });
-  // console.log(`📲 QR recibido para ${instanceId}`);
   res.send('OK');
 });
 
@@ -1362,13 +1354,23 @@ app.post('/api/bot/:instanceId/start', async (req, res) => {
       }
     };
 
-    // Intentar PM2 primero
-    exec(`pm2 start "${botScript}" --name ${pm2Name} --watch=false --update-env`, {
+    // Si el bot ya está conectado por Socket.IO, enviarle start_bot sin duplicar procesos
+    if (connectedBots.has(instanceId)) {
+      const currentStatus = botStatuses.get(instanceId) || {};
+      if (currentStatus.status === 'ready' && currentStatus.wid) {
+        return res.json({ success: true, message: `Bot ${instanceId} ya está conectado (+${currentStatus.wid})` });
+      }
+      io.to(connectedBots.get(instanceId)).emit('bot_command', { command: 'start_bot', payload: {} });
+      return res.json({ success: true, message: `Comando de inicio enviado a ${instanceId} activo.` });
+    }
+
+    // Intentar PM2 primero (restart si ya existe en PM2, o start sin --watch)
+    exec(`pm2 describe ${pm2Name} > /dev/null 2>&1 && pm2 restart ${pm2Name} --update-env || pm2 start "${botScript}" --name ${pm2Name} --update-env`, {
       cwd: botPath,
       env: envVars
     }, (error, stdout, stderr) => {
       if (error) {
-        console.warn(`⚠️ [BOT-START] Error pm2 start (${error.message}). Usando fallback node...`);
+        console.warn(`⚠️ [BOT-START] Error pm2 (${error.message}). Usando fallback node...`);
         return startDirectNode();
       }
 
@@ -1376,7 +1378,7 @@ app.post('/api/bot/:instanceId/start', async (req, res) => {
       console.log(`✅ [BOT-START] Bot ${instanceId} registrado en PM2 (esperando conexión socket...)`);
 
       botStatuses.set(instanceId, { status: 'starting', startedAt: new Date() });
-      io.emit('bot_status_update', { instanceId, status: 'starting' });
+      io.emit('bot_status_update', { instanceId, status: 'starting', qr: null });
 
       // Verificar después de 15 segundos si el bot conectó
       setTimeout(() => {
@@ -1402,6 +1404,17 @@ app.post(['/api/bot/:instanceId/generate-qr', '/bot/:instanceId/generate-qr'], a
     const { instanceId } = req.params;
     console.log(`📱 [QR REQUEST] Solicitud de QR para ${instanceId}`);
 
+    const currentBotStatus = botStatuses.get(instanceId) || {};
+    if (currentBotStatus.status === 'ready' && currentBotStatus.wid) {
+      botQRS.delete(instanceId);
+      io.emit('bot_status_update', { instanceId, status: 'ready', wid: currentBotStatus.wid, qr: null });
+      return res.json({ success: true, message: `Bot ${instanceId} ya está conectado`, status: 'ready', wid: currentBotStatus.wid, qr: null });
+    }
+    if (currentBotStatus.status === 'authenticated') {
+      botQRS.delete(instanceId);
+      return res.json({ success: true, message: `Bot ${instanceId} ya escaneó el QR y está cargando WhatsApp...`, status: 'authenticated', qr: null });
+    }
+
     const existingQr = botQRS.get(instanceId);
     if (existingQr) {
       const status = botStatuses.get(instanceId) || {};
@@ -1418,11 +1431,12 @@ app.post(['/api/bot/:instanceId/generate-qr', '/bot/:instanceId/generate-qr'], a
       return res.json({ success: true, message: `Comando de generación de QR enviado a ${instanceId}`, qr: existingQr || null });
     }
 
-    // Si el bot no está conectado al socket, iniciarlo
+    // Si el bot no está conectado al socket, iniciarlo o reiniciarlo en PM2 (sin --watch y con nombre canónico)
     const botDir = instanceId === 'bot_1' ? 'bot' : instanceId;
+    const pm2Name = instanceId === 'bot_1' ? 'nexte-bot1' : `nexte-${instanceId}`;
     const botPath = path.join(__dirname, '..', botDir);
     const botScript = path.join(botPath, 'index.js');
-    console.log(`⚠️ Bot ${instanceId} no conectado a socket. Iniciando proceso desde ${botScript}...`);
+    console.log(`⚠️ Bot ${instanceId} no conectado a socket. Iniciando ${pm2Name} desde ${botScript}...`);
 
     const envVars = {
       ...process.env,
@@ -1431,17 +1445,12 @@ app.post(['/api/bot/:instanceId/generate-qr', '/bot/:instanceId/generate-qr'], a
       BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8484'
     };
 
-    exec(`pm2 start "${botScript}" --name nexte-${instanceId} --watch=false --update-env`, {
+    exec(`pm2 describe ${pm2Name} > /dev/null 2>&1 && pm2 restart ${pm2Name} --update-env || pm2 start "${botScript}" --name ${pm2Name} --update-env`, {
       cwd: botPath,
       env: envVars
     }, (err) => {
       if (err) {
-        spawn('node', [botScript], {
-          cwd: botPath,
-          env: envVars,
-          detached: true,
-          stdio: 'ignore'
-        }).unref();
+        console.error(`❌ Error iniciando ${pm2Name} con PM2:`, err.message);
       }
     });
 
@@ -4782,10 +4791,14 @@ io.on('connection', (socket) => {
       console.log(`🤖 Bot identificado: ${instanceId} (${socket.id})`);
       connectedBots.set(instanceId, socket.id);
 
-      // Inicializar status si no existe
+      // Inicializar status preservando estado activo si solo reconectó el socket
       const prevStatus = botStatuses.get(instanceId) || {};
+      const preservedStatus = (prevStatus.status === 'ready' || prevStatus.status === 'authenticated' || prevStatus.status === 'qr_required')
+        ? prevStatus.status
+        : 'online';
       botStatuses.set(instanceId, {
-        status: 'online',
+        ...prevStatus,
+        status: preservedStatus,
         lastSeen: new Date(),
         socketId: socket.id,
         startedAt: prevStatus.startedAt || new Date()
@@ -4813,8 +4826,13 @@ io.on('connection', (socket) => {
   // 2. Eventos desde el BOT
   socket.on('bot_qr', (data) => {
     const { instanceId, qr } = data;
-    console.log(`📱 QR Recibido de ${instanceId}`);
     const currentStatus = botStatuses.get(instanceId) || {};
+    if (currentStatus.status === 'ready' || currentStatus.status === 'authenticated') {
+      console.log(`⚠️ QR ignorado de ${instanceId} porque ya está en estado ${currentStatus.status}`);
+      return;
+    }
+    console.log(`📱 QR Recibido de ${instanceId}`);
+    botQRS.set(instanceId, qr);
     botStatuses.set(instanceId, {
       ...currentStatus,
       status: 'qr_required',
@@ -4824,9 +4842,25 @@ io.on('connection', (socket) => {
     io.emit('bot_status_update', { instanceId, status: 'qr_required', qr });
   });
 
+  socket.on('bot_authenticated', (data) => {
+    const { instanceId } = data || {};
+    if (!instanceId) return;
+    console.log(`🔐 Bot ${instanceId} autenticado (QR escaneado, cargando sesión...)`);
+    botQRS.delete(instanceId);
+    const currentStatus = botStatuses.get(instanceId) || {};
+    botStatuses.set(instanceId, {
+      ...currentStatus,
+      status: 'authenticated',
+      qr: null,
+      lastSeen: new Date()
+    });
+    io.emit('bot_status_update', { instanceId, status: 'authenticated', qr: null });
+  });
+
   socket.on('bot_ready', async (data) => {
     const { instanceId, wid } = data;
     console.log(`✅ Bot ${instanceId} listo (WhatsApp: ${wid})`);
+    botQRS.delete(instanceId);
     const status = botStatuses.get(instanceId) || {};
     const wasOffline = status.status !== 'ready';
     status.status = 'ready';
@@ -4835,7 +4869,7 @@ io.on('connection', (socket) => {
     status.lastSeen = Date.now();
     status.priority = getBotPriority(instanceId);
     botStatuses.set(instanceId, status);
-    io.emit('bot_status_update', { instanceId, status: 'ready', wid });
+    io.emit('bot_status_update', { instanceId, status: 'ready', wid, qr: null });
 
     // Registrar WID en historial
     if (wid) {
@@ -4858,12 +4892,14 @@ io.on('connection', (socket) => {
 
   socket.on('bot_disconnected', (instanceId) => {
     console.log(`🔌 WhatsApp cerrado en bot ${instanceId}`);
+    botQRS.delete(instanceId);
     const status = botStatuses.get(instanceId) || {};
     status.status = 'online'; // Socket sigue vivo, pero WhatsApp se cerró
     status.qr = null;
+    status.wid = null;
     status.lastSeen = Date.now();
     botStatuses.set(instanceId, status);
-    io.emit('bot_status_update', { instanceId, status: 'online' });
+    io.emit('bot_status_update', { instanceId, status: 'online', qr: null, wid: null });
   });
 
   socket.on('bot_metrics', (data) => {
@@ -4928,24 +4964,10 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Relevo de logs de bots en tiempo real
+  // Relevo de logs de bots en tiempo real (solo Socket.IO; no saturar MongoDB Atlas 512MB)
   socket.on('bot_log', async (data) => {
     // { instanceId, level, message, timestamp }
     io.emit('realtime_bot_log', data);
-
-    // Guardar en DB
-    try {
-      const logEntry = new Log({
-        level: data.level || 'info',
-        component: 'bot',
-        instanceId: data.instanceId,
-        message: data.message,
-        timestamp: data.timestamp || new Date()
-      });
-      await logEntry.save();
-    } catch (err) {
-      console.error('Error guardando log de bot:', err);
-    }
   });
 
   // Scraping Heartbeat desde la extensión (vía socket si lo soporta)

@@ -993,3 +993,13 @@ docker compose logs -f
 - **Backend (`server/index.js`):**
   - Auto-recuperación de leads en `processing` >15m y garantía sincrónica de `webAudit` + `dossier` en `GET /next`.
   - Resolución inteligente de `zoneId` y `rubro` en `POST /ingest`, acceso público a `/api/scraper/*` para la extensión, eliminación de rutas duplicadas, protección `SAFE_RESET_GUARD` en resets masivos, y middleware 404 movido al final.
+
+## [2026-11-19 12:35] - Reparación Definitiva de Vinculación QR en Bot 1 y Desbloqueo de Cuota MongoDB Atlas (512 MB → 25.2 MB)
+- **Problemas Diagnosticados y Resueltos:**
+  1. **Bucle de QR (Conecta y vuelve a aparecer QR / LOGOUT - `ERR-29`):**
+     - Eliminado el doble disparo `start_bot` + `/generate-qr` en `crm-dashboard/app.js` y agregados guards `this.isInitializing` y `this.isAuthenticated` + evento `bot_authenticated` en `bot/index.js` (`bot_1..4`) y `server/index.js`.
+     - Removido el segundo flag `--user-data-dir=browser-bot_1` que colisionaba con `LocalAuth` (`session-bot_1`), corregido `pgrep -f` / `pkill -9 -f` en `profileManager.js` para matar procesos Chromium huérfanos reales en Debian, y eliminado `--watch=false` en `server/index.js` (que activaba `watching: enabled` en PM2).
+     - Agregado monkey-patch en `bot/index.js` (`D-52`) sobre `Client.prototype.inject` y `_registerFramenavigatedHandler` para soportar la nueva ruta standalone `https://web.whatsapp.com/login/` de WhatsApp Web `2.3000.1055376512` (donde `WAWebSocketModel` es `null` antes de escanear el QR, usando `WAWebConnModel.Conn.ref` y `WAWebLoginLaunchSocketUtils.refreshLoginQR()`).
+  2. **Cuota de MongoDB Atlas Llena al 100% (`512 MB / 512 MB` - `ERR-30`, `D-51`):**
+     - Purgada la colección `logs` (`494.443` documentos, `435,41 MB`), reduciendo el uso total del cluster a **`25,20 MB`** y restableciendo todas las escrituras de leads y mensajes.
+     - Desactivada la inserción en MongoDB de cada `console.log` interceptado (`safeLog` y `bot_log`) y añadido índice TTL de 24h (`expires: 86400`) en `server/models/Log.js`.

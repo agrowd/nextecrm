@@ -28,12 +28,15 @@ function safeBotLog(level, args, originalFn) {
     const socket = global.botSocket;
     const instanceId = process.env.BOT_INSTANCE_ID || 'bot';
     if (socket && socket.connected) {
-      socket.emit('bot_log', {
-        instanceId,
-        level,
-        message,
-        timestamp: new Date().toISOString()
-      });
+      // No saturar red/DB con bloques gigantes de ASCII QR ni logs internos del navegador
+      if (message && !message.includes('▄▄▄') && !message.includes('███') && !message.includes('[BROWSER LOG]')) {
+        socket.emit('bot_log', {
+          instanceId,
+          level,
+          message: message.length > 1000 ? message.slice(0, 1000) + '...' : message,
+          timestamp: new Date().toISOString()
+        });
+      }
     }
   } catch (err) {
     originalConsoleError('Error in bot safeBotLog interceptor:', err);
@@ -73,6 +76,384 @@ LocalAuth.prototype.logout = async function () {
   }
 };
 
+// 🩹 MONKEY PATCH (D-52): Soporte para la nueva ruta standalone https://web.whatsapp.com/login/ (WA Web 2.3000.1055376512+)
+// En /login/, WAWebSocketModel es null hasta después de escanear el QR, mientras WAWebConnModel.Conn.ref ya emite el QR.
+// Además auto-reintenta inject() si ocurre "Execution context was destroyed" durante la redirección / -> /login/ o /login/ -> /.
+try {
+  let puppeteer;
+  try {
+    puppeteer = require('puppeteer');
+  } catch (e) {
+    puppeteer = require('whatsapp-web.js/node_modules/puppeteer-core');
+  }
+  const { Events, WhatsWebURL } = require('whatsapp-web.js/src/util/Constants');
+  const { exposeFunctionIfAbsent } = require('whatsapp-web.js/src/util/Puppeteer');
+  const { LoadUtils } = require('whatsapp-web.js/src/util/Injected/Utils');
+  const WebCacheFactory = require('whatsapp-web.js/src/webCache/WebCacheFactory');
+  const { ClientInfo } = require('whatsapp-web.js/src/structures');
+  const InterfaceController = require('whatsapp-web.js/src/util/InterfaceController');
+
+  Client.prototype.initialize = async function () {
+    let browser = null;
+    let page = null;
+
+    await this.authStrategy.beforeBrowserInitialized();
+
+    const puppeteerOpts = this.options.puppeteer;
+    if (puppeteerOpts && (puppeteerOpts.browserWSEndpoint || puppeteerOpts.browserURL)) {
+      browser = await puppeteer.connect(puppeteerOpts);
+      page = await browser.newPage();
+    } else {
+      const browserArgs = [...(puppeteerOpts.args || [])];
+      if (this.options.userAgent !== false && !browserArgs.find((arg) => arg.includes('--user-agent'))) {
+        browserArgs.push(`--user-agent=${this.options.userAgent}`);
+      }
+      browserArgs.push('--disable-blink-features=AutomationControlled');
+
+      browser = await puppeteer.launch({
+        ...puppeteerOpts,
+        args: browserArgs,
+      });
+      page = (await browser.pages())[0];
+    }
+
+    if (this.options.proxyAuthentication !== undefined) {
+      await page.authenticate(this.options.proxyAuthentication);
+    }
+    if (this.options.userAgent !== false) {
+      await page.setUserAgent(this.options.userAgent);
+    }
+    if (this.options.bypassCSP) await page.setBypassCSP(true);
+
+    this.pupBrowser = browser;
+    this.pupPage = page;
+
+    await this.authStrategy.afterBrowserInitialized();
+
+    if (this.options.evalOnNewDoc !== undefined) {
+      await page.evaluateOnNewDocument(this.options.evalOnNewDoc);
+    }
+
+    console.log(`🌐 [WWebJS] Navegando a ${WhatsWebURL}...`);
+    await Promise.race([
+      page.goto(WhatsWebURL, {
+        waitUntil: 'domcontentloaded',
+        timeout: 30000,
+        referer: 'https://whatsapp.com/',
+      }).catch((err) => {
+        console.log(`ℹ️ [WWebJS] Navegación inicial redirigida (${err.message})`);
+      }),
+      new Promise((r) => setTimeout(r, 15000)),
+    ]);
+
+    console.log(`✅ [WWebJS] page.goto completado (URL actual: ${page.url()}). Registrando framenavigated e iniciando inject()...`);
+    this._registerFramenavigatedHandler();
+    await this.inject();
+  };
+
+  Client.prototype._registerFramenavigatedHandler = function () {
+    if (this._framenavigatedRegistered) return;
+    this._framenavigatedRegistered = true;
+
+    this.pupPage.on('framenavigated', async (frame) => {
+      if (frame.parentFrame() !== null) return;
+      try {
+        console.log(`🧭 [WWebJS] framenavigated -> ${frame.url()}`);
+        const isLogout = frame.url().includes('post_logout=1') || this.lastLoggedOut;
+        if (isLogout) {
+          this.emit(Events.DISCONNECTED, 'LOGOUT');
+          await this.authStrategy.logout();
+          await this.authStrategy.beforeBrowserInitialized();
+          await this.authStrategy.afterBrowserInitialized();
+          this.lastLoggedOut = false;
+        }
+        const storeAvailable = await this.pupPage.evaluate(() => {
+          return typeof window.WWebJS !== 'undefined';
+        }).catch(() => false);
+        if (!isLogout && storeAvailable) return;
+        await this.inject();
+      } catch (err) {
+        const msg = String(err && err.message ? err.message : err);
+        if (!msg.includes('Execution context was destroyed') && !msg.includes('aborted')) {
+          console.warn('⚠️ [WWebJS framenavigated]:', msg);
+        }
+      }
+    });
+  };
+
+  Client.prototype.inject = async function () {
+    if (this._injectAbort) this._injectAbort.abort();
+    const abort = new AbortController();
+    this._injectAbort = abort;
+
+    const pollEvaluate = async (fn, timeoutMs) => {
+      const start = Date.now();
+      while (Date.now() - start < timeoutMs) {
+        if (abort.signal.aborted) return null;
+        try {
+          const res = await this.pupPage.evaluate(fn);
+          if (res) return res;
+        } catch (e) {
+          const msg = String(e && e.message ? e.message : e);
+          if (!msg.includes('Execution context was destroyed') && !msg.includes('Cannot find context')) {
+            throw e;
+          }
+        }
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      throw new Error('pollEvaluate timeout');
+    };
+
+    try {
+      const authTimeout = this.options.authTimeoutMs || 30000;
+      console.log(`💉 [WWebJS] inject() paso 1: esperando window.Debug.VERSION...`);
+      await pollEvaluate(() => Boolean(window.Debug && window.Debug.VERSION), authTimeout);
+      if (abort.signal.aborted) return;
+
+      await this.setDeviceName(this.options.deviceName, this.options.browserName);
+      const pairWithPhoneNumber = this.options.pairWithPhoneNumber;
+      const version = await this.getWWebVersion();
+      console.log(`💉 [WWebJS] inject() paso 2: WhatsApp Web v${version} en ${this.pupPage.url()}`);
+
+      const needAuthentication = await pollEvaluate(() => {
+        const state = window.require?.('WAWebSocketModel')?.Socket?.state;
+        if (!state) {
+          const isLoginRoute = window.location.pathname.startsWith('/login');
+          const conn = window.require?.('WAWebConnModel')?.Conn;
+          const isReg = Boolean(window.require?.('WAWebUserPrefsMultiDevice')?.isRegistered?.());
+          if ((isLoginRoute || !isReg) && conn && Boolean(conn.ref)) {
+            return { need: true, state: 'UNPAIRED' };
+          }
+          return false;
+        }
+        if (state === 'OPENING' || state === 'UNLAUNCHED' || state === 'PAIRING') {
+          return false;
+        }
+        return {
+          need: state === 'UNPAIRED' || state === 'UNPAIRED_IDLE',
+          state,
+        };
+      }, authTimeout);
+      if (abort.signal.aborted || !needAuthentication) return;
+      console.log(`💉 [WWebJS] inject() paso 3: needAuthentication=${JSON.stringify(needAuthentication)}`);
+
+      if (needAuthentication.need) {
+        const { failed, failureEventPayload, restart } = await this.authStrategy.onAuthenticationNeeded();
+        if (failed) {
+          this.emit(Events.AUTHENTICATION_FAILURE, failureEventPayload);
+          await this.destroy();
+          if (restart) return this.initialize();
+          return;
+        }
+
+        if (pairWithPhoneNumber && pairWithPhoneNumber.phoneNumber) {
+          this.requestPairingCode(
+            pairWithPhoneNumber.phoneNumber,
+            pairWithPhoneNumber.showNotification,
+            pairWithPhoneNumber.intervalMs,
+          );
+        } else {
+          let qrRetries = 0;
+          this.on(Events.LOADING_SCREEN, () => {
+            qrRetries = 0;
+          });
+
+          await exposeFunctionIfAbsent(this.pupPage, 'onQRChangedEvent', async (qr) => {
+            this.emit(Events.QR_RECEIVED, qr);
+            if (this.options.qrMaxRetries > 0) {
+              qrRetries++;
+              if (qrRetries > this.options.qrMaxRetries) {
+                this.emit(Events.DISCONNECTED, 'Max qrcode retries reached');
+                await this.destroy();
+              }
+            }
+          });
+
+          await exposeFunctionIfAbsent(this.pupPage, 'onLoginRouteAuthenticated', async () => {
+            console.log('🔐 [WWebJS] Transición post-QR detectada desde /login/ -> Re-inyectando sesión...');
+            setTimeout(() => {
+              this.inject().catch((e) => console.warn('⚠️ [WWebJS post-login inject]:', e.message));
+            }, 500);
+          });
+
+          await this.pupPage.evaluate(async () => {
+            const registrationInfo = await window.require('WAWebSignalStoreApi').waSignalStore.getRegistrationInfo();
+            const noiseKeyPair = await window.require('WAWebUserPrefsInfoStore').waNoiseInfo.get();
+            const staticKeyB64 = window.require('WABase64').encodeB64(noiseKeyPair.staticKeyPair.pubKey);
+            const identityKeyB64 = window.require('WABase64').encodeB64(registrationInfo.identityKeyPair.pubKey);
+            const advSecretKey = await window.require('WAWebUserPrefsMultiDevice').getADVSecretKey();
+            const platform = window.require('WAWebCompanionRegClientUtils').DEVICE_PLATFORM;
+            const getQR = (ref) =>
+              ref + ',' + staticKeyB64 + ',' + identityKeyB64 + ',' + advSecretKey + ',' + platform;
+
+            const onRefChange = (_, ref) => {
+              if (ref == null) {
+                try {
+                  window.require?.('WAWebLoginLaunchSocketUtils')?.refreshLoginQR?.();
+                } catch (e) {}
+                return;
+              }
+              window.onQRChangedEvent(getQR(ref));
+            };
+
+            const conn = window.require('WAWebConnModel').Conn;
+            if (conn.ref) {
+              window.onQRChangedEvent(getQR(conn.ref));
+            } else {
+              try {
+                window.require?.('WAWebLoginLaunchSocketUtils')?.refreshLoginQR?.();
+              } catch (e) {}
+            }
+            if (window._wwjsQrRefHandler) {
+              try { conn.off('change:ref', window._wwjsQrRefHandler); } catch (e) {}
+            }
+            window._wwjsQrRefHandler = onRefChange;
+            conn.on('change:ref', onRefChange);
+
+            const sock = window.require?.('WAWebSocketModel')?.Socket;
+            if (sock && typeof sock.on === 'function') {
+              sock.on('change:hasSynced', () => {
+                conn.off('change:ref', onRefChange);
+              });
+            } else {
+              if (window._wwjsLoginWatcher) clearInterval(window._wwjsLoginWatcher);
+              window._wwjsLoginWatcher = setInterval(() => {
+                const s = window.require?.('WAWebSocketModel')?.Socket;
+                const isReg = window.require?.('WAWebUserPrefsMultiDevice')?.isRegistered?.();
+                if (s || isReg) {
+                  clearInterval(window._wwjsLoginWatcher);
+                  window._wwjsLoginWatcher = null;
+                  try { conn.off('change:ref', onRefChange); } catch (e) {}
+                  if (typeof window.onLoginRouteAuthenticated === 'function') {
+                    window.onLoginRouteAuthenticated();
+                  }
+                }
+              }, 1000);
+            }
+          });
+        }
+      }
+
+      await exposeFunctionIfAbsent(this.pupPage, 'onAuthAppStateChangedEvent', async (state) => {
+        if (state == 'UNPAIRED_IDLE' && !(pairWithPhoneNumber && pairWithPhoneNumber.phoneNumber)) {
+          await this.pupPage.evaluate(() => {
+            try {
+              window.require?.('WAWebCmd')?.Cmd?.refreshQR?.();
+              window.require?.('WAWebLoginLaunchSocketUtils')?.refreshLoginQR?.();
+            } catch (e) {}
+          });
+        }
+      });
+
+      await exposeFunctionIfAbsent(this.pupPage, 'onAppStateHasSyncedEvent', async () => {
+        const authEventPayload = await this.authStrategy.getAuthEventPayload();
+        this.emit(Events.AUTHENTICATED, authEventPayload);
+
+        const injected = await this.pupPage.evaluate(async () => {
+          return typeof window.WWebJS !== 'undefined';
+        });
+
+        if (!injected) {
+          if (this.options.webVersionCache && this.options.webVersionCache.type === 'local' && this.currentIndexHtml) {
+            const { type: webCacheType, ...webCacheOptions } = this.options.webVersionCache;
+            const webCache = WebCacheFactory.createWebCache(webCacheType, webCacheOptions);
+            await webCache.persist(this.currentIndexHtml, version);
+          }
+
+          await this.pupPage.evaluate(LoadUtils);
+          await pollEvaluate(() => typeof window.WWebJS !== 'undefined', 30000).catch(() => {
+            throw 'ready timeout';
+          });
+
+          this.info = new ClientInfo(
+            this,
+            await this.pupPage.evaluate(() => {
+              return {
+                ...window.require('WAWebConnModel').Conn.serialize(),
+                wid:
+                  window.require('WAWebUserPrefsMeUser').getMaybeMePnUser() ||
+                  window.require('WAWebUserPrefsMeUser').getMaybeMeLidUser(),
+              };
+            }),
+          );
+
+          this.interface = new InterfaceController(this);
+          await this.attachEventListeners();
+        }
+        this.emit(Events.READY);
+        this.authStrategy.afterAuthReady();
+      });
+
+      let lastPercent = null;
+      await exposeFunctionIfAbsent(this.pupPage, 'onOfflineProgressUpdateEvent', async (percent) => {
+        if (lastPercent !== percent) {
+          lastPercent = percent;
+          this.emit(Events.LOADING_SCREEN, percent, 'WhatsApp');
+        }
+      });
+
+      await exposeFunctionIfAbsent(this.pupPage, 'onLogoutEvent', async () => {
+        this.lastLoggedOut = true;
+        await this.pupPage.waitForNavigation({ waitUntil: 'load', timeout: 5000 }).catch((_) => _);
+      });
+
+      await this.pupPage.evaluate(() => {
+        const Socket = window.require?.('WAWebSocketModel')?.Socket;
+        const Cmd = window.require?.('WAWebCmd')?.Cmd;
+        if (!Socket || !Cmd) return;
+
+        const listeners = [
+          [Socket, 'change:state', (_AppState, state) => { window.onAuthAppStateChangedEvent(state); }],
+          [Socket, 'change:hasSynced', () => { window.onAppStateHasSyncedEvent(); }],
+          [
+            Cmd,
+            'offline_progress_update_from_bridge',
+            () => {
+              window.onOfflineProgressUpdateEvent(
+                window.require('WAWebOfflineHandler').OfflineMessageHandler.getOfflineDeliveryProgress(),
+              );
+            },
+          ],
+          [Cmd, 'logout', async () => { await window.onLogoutEvent(); }],
+          [Cmd, 'logout_from_bridge', async () => { await window.onLogoutEvent(); }],
+        ];
+
+        if (window._wwjsListeners) {
+          for (const [obj, event, handler] of window._wwjsListeners) {
+            try { obj.off(event, handler); } catch (e) {}
+          }
+        }
+        for (const [obj, event, handler] of listeners) {
+          obj.on(event, handler);
+        }
+        window._wwjsListeners = listeners;
+
+        const storeInjected = typeof window.WWebJS !== 'undefined';
+        if (Socket.hasSynced === true && !storeInjected) {
+          window.onAppStateHasSyncedEvent();
+        }
+      });
+    } catch (err) {
+      if (abort.signal.aborted) return;
+      const errMsg = String(err && err.message ? err.message : err);
+      if (errMsg.includes('Execution context was destroyed') || errMsg.includes('Cannot find context')) {
+        console.log('🔄 [WWebJS] Redirección de ruta detectada durante inject(), reintentando en 1.5s...');
+        await new Promise((r) => setTimeout(r, 1500));
+        if (!abort.signal.aborted) return this.inject();
+        return;
+      }
+      throw err;
+    } finally {
+      if (this._injectAbort === abort) {
+        this._injectAbort = null;
+      }
+    }
+  };
+  console.log('🛡️ [WWebJS Patch] Soporte activo para ruta standalone /login/ de WhatsApp Web 2.3000+');
+} catch (patchErr) {
+  console.warn('⚠️ Aviso cargando monkey-patch de Client.prototype.inject:', patchErr.message);
+}
+
 // Importar servicios
 const phoneValidator = require('./services/phoneValidator');
 const WhatsAppChecker = require('./services/whatsappChecker');
@@ -108,6 +489,9 @@ class WhatsAppBot {
     this.client = null;
     this.isReady = false;
     this.isStarted = false; // Flag para saber si Puppeteer ya inició
+    this.isInitializing = false; // Guard anti-concurrencia para evitar doble Chromium
+    this.isAuthenticated = false; // Guard entre 'authenticated' y 'ready'
+    this.initStartedAt = 0; // Timestamp de inicio de initializeWhatsApp
     this.isProcessing = false; // Flag para evitar procesamiento simultáneo
     this.isSendingMessages = false; // Flag para evitar envío simultáneo de mensajes
     this.backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
@@ -338,7 +722,7 @@ class WhatsAppBot {
       this.log(`📥 [${this.instanceId}] Comando recibido: ${command}`);
 
       if (command === 'start_bot' || command === 'generate_qr') {
-        this.log(`🚀 [${this.instanceId}] Solicitud para generar QR / conectar sesión...`);
+        this.log(`🚀 [${this.instanceId}] Solicitud para generar QR / conectar sesión (${command})...`);
         
         if (this.isReady && this.connectedNumber) {
           this.log(`✅ [${this.instanceId}] Ya conectado como +${this.connectedNumber}`);
@@ -346,19 +730,32 @@ class WhatsAppBot {
           return;
         }
 
+        if (this.isAuthenticated) {
+          this.log(`🔐 [${this.instanceId}] Ya autenticado (cargando chats de WhatsApp), ignorando comando duplicado ${command}...`);
+          this.socket.emit('bot_authenticated', { instanceId: this.instanceId });
+          return;
+        }
+
         if (this.lastQr) {
-          this.log(`📱 [${this.instanceId}] Re-emitiendo QR disponible...`);
+          this.log(`📱 [${this.instanceId}] Re-emitiendo QR disponible sin reiniciar Chromium...`);
           this.socket.emit('bot_qr', { instanceId: this.instanceId, qr: this.lastQr });
           axios.post(`${this.backendUrl}/bot/qr`, { instanceId: this.instanceId, qr: this.lastQr }).catch(() => {});
           return;
         }
 
-        // Si el cliente ya existe pero no se ha autenticado ni generado QR, reiniciar cliente para forzar carga del QR en WhatsApp Web
+        // Guard anti-concurrencia: si Chromium ya está levantando (menos de 90s), NO destruirlo ni lanzar otro
+        if (this.isInitializing && (Date.now() - (this.initStartedAt || 0) < 90000)) {
+          this.log(`⏳ [${this.instanceId}] Chromium ya está iniciando (hace ${Math.round((Date.now() - this.initStartedAt) / 1000)}s). Ignorando ${command} duplicado.`);
+          return;
+        }
+
+        // Si el cliente ya existe pero quedó colgado (>90s sin QR ni auth), destruir y matar zombies antes de recrear
         if (this.client) {
-          this.log(`🔄 [${this.instanceId}] Re-creando cliente Puppeteer para forzar generación de nuevo QR...`);
+          this.log(`🔄 [${this.instanceId}] Limpiando cliente Puppeteer previo antes de iniciar...`);
           try { await this.client.destroy(); } catch (e) {}
           this.client = null;
           this.isStarted = false;
+          this.isInitializing = false;
         }
 
         await this.initializeWhatsApp();
@@ -443,6 +840,13 @@ class WhatsAppBot {
   }
 
   async initializeWhatsApp() {
+    if (this.isInitializing && (Date.now() - (this.initStartedAt || 0) < 90000)) {
+      console.log(`⏳ [${this.instanceId}] initializeWhatsApp() ya en ejecución, evitando segundo proceso Chromium.`);
+      return;
+    }
+    this.isInitializing = true;
+    this.initStartedAt = Date.now();
+    this.isAuthenticated = false;
     this.isStarted = true;
     console.log('🤖 Iniciando WhatsApp Bot...');
 
@@ -484,11 +888,15 @@ class WhatsAppBot {
       console.log(`🛡️ Usando Proxy: ${process.env.PROXY_SERVER}`);
     }
 
-    // 🧹 LIMPIEZA AUTOMÁTICA DE BLOQUEOS (Profile Auto-Cleanup)
+    // 🧹 LIMPIEZA AUTOMÁTICA DE ZOMBIES Y BLOQUEOS (Profile Auto-Cleanup)
     try {
-      if (ProfileManager && typeof ProfileManager.cleanProfileLocks === 'function') {
-        const profilePath = path.join(sessionsDir, 'browser-' + this.instanceId);
-        ProfileManager.cleanProfileLocks(sessionsDir, this.instanceId);
+      if (ProfileManager) {
+        if (typeof ProfileManager.killZombieChrome === 'function') {
+          ProfileManager.killZombieChrome(this.instanceId);
+        }
+        if (typeof ProfileManager.cleanProfileLocks === 'function') {
+          ProfileManager.cleanProfileLocks(sessionsDir, this.instanceId);
+        }
       }
     } catch (e) {
       console.warn('⚠️ Error cleaning profile locks:', e.message);
@@ -500,22 +908,24 @@ class WhatsAppBot {
         dataPath: sessionsDir
       }),
       authTimeoutMs: 300000, // ⏳ 5 minutos (VPS Lenta)
-      // webVersionCache REMOVIDO — la versión 2.2412.54 ya no existe (404)
-      // whatsapp-web.js usará su versión built-in
+      webVersionCache: { type: 'none' },
       puppeteer: {
         ...stealthPuppeteerConfig,
         args: [
-          ...stealthPuppeteerConfig.args,
-          `--user-data-dir=${path.join(sessionsDir, 'browser-' + this.instanceId)}`
+          ...stealthPuppeteerConfig.args
         ]
       }
     });
-    console.log('✅ Cliente configurado con Stealth Mode.');
+    console.log('✅ Cliente configurado con Stealth Mode (single LocalAuth user-data-dir).');
 
     // Eventos del cliente
     this.client.on('qr', (qr) => {
-      console.log('📱 Escanea este código QR con WhatsApp:');
-      qrcode.generate(qr, { small: true });
+      if (this.isReady || this.isAuthenticated) {
+        console.log(`⚠️ [${this.instanceId}] QR ignorado porque la sesión ya está autenticada/lista.`);
+        return;
+      }
+      this.isInitializing = false;
+      console.log(`📱 [${this.instanceId}] Nuevo código QR generado y enviado al dashboard.`);
 
       // Guardar último QR recibido
       this.lastQr = qr;
@@ -530,29 +940,27 @@ class WhatsAppBot {
     });
 
     this.client.on('loading_screen', (percent, message) => {
-      console.log(`⏳ [${this.instanceId}] Loading screen: ${percent}% - ${message}`);
-      console.log(`🔍 [DEBUG] loading_screen event fired at ${new Date().toISOString()}`);
+      this.isInitializing = false;
+      console.log(`⏳ [${this.instanceId}] Cargando WhatsApp: ${percent}% - ${message}`);
     });
 
     this.client.on('state_changed', (state) => {
       console.log(`📶 [${this.instanceId}] Estado de WhatsApp: ${state}`);
-      console.log(`🔍 [DEBUG] state_changed to ${state} at ${new Date().toISOString()}`);
     });
 
     this.client.on('authenticated', () => {
-      console.log(`🔐 [${this.instanceId}] Authenticated event fired!`);
+      console.log(`🔐 [${this.instanceId}] ¡QR escaneado y WhatsApp autenticado! Cargando sesión...`);
+      this.isInitializing = false;
+      this.isAuthenticated = true;
       this.lastQr = null;
-      // Intentar capturar logs del navegador si es posible
-      if (this.client.pupPage) {
-        console.log('🔧 [DEBUG] Attaching to browser console...');
-        this.client.pupPage.on('console', msg => console.log('🌍 [BROWSER LOG]:', msg.text()));
-        this.client.pupPage.on('pageerror', err => console.log('🌍 [BROWSER ERROR]:', err));
-      }
+      this.socket.emit('bot_authenticated', { instanceId: this.instanceId });
     });
 
     this.client.on('ready', async () => {
       console.log(`✅ [${this.instanceId}] WhatsApp Bot listo!`);
-      console.log(`🔍 [DEBUG] ready event FIRED at ${new Date().toISOString()}`);
+      this.isInitializing = false;
+      this.isAuthenticated = true;
+      this.isReady = true;
       this.lastQr = null;
 
       // 🛡️ GUARD: Prevenir inicializaciones duplicadas por re-auth
@@ -666,32 +1074,46 @@ class WhatsAppBot {
       this.emitMetrics().catch(err => console.error('Error emitting initial metrics:', err));
     });
 
-    this.client.on('authenticated', () => {
-      console.log('🔐 WhatsApp autenticado');
-      console.log(`🔍 [DEBUG] authenticated event at ${new Date().toISOString()}`);
-      console.log(`🔍 [DEBUG] Waiting for 'ready' event...`);
-    });
-
     this.client.on('auth_failure', (msg) => {
       console.error('❌ Error de autenticación:', msg);
+      this.isInitializing = false;
+      this.isAuthenticated = false;
+      this.isReady = false;
+      this.lastQr = null;
     });
 
     this.client.on('disconnected', async (reason) => {
       console.log('🔌 WhatsApp desconectado:', reason);
       this.isReady = false;
+      this.isAuthenticated = false;
+      this.isInitializing = false;
+      this.lastQr = null;
+      this.connectedNumber = null;
 
-      // EVITAR CRASH EBUSY: No destruir cliente inmediatamente si es LOGOUT temporal
+      if (this.socket && this.socket.connected) {
+        this.socket.emit('bot_disconnected', this.instanceId);
+        this.socket.emit('bot_disconnection', { instanceId: this.instanceId, reason });
+      }
+
       if (reason === 'LOGOUT') {
-        console.log('⚠️ Detectado LOGOUT - Intentando reconexión suave en 10s...');
-        // No llamamos a client.destroy() ni destroy() aquí para evitar EBUSY
-        /* 
-        // Lógica de reconexión DESACTIVADA por solicitud del usuario para evitar loops infinitos y EBUSY
-        setTimeout(() => {
-          console.log('🔄 Reiniciando cliente...');
-          this.client.initialize().catch(e => console.error('Error reiniciando:', e));
-        }, 10000);
-        */
-        console.log('🛑 LOGOUT detectado. El bot se detendrá para evitar bloqueos. Reiniciar manualmente.');
+        console.log('🛑 LOGOUT detectado. Cerrando navegador y limpiando sesión invalidada para permitir nuevo QR limpio.');
+        try {
+          if (this.client) await this.client.destroy();
+        } catch (e) {}
+        this.client = null;
+        this.isStarted = false;
+        try {
+          if (ProfileManager && typeof ProfileManager.killZombieChrome === 'function') {
+            ProfileManager.killZombieChrome(this.instanceId);
+          }
+          const sessionFolder = path.join(sessionsDir, `session-${this.instanceId}`);
+          if (fs.existsSync(sessionFolder)) {
+            fs.rmSync(sessionFolder, { recursive: true, force: true });
+            console.log(`🧹 Carpeta de sesión invalidada eliminada: ${sessionFolder}`);
+          }
+        } catch (cleanErr) {
+          console.warn('⚠️ Aviso limpiando sesión tras LOGOUT:', cleanErr.message);
+        }
       }
     });
 
@@ -843,6 +1265,8 @@ class WhatsAppBot {
       await this.client.initialize();
       console.log('✅ initialize() resuelto');
     } catch (error) {
+      this.isInitializing = false;
+      this.isStarted = false;
       console.error('❌ Error inicializando WhatsApp:', error);
     }
   }

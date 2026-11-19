@@ -1902,6 +1902,16 @@ function renderBotControls() {
                     }
                 }
             }, 60);
+        } else if (bot.status === 'authenticated') {
+            statusColor = '#25d366';
+            statusHtml = `<span class="status-dot" style="background:${statusColor}"></span> QR Escaneado (Sincronizando...)`;
+            actionHtml = `
+                <div class="qr-waiting" style="text-align: center; padding: 20px; color: #25d366;">
+                    <span class="material-icons rotating" style="font-size: 32px; color: #25d366;">verified</span>
+                    <p style="margin-top: 10px; font-weight: 600;">¡Código QR vinculado!</p>
+                    <p style="font-size: 11px; opacity: 0.8; color: #8696a0;">Cargando chats de WhatsApp Web (5-15 seg)...</p>
+                </div>
+            `;
         } else if (bot.status === 'ready') {
             statusColor = '#25d366';
             statusHtml = `<span class="status-dot" style="background:${statusColor}; box-shadow: 0 0 8px ${statusColor};"></span> Operativo`;
@@ -2177,10 +2187,7 @@ async function requestBotQR(instanceId) {
         renderBotControls();
     }
 
-    // 1. Emitir comando Socket
-    sendCommand(instanceId, 'start_bot');
-
-    // 2. Solicitar vía REST API fallback
+    // Solicitar vía REST API (el backend envía un único comando start_bot al socket o levanta PM2 si está apagado)
     try {
         const res = await fetchAPI(`/api/bot/${instanceId}/generate-qr`, { method: 'POST' });
         const data = await res.json();
@@ -2192,7 +2199,8 @@ async function requestBotQR(instanceId) {
             renderBotControls();
         }
     } catch (e) {
-        console.warn('Fallback HTTP request QR:', e);
+        console.warn('Fallback Socket request QR:', e);
+        sendCommand(instanceId, 'start_bot');
     }
 }
 window.requestBotQR = requestBotQR;

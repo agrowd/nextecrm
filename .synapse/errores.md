@@ -503,3 +503,33 @@ El usuario reporta que hoy no se enviaron mensajes. Al revisar `npx pm2 list` de
 **Root Cause:** `app/layout.tsx` (`html` y `body` con `overflow-x-hidden`) y `app/globals.css` (`overflow-x: hidden`) fuerzan en CSS que `overflow-y` compute a `auto`, rompiendo todo descendiente `position: sticky`.
 **Solución:** Reemplazar `overflow-x-hidden` / `overflow-x: hidden` por `overflow-x-clip` / `overflow-x: clip` en ambos archivos.
 **Estado:** ✅ FIXED
+
+---
+
+## ERR-29: Bucle de QR en `bot_1` (conecta y vuelve a mostrar el QR / LOGOUT) por doble proceso Chromium, doble `--user-data-dir`, flag `--watch=false` en PM2 y nueva ruta `/login/` de WhatsApp Web 2.3000+ (2026-11-19)
+**Síntoma:**
+1. Al escanear el código QR de `bot_1` desde el celular, el QR parpadea (aparece y desaparece), muestra brevemente que se conectó y segundos después vuelve a mostrar el QR o cae en `🔌 WhatsApp desconectado: LOGOUT`.
+2. Al iniciar una sesión limpia en WhatsApp Web `2.3000.1055376512`, `whatsapp-web.js@1.34.7` queda colgado en `initialize()` o arroja `Execution context was destroyed, most likely because of a navigation`.
+**Root Cause:**
+1. **Doble Disparo y Re-entrada sin Guard (`isInitializing` / `isAuthenticated`):** En `crm-dashboard/app.js`, `requestBotQR` emitía simultáneamente `sendCommand(instanceId, 'start_bot')` por Socket.IO y `POST /api/bot/:instanceId/generate-qr` (que volvía a emitir `start_bot`). Además, al escanear el QR, el evento `authenticated` ponía `this.lastQr = null` mientras `this.isReady` seguía en `false` durante los 5–15s de carga de chats. Cualquier solicitud entrante veía `!this.isReady && !this.lastQr`, llamaba a `this.client.destroy()` a mitad de arranque/autenticación (dejando el Chromium #1 vivo como proceso huérfano) y lanzaba un segundo proceso Chromium #2 sobre la misma carpeta `session-bot_1`. Ambos procesos competían por IndexedDB/ServiceWorker (`AbortError: Failed to access storage` → `LOGOUT`), y el Chromium #1 huérfano seguía emitiendo QRs cada 20s, pisando el estado `"ready"` del dashboard con `"qr_required"`.
+2. **Doble `--user-data-dir` y `pgrep -E` inválido en Linux:** `bot/index.js` pasaba `--user-data-dir=.../browser-bot_1` además del `--user-data-dir=.../session-bot_1` inyectado por `LocalAuth`, y `profileManager.js` ejecutaba `pgrep -E -f` (flag `-E` inválido en Debian `procps`), por lo que `killZombieChrome` fallaba silenciosamente sin matar procesos Chromium huérfanos.
+3. **Flag `--watch=false` en PM2 CLI:** En `server/index.js`, `pm2 start ... --watch=false` era interpretado por `commander` como `--watch "false"` (truthy), activando `watching: enabled` sobre `/app/bot`.
+4. **Nueva Ruta Standalone `https://web.whatsapp.com/login/` (WA Web `2.3000.1055376512`):** Meta separó la ruta `/login/` para sesiones no autenticadas, donde `window.require('WAWebSocketModel')` devuelve `null` hasta después del login, mientras `WAWebConnModel.Conn.ref` ya emite el QR.
+**Solución:**
+1. **Guards Anti-Concurrencia y Estado `authenticated` (`bot/index.js`, `server/index.js`, `crm-dashboard/app.js`):** Agregados `this.isInitializing` y `this.isAuthenticated`, evento `bot_authenticated` hacia el backend/dashboard (limpiando `botQRS.delete(instanceId)` e ignorando QRs tardíos si el bot ya está `authenticated` o `ready`), eliminado el doble envío Socket+REST en `requestBotQR`, y removido el `--user-data-dir` duplicado.
+2. **Fix `ProfileManager.killZombieChrome` y PM2:** Removidos `-E`/`-e` de `pgrep`/`pkill` en `profileManager.js`, eliminado `--watch=false` en `server/index.js` y unificado el nombre canónico `nexte-bot1` con `pm2 describe ... && pm2 restart || pm2 start`.
+3. **Monkey-Patch `Client.prototype.inject` para `/login/` (`D-52`):** Soporte en `bot/index.js` (y `bot_1..4`) para detectar `location.pathname.startsWith('/login')` + `WAWebConnModel.Conn.ref`, auto-refrescar el QR con `WAWebLoginLaunchSocketUtils.refreshLoginQR()` y reintentar automáticamente `inject()` si ocurre `Execution context was destroyed` durante la navegación `/` ↔ `/login/`.
+**Estado:** ✅ FIXED
+
+---
+
+## ERR-30: Bloqueo total de escrituras en MongoDB Atlas (`code: 8000, AtlasError: you are over your space quota, using 512 MB of 512 MB`) por colección `logs` sin TTL (2026-11-19)
+**Síntoma:**
+`nexte-backend-error.log` arrojaba `MongoServerError: you are over your space quota, using 512 MB of 512 MB. Writes are blocked on your cluster` y `nexte-bot1` fallaba al procesar leads con `Request failed with status code 500`.
+**Root Cause:**
+El interceptor global `safeLog` (`server/index.js`) y el handler `socket.on('bot_log')` guardaban cada línea de consola (incluyendo bloques ASCII de códigos QR y logs internos de Chromium) en la colección `logs` de MongoDB Atlas sin índice TTL, acumulando `494.443` documentos (`435,41 MB` de datos + índices) hasta llenar el límite de 512 MB del tier M0.
+**Solución:**
+1. Se purgó la colección `logs` en MongoDB Atlas, bajando el uso total de la base de datos de **512 MB / 512 MB** a **25,20 MB / 512 MB** y desbloqueando inmediatamente todas las escrituras.
+2. En `server/index.js`, `safeLog` y `socket.on('bot_log')` ahora transmiten en vivo por Socket.IO (`realtime_bot_log`) y se apoyan en los logs en disco de PM2 sin insertar cada `console.log` en MongoDB.
+3. En `server/models/Log.js`, se agregó un índice TTL de 24 horas (`expires: 86400`) en `timestamp` para que los logs explícitos del sistema se auto-purguen diariamente.
+**Estado:** ✅ FIXED
