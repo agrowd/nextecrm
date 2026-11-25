@@ -112,6 +112,23 @@ class ProfileManager {
         } else {
             console.log('✅ Sin archivos de bloqueo encontrados.');
         }
+
+        // Limpiar Service Worker y Cache de red obsoletos (preservando IndexedDB y Local Storage con la sesión)
+        // Evita que un Service Worker viejo de WhatsApp Web cuelgue page.goto en about:blank tras actualizaciones de Meta
+        try {
+            const defaultProfileDir = path.join(sessionsDir, `session-${instanceId}`, 'Default');
+            if (fs.existsSync(defaultProfileDir)) {
+                for (const cacheFolder of ['Service Worker', 'Cache', 'Code Cache', 'GPUCache']) {
+                    const targetCache = path.join(defaultProfileDir, cacheFolder);
+                    if (fs.existsSync(targetCache)) {
+                        fs.rmSync(targetCache, { recursive: true, force: true });
+                        console.log(`🧹 Cache de navegador limpiado (sesión preservada): ${targetCache}`);
+                    }
+                }
+            }
+        } catch (cacheErr) {
+            console.warn('⚠️ Aviso limpiando Service Worker cache:', cacheErr.message);
+        }
     }
 }
 
