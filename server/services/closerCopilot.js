@@ -104,14 +104,39 @@ class CloserCopilot {
             };
         }
 
-        if (/no me interesa|no gracias|ya tenemos|baja|no quiero/.test(text)) {
+        if (/recepcionista|secretaria|emplead|encarga de todo eso|encarga de eso/.test(text)) {
+            const demoUrl = buildPersonalizedDemoUrl(lead);
+            return {
+                stage: 'rechazo_recepcionista',
+                stageLabel: '👩‍💼 Objeción: "Ya tenemos recepcionista"',
+                detectedObjection: 'Teme que la IA reemplace a recepción o cree que ya tiene cubierto el puesto humano',
+                coachingTip: 'Aclarale con empatía que los Agentes de IA son el mejor aliado de recepción: atienden fuera de hora, escuchan audios largos y validan señas para sacarle trabajo pesado.',
+                suggestedReply: `¡Buenísimo que tengan equipo! Justamente nuestros Agentes de IA no reemplazan a recepción, sino que la ayudan: responden fuera de horario o fin de semana, escuchan audios y validan señas para dejarle todo filtrado y anotado en *${name}*. Te dejo la demo personalizada por si quieren chusmear cómo trabaja junto al equipo:\n👉 ${demoUrl}`,
+                confidence: 0.94
+            };
+        }
+
+        if (/ya tenemos|ya tengo|tenemos un sistema|tenemos sistema|tenemos web/.test(text)) {
+            const demoUrl = buildPersonalizedDemoUrl(lead);
+            return {
+                stage: 'rechazo_ya_tiene_sistema',
+                stageLabel: '⚙️ Objeción: "Ya tenemos un sistema / web"',
+                detectedObjection: 'Cree que para usar NatoH Systems tiene que descartar o cambiar el sistema que ya usa',
+                coachingTip: 'Explicá que puede sumar solo el Agente IA Respondedor 24/7 en WhatsApp ($115.000/mes) encima de su operación actual sin cambiar su sistema.',
+                suggestedReply: `¡Excelente que ya estén digitalizados! Tenenos en cuenta porque también podemos sumar únicamente el *Agente IA Respondedor 24/7* en el WhatsApp de *${name}* (que escucha audios, pasa info y valida señas en segundos) sin cambiar el sistema que ya usan. Te dejo nuestra demo en vivo por si les sirve a futuro:\n👉 ${demoUrl}`,
+                confidence: 0.93
+            };
+        }
+
+        if (/no me interesa|no gracias|no estoy interesad|te agradezco pero no|por ahora no|por ahora te agradezco|baja|no quiero/.test(text)) {
+            const demoUrl = buildPersonalizedDemoUrl(lead);
             return {
                 stage: 'rechazo_cortes',
-                stageLabel: '🧊 Desinterés / Ya tiene proveedor',
-                detectedObjection: 'Indica que ya cuenta con el servicio o no lo busca ahora',
-                coachingTip: 'Dejá la puerta abierta con amabilidad y el link de natohsystems.com para que agende el contacto.',
-                suggestedReply: `¡Impecable, muchas gracias por avisarme! Te dejo nuestro contacto agendado y nuestra web https://natohsystems.com por si más adelante necesitan desarrollar algún sistema a medida o automatizar WhatsApp con IA. ¡Muchos éxitos con *${name}*!`,
-                confidence: 0.90
+                stageLabel: '🧊 No Interesado / Postergado (Respuesta Humana Posterior)',
+                detectedObjection: 'Leyó la secuencia después y declinó o postergó cortésmente antes de probar la demo personalizada',
+                coachingTip: 'Despedite con total amabilidad y dejale el link a la demo interactiva personalizada con el nombre de su negocio sin ningún compromiso.',
+                suggestedReply: `¡Impecable, muchas gracias por tomarte el tiempo de responderme! Te dejo sin ningún compromiso el acceso a la demo interactiva personalizada que habíamos armado con el nombre de *${name}* por si algún día quieren probarla desde el celu:\n👉 ${demoUrl}\n¡Muchos éxitos!`,
+                confidence: 0.91
             };
         }
 

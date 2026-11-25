@@ -52,10 +52,17 @@ const LeadSchema = new mongoose.Schema({
   // 📊 A/B Testing Tracking
   templateVariantUsed: { type: Number, default: null }, // Índice de variante de propuesta
   respondedToTemplate: { type: Boolean, default: false }, // Si respondió a esta propuesta
-  // 🤖 Tracking de IA y Control de Bot
+  // 🤖 Tracking de IA, Control de Bot y Estudio ChatGPT de No Interesados (Respuestas Humanas Posteriores)
   aiIntent: { type: String, default: '' },
   aiConfidence: { type: Number, default: null },
   aiReason: { type: String, default: '' },
+  rejectionReason: { type: String, default: '' },
+  rejectionCategory: { type: String, default: '' }, // 'ya_tiene_sistema_o_web' | 'tiene_recepcionista_o_equipo' | 'postergado_timing_o_presupuesto' | 'rechazo_corto_sin_motivo' | 'no_es_decisor' | 'molesto_o_spam'
+  rejectionStudy: { type: String, default: '' }, // Estudio profundo de ChatGPT sobre el rechazo humano
+  rejectionImprovementTip: { type: String, default: '' }, // Mejora sugerida por ChatGPT para el pitch de este rubro
+  responseDelaySeconds: { type: Number, default: null }, // Segundos desde nuestro último mensaje saliente hasta la respuesta humana
+  isHumanDelayedReply: { type: Boolean, default: false }, // true solo si es respuesta humana posterior (no auto-reply ni otro bot)
+  respondedAtMessageNumber: { type: Number, default: null }, // En cuál de los 4 mensajes respondió
   // 🏷️ Control de Etiquetas y Pausa de IA para Chats
   tags: { type: [String], default: [] }, // Etiquetas asignadas (ej. 'cliente', 'manual', 'no_responder')
   labels: { type: [String], default: [] }, // WhatsApp labels

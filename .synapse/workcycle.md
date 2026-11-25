@@ -1019,3 +1019,15 @@ docker compose logs -f
      - Ampliado el scoring B2B (+20 pts) y los dossiers heurísticos/IA para incluir psicología, depilación, construcción, predios de fútbol, asociaciones civiles y gestión de ingresos.
   3. `server/services/closerCopilot.js` & `server/services/geoGridScanner.js` & `server/index.js`:
      - Actualizado `buildPersonalizedDemoUrl` y la respuesta de 1 clic (`interes_demo`) del Copiloto Closer, sumados los rubros de Psicología, Predios de Fútbol, Construcción y Asociaciones Civiles en `RUBROS_CATALOG`, y actualizado `/api/ai-config`.
+
+## [2026-11-25 15:35] - Agente 6: Estudio ChatGPT de Mensajes de "No Interesados" (Respuestas Humanas Posteriores vs. Auto-Replies y Otros Bots - `D-54`)
+- **Archivos Creados y Actualizados:**
+  1. `bot/services/responseAnalyzer.js` & `bot/index.js` (sincronizados a `bot_1..4`):
+     - Filtrado estricto de auto-respuestas instantáneas de WhatsApp Business (`<18s`, saludos, horarios, menús, vCards) y respuestas de **otros bots / asistentes virtuales** que tratan al número como paciente/cliente (`intent: 'other_bot' | 'auto_reply'`, `isAutomatedOrOtherBot: true`), ignorándolos sin ensuciar métricas ni marcar falsos interesados/no interesados.
+     - Cálculo de `responseDelaySeconds` (cuánto tardó la persona en responder después de nuestro mensaje saliente) y `respondedAtMessageNumber` (en cuál de los 4 mensajes respondió).
+     - Estudio profundo de cada respuesta humana de "No Interesado" con ChatGPT (`rejectionCategory`, `rejectionStudy`, `improvementTip`).
+  2. `server/models/Lead.js` & `server/services/notInterestedAnalyzer.js` & `server/index.js`:
+     - Nuevo servicio `notInterestedAnalyzer.js` y endpoints `GET /api/leads/not-interested-study` y `POST /api/leads/study-not-interested`.
+     - Limpia automáticamente falsos positivos generados por otros bots y estudia con ChatGPT (`gpt-4o-mini`) todas las respuestas humanas reales de "No Interesados", devolviendo diagnóstico ejecutivo, patrones de objeción oculta (*"Ya tenemos recepcionista"*, *"Ya tenemos sistema"*, *"Por ahora te agradezco"*), análisis de timing y plantillas de rebote.
+  3. `crm-dashboard/index.html` & `crm-dashboard/app.js` & `server/services/closerCopilot.js`:
+     - Nuevo panel interactivo **"Agente 6: Estudio ChatGPT de No Interesados (Respuestas Humanas Posteriores)"** en el Dashboard CRM y respuestas de rebote en el Copiloto Closer para cada categoría de objeción.

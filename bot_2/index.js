@@ -2314,23 +2314,26 @@ class WhatsAppBot {
     if (!messageBody) return false;
     const lower = messageBody.toLowerCase();
 
-    // 1. Palabras clave de bots / auto-respuestas
+    // 1. Palabras clave de bots / auto-respuestas / otros asistentes virtuales
     const autoReplyKeywords = [
-      'gracias por comunicarte', 'gracias por contactarnos', 'gracias por escribirnos',
-      '¿cómo podemos ayudarte', 'como podemos ayudarte',
+      'gracias por comunicarte', 'gracias por contactarnos', 'gracias por contactar a', 'gracias por escribirnos',
+      '¿cómo podemos ayudarte', 'como podemos ayudarte', 'en que podemos ayudarte',
       'bienvenido', 'bienvenida',
       'menú', 'menu', 'opción', 'opcion', 'marcar',
-      'horario de atención', 'horario de atencion',
+      'horario de atención', 'horario de atencion', 'nuestro horario es de',
       'respuesta automática', 'respuesta automatica',
       'autorespuesta', 'auto-respuesta',
       'asistente virtual', 'chatbot',
       'fuera del horario', 'fuera de horario',
-      'en breve te respondemos', 'en breve nos comunicamos',
+      'en breve te respondemos', 'en breve nos comunicamos', 'en breve responderé', 'a la brevedad será respondido',
       'mensaje fue recibido', 'hemos recibido tu mensaje',
-      'te responderemos', 'nos pondremos en contacto',
+      'te responderemos', 'nos pondremos en contacto', 'apenas podamos vamos a responder',
       'seleccione una opción', 'selecciona una opcion',
       'elige una opción', 'elija una opcion',
-      'recuerde que debemos', 'agendado'
+      'recuerde que debemos', 'agendado',
+      'por este canal solo gestionamos', 'este canal es exclusivo para consultas y turnos',
+      'en este chat solo ayudamos con info sobre', 'los turnos se reservan solo con seña previa',
+      'voy a acompañarte durante la atención', 'begin:vcard', '[archivo:'
     ];
     if (autoReplyKeywords.some(kw => lower.includes(kw))) return true;
 
@@ -2658,15 +2661,36 @@ class WhatsAppBot {
         return;
       }
 
-      // ✅ ANALIZAR RESPUESTA CON IA CONSOLIDADA (Gemini/OpenAI)
+      // ✅ ANALIZAR RESPUESTA CON IA CONSOLIDADA (ChatGPT: filtra otros bots y estudia No Interesados reales)
       const activeLeadObj = (isCurrentProcessingLead ? this.currentlyProcessingLead?.lead : null) || incomingLeadFromDb;
       const leadName = activeLeadObj?.name || 'Cliente';
       const leadCategory = activeLeadObj?.category || 'General';
 
-      const analysis = await this.responseAnalyzer.analyzeIncomingMessage(messageBody, leadName, leadCategory);
-      console.log(`🤖 [ANALIZADOR IA] Intención: ${analysis.intent.toUpperCase()} (${(analysis.confidence * 100).toFixed(0)}%) - Razón: ${analysis.reason}`);
+      // Calcular cuántos segundos tardó en responder después de nuestro mensaje saliente
+      let responseDelaySeconds = null;
+      if (isCurrentProcessingLead && this.currentlyProcessingLead?._msg1SentAt) {
+        responseDelaySeconds = Math.max(0, Math.round((Date.now() - this.currentlyProcessingLead._msg1SentAt) / 1000));
+      } else if (activeLeadObj?.lastMessageAt || activeLeadObj?.lastContactAt) {
+        const refDate = new Date(activeLeadObj.lastMessageAt || activeLeadObj.lastContactAt).getTime();
+        if (!isNaN(refDate) && refDate > 0) {
+          responseDelaySeconds = Math.max(0, Math.round((Date.now() - refDate) / 1000));
+        }
+      }
+      const messagesSentCount = activeLeadObj?.messagesSent || (isCurrentProcessingLead ? 1 : 4);
 
-      // Abortar secuencia saliente SOLO si el usuario que respondió es el lead actualmente en envío
+      const analysis = await this.responseAnalyzer.analyzeIncomingMessage(messageBody, leadName, leadCategory, {
+        responseDelaySeconds,
+        messagesSentCount
+      });
+      console.log(`🤖 [ANALIZADOR IA] Intención: ${analysis.intent.toUpperCase()} | Humano: ${analysis.isHumanReply !== false} (${(analysis.confidence * 100).toFixed(0)}%) - Razón: ${analysis.reason}`);
+
+      // 🛑 SI CHATGPT DETECTA QUE ES AUTO-RESPUESTA DE WHATSAPP O DE OTRO BOT -> IGNORAR (No es respuesta humana posterior)
+      if (analysis.isAutomatedOrOtherBot || analysis.intent === 'auto_reply' || analysis.intent === 'other_bot' || analysis.isHumanReply === false) {
+        console.log(`🤖 [IGNORADO POR SER AUTO-RESPUESTA / OTRO BOT] "${leadName}" respondió con mensaje automatizado (${analysis.intent}): "${messageBody.slice(0, 80)}..." — No se marca como interesado ni no interesado.`);
+        return;
+      }
+
+      // Abortar secuencia saliente SOLO si el usuario humano real que respondió es el lead actualmente en envío
       if (isCurrentProcessingLead) {
         this.abortCurrentSequence = true;
         if (this.currentlyProcessingLead) {
@@ -2675,10 +2699,15 @@ class WhatsAppBot {
         }
       }
 
-      // 1. Actualizar estado en base de datos en base al análisis de intención y puntuación
+      // 1. Actualizar estado en base de datos en base al análisis de intención y estudio de No Interesados
       let backendStatus = 'interested';
       if (analysis.intent === 'rejection') {
         backendStatus = 'not_interested';
+        console.log(`🧠 [ESTUDIO CHATGPT NO INTERESADO] "${leadName}" (${leadCategory}) | Categoría: ${analysis.rejectionCategory} | Delay: ${responseDelaySeconds !== null ? responseDelaySeconds + 's' : 'posterior'}`);
+        console.log(`   📌 Diagnóstico: ${analysis.rejectionStudy || analysis.reason}`);
+        if (analysis.improvementTip) {
+          console.log(`   💡 Mejora sugerida: ${analysis.improvementTip}`);
+        }
       } else if (analysis.intent === 'anger' || (analysis.angerScore && analysis.angerScore >= 6)) {
         backendStatus = 'discarded';
       } else if (analysis.intent === 'neutral') {
@@ -2693,6 +2722,12 @@ class WhatsAppBot {
           status: backendStatus,
           whatsappResponse: messageBody,
           rejectionReason: (analysis.intent === 'rejection' || analysis.intent === 'anger') ? analysis.reason : undefined,
+          rejectionCategory: analysis.rejectionCategory || undefined,
+          rejectionStudy: analysis.rejectionStudy || undefined,
+          rejectionImprovementTip: analysis.improvementTip || undefined,
+          responseDelaySeconds: responseDelaySeconds !== null ? responseDelaySeconds : undefined,
+          isHumanDelayedReply: true,
+          respondedAtMessageNumber: messagesSentCount,
           respondedToTemplate: true,
           aiIntent: analysis.intent,
           aiConfidence: analysis.confidence,
@@ -2700,7 +2735,7 @@ class WhatsAppBot {
           angerScore: analysis.angerScore,
           interestScore: analysis.interestScore
         });
-        console.log(`💾 Estado del Lead en CRM actualizado a: ${backendStatus} (Anero: ${analysis.angerScore}/10, Interés: ${analysis.interestScore}/10)`);
+        console.log(`💾 Estado del Lead en CRM actualizado a: ${backendStatus} (Enojo: ${analysis.angerScore}/10, Interés: ${analysis.interestScore}/10)`);
       } catch (error) {
         console.error('Error actualizando lead status:', error.message);
       }

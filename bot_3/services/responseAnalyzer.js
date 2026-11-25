@@ -111,74 +111,106 @@ Responde JSON:
     }
 
     /**
-     * Analizar respuesta de forma consolidada e inteligente (Paso 1, 2, 3 de intención + medición de enojo/interés)
+     * Analizar respuesta de forma consolidada e inteligente:
+     * 1) Separa respuestas automáticas de WhatsApp Business y respuestas de OTROS BOTS / Asistentes Virtuales
+     * 2) Estudia con ChatGPT los mensajes reales de "No Interesados" (los que responde una persona real DESPUÉS, no instantáneamente)
      */
-    async analyzeIncomingMessage(message, leadName, leadCategory) {
-        console.log(`🔍 Iniciando análisis consolidado de respuesta de "${leadName}" con IA...`);
+    async analyzeIncomingMessage(message, leadName, leadCategory, context = {}) {
+        const responseDelaySeconds = typeof context.responseDelaySeconds === 'number' ? context.responseDelaySeconds : null;
+        const messagesSentCount = typeof context.messagesSentCount === 'number' ? context.messagesSentCount : null;
+        console.log(`🔍 Iniciando análisis consolidado de respuesta de "${leadName}" con ChatGPT (delay=${responseDelaySeconds !== null ? responseDelaySeconds + 's' : 'N/A'}, msgsEnviados=${messagesSentCount || 'N/A'})...`);
         const simpleCheck = this.simpleRejectionCheck(message);
         
-        // 1. Filtrar si es una autorespuesta conocida
-        const autoCheck = this.isAutoResponse(message);
+        // 1. Filtrar si es una autorespuesta de WhatsApp Business o respuesta de OTRO BOT
+        const autoCheck = this.isAutoResponse(message, responseDelaySeconds);
         if (autoCheck.isAutoResponse) {
+            console.log(`🤖 [FILTRO AUTO-REPLY / OTRO BOT] Ignorando mensaje no humano de "${leadName}": ${autoCheck.reason}`);
             return {
-                intent: 'auto_reply',
+                intent: autoCheck.isOtherBot ? 'other_bot' : 'auto_reply',
+                isHumanReply: false,
+                isAutomatedOrOtherBot: true,
                 confidence: 1.0,
                 angerScore: 0,
                 interestScore: 0,
                 reason: autoCheck.reason,
+                rejectionCategory: null,
+                rejectionStudy: null,
                 reply: null,
                 shouldRespond: false
             };
         }
 
-        const systemPrompt = `Eres Juan Cruz, director de Nexte Marketing (más de 10 años de trayectoria ayudando a negocios con software a medida, IA NatoH, sitios web y SEO local).
-El cliente potencial (${leadName}), del rubro "${leadCategory}", respondió a nuestro mensaje de prospección en frío con este texto:
+        const delayContextStr = responseDelaySeconds !== null
+            ? `Tiempo transcurrido desde nuestro último mensaje saliente hasta esta respuesta: ${responseDelaySeconds} segundos (${(responseDelaySeconds / 60).toFixed(1)} minutos).`
+            : 'Tiempo transcurrido: respuesta recibida posteriormente tras la secuencia.';
+
+        const systemPrompt = `Sos el Analista Senior de Inteligencia Comercial B2B de *NatoH Systems*.
+El prospecto "${leadName}" (Rubro: "${leadCategory}") respondió a nuestra secuencia de prospección por WhatsApp con este mensaje:
 "${message}"
 
-Analiza el mensaje detenidamente y calcula las siguientes métricas:
-1. "intent": 
-   - "rejection": No le interesa de forma educada ("No gracias", "Ya tenemos web", "Por ahora no").
-   - "anger": Está enojado, molesto, o pregunta agresivamente cómo conseguimos su número ("Borrá mi número", "Dejá de joder", "Quién te dio mi número?", "Spam").
-   - "interest": Muestra interés directo en conocer más, contratar o ver ejemplos ("Me interesa", "Pasame info", "De qué se trata?", "Mandame ejemplos").
-   - "question": Pregunta por costos, reuniones, o detalles específicos ("Cuánto sale?", "Tienen turno?", "Hacen x servicio?").
-   - "neutral": Respuesta ambigua o corta ("Ok", "Hola", "Buenas").
+DATOS DE TIMING Y CONTEXTO:
+- ${delayContextStr}
+- Cantidad de mensajes de nuestra secuencia enviados antes de esta respuesta: ${messagesSentCount || 4} de 4.
 
-2. "angerScore": Puntuación del 0 al 10 sobre qué tan enojado o molesto está el lead (0 = nada enojado, 10 = furioso/amenaza con denunciar).
-3. "interestScore": Puntuación del 0 al 10 sobre qué tanto le gustó la propuesta o qué tan interesado está (0 = nada interesado, 10 = listo para comprar/agendar).
+TU MISIÓN CRÍTICA TIENE 2 PARTES:
 
-4. "reply": Genera la respuesta adecuada en español argentino profesional:
-   - SI ESTÁ ENOJADO O RECHAZA ("anger" / "rejection" o angerScore >= 4): Genera una disculpa educada y servicial. Si el enojo es alto (angerScore >= 7): "Disculpá la molestia. Te pido mil disculpas por la interrupción. Ya agendamos tu número para no volver a enviarte ninguna información. ¡Saludos y éxitos!". Si el rechazo es bajo: "Entendido, disculpá la molestia. Ya registramos tu número para no escribirte más. ¡Que tengas un excelente día!".
-   - SI MUESTRA INTERÉS O HACE UNA PREGUNTAS ESPECÍFICA ("interest" / "question" o interestScore >= 5): 
-     * Si pregunta por PRECIOS O TARIFAS: Mencioná brevemente las promos ($180k Asistente IA, $250k Web, $350k Turnero/Software, $690k Combo) y agregá que un asesor especializado le enviará el detalle a su medida.
-     * Si pregunta por EJEMPLOS, DEMOS O WEBS: Confirmá que le podemos mandar 2 o 3 demos reales de su rubro ("{leadCategory}") y que un asesor se comunicará a la brevedad.
-     * En general: "¡Buenísimo! Ya le pasé tu consulta a un asesor especializado de Nexte para que se comunique con vos a la brevedad con toda la info y ejemplos. ¡Muchas gracias!".
-   - SI ES NEUTRAL: Ofrece amablemente enviarle ejemplos de nuestro portafolio de clientes de su rubro.
+PARTE 1 — DISTINGUIR HUMANO REAL (QUE RESPONDE DESPUÉS) vs. AUTO-RESPUESTA DE WHATSAPP / OTRO BOT:
+- Muchos negocios tienen respuestas automáticas de WhatsApp Business (saludos instantáneos, horarios, menús, vCards) o tienen OTRO BOT / Asistente Virtual configurado para atender a sus propios pacientes/clientes (ej: "Hola! Soy Flor de LaserLook, por este canal solo damos turnos", "Te comunicaste con Consultorio X", "¿Necesitás agendar un turno?", "¡Hola! Contamos con varios servicios de masajes...").
+- Si el mensaje es una respuesta automática de WhatsApp o es el bot/asistente virtual del negocio tratándonos como si fuéramos un paciente o cliente de su local, clasificá "intent": "other_bot" o "auto_reply" y "isHumanReply": false. ¡NUNCA clasifiques a otro bot como "interest" ni como "rejection"!
 
-Responde estrictamente en formato JSON válido con la siguiente estructura:
+PARTE 2 — ESTUDIAR A FONDO LOS MENSAJES REALES DE "NO INTERESADOS" (CUANDO RESPONDE UNA PERSONA REAL DESPUÉS):
+- Si es una respuesta escrita por una persona real que leyó nuestros mensajes después y dice que NO está interesada ("No gracias", "Por ahora te agradezco", "Ya tenemos sistema", "Tenemos recepcionista que se encarga de eso", "Recién para el año que viene"):
+  1. Clasificá "intent": "rejection" (o "anger" si está molesto/agresivo) y "isHumanReply": true.
+  2. Clasificá "rejectionCategory" en UNA de estas 6 categorías exactas:
+     - "ya_tiene_sistema_o_web": Dice que ya tiene sistema, software, turnero, agencia o web.
+     - "tiene_recepcionista_o_equipo": Dice que ya tiene secretaria/recepcionista/personal que contesta a mano.
+     - "postergado_timing_o_presupuesto": Dice "por ahora no", "más adelante", "para el año que viene" o tema de costos.
+     - "rechazo_corto_sin_motivo": Dice "No gracias", "No estoy interesado/a", "Te agradezco pero no" sin detallar por qué.
+     - "no_es_decisor": Quien atiende el WhatsApp es un empleado/recepción que filtra y no pasa al dueño.
+     - "molesto_o_spam": Pide que borren su número o se muestra molesto por el contacto.
+  3. Completá "rejectionStudy" (1 a 2 oraciones profundas): estudiá qué revela exactamente esa respuesta humana (qué palabra usó, por qué la propuesta no lo enganchó en ese punto, si sintió que el sistema reemplazaba a su recepcionista, si fue un freno por el precio del Mensaje 3, o si dejó una puerta abierta para el futuro).
+  4. Completá "improvementTip" (1 oración accionable): qué deberíamos ajustar o testear en nuestros mensajes para ese rubro para convertir ese "No" en curiosidad (ej: aclarar que el Agente IA ayuda a la recepcionista con los audios y señas fuera de hora sin reemplazarla).
+
+MÉTRICAS ADICIONALES:
+- "angerScore": 0 a 10.
+- "interestScore": 0 a 10.
+- "reply": Respuesta sugerida corta en español argentino (aunque el bot esté en modo solo envío, queda guardada para el CRM).
+
+Respondé ESTRICTAMENTE en JSON válido con esta estructura:
 {
-  "intent": "rejection" | "anger" | "interest" | "question" | "neutral",
+  "intent": "rejection" | "anger" | "interest" | "question" | "neutral" | "auto_reply" | "other_bot",
+  "isHumanReply": true | false,
   "confidence": 0.0-1.0,
   "angerScore": 0-10,
   "interestScore": 0-10,
-  "reason": "Explicación del análisis",
-  "reply": "Texto de la respuesta final a enviar por WhatsApp",
-  "shouldRespond": true
-}
-`;
+  "rejectionCategory": "ya_tiene_sistema_o_web" | "tiene_recepcionista_o_equipo" | "postergado_timing_o_presupuesto" | "rechazo_corto_sin_motivo" | "no_es_decisor" | "molesto_o_spam" | null,
+  "reason": "Resumen claro de la intención detectada",
+  "rejectionStudy": "Estudio detallado de ChatGPT sobre por qué este humano rechazó o postergó la propuesta (o null si no es rechazo)",
+  "improvementTip": "Aprendizaje comercial para mejorar el mensaje en este rubro (o null si no es rechazo)",
+  "reply": "Texto de respuesta sugerida",
+  "shouldRespond": false
+}`;
 
         try {
-            const resText = await AIHelper.generate("Analiza la respuesta del cliente.", systemPrompt, true);
+            const resText = await AIHelper.generate("Analizá la respuesta entrante distinguiendo humanos reales vs bots/autorespuestas y estudiando a fondo si es un No Interesado.", systemPrompt, true);
             const jsonMatch = resText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 const analysis = JSON.parse(jsonMatch[0]);
+                const rawIntent = analysis.intent || 'neutral';
+                const isBotOrAuto = rawIntent === 'auto_reply' || rawIntent === 'other_bot' || analysis.isHumanReply === false;
                 return {
-                    intent: analysis.intent || 'neutral',
+                    intent: rawIntent,
+                    isHumanReply: !isBotOrAuto,
+                    isAutomatedOrOtherBot: isBotOrAuto,
                     confidence: analysis.confidence || 0.9,
-                    angerScore: typeof analysis.angerScore === 'number' ? analysis.angerScore : (analysis.intent === 'anger' ? 8 : 0),
-                    interestScore: typeof analysis.interestScore === 'number' ? analysis.interestScore : (analysis.intent === 'interest' ? 9 : 0),
+                    angerScore: typeof analysis.angerScore === 'number' ? analysis.angerScore : (rawIntent === 'anger' ? 8 : 0),
+                    interestScore: typeof analysis.interestScore === 'number' ? analysis.interestScore : (rawIntent === 'interest' ? 9 : 0),
+                    rejectionCategory: analysis.rejectionCategory || (rawIntent === 'rejection' ? 'rechazo_corto_sin_motivo' : null),
                     reason: analysis.reason || '',
+                    rejectionStudy: analysis.rejectionStudy || analysis.reason || null,
+                    improvementTip: analysis.improvementTip || null,
                     reply: analysis.reply || null,
-                    shouldRespond: analysis.intent !== 'neutral' ? true : (analysis.shouldRespond !== false)
+                    shouldRespond: !isBotOrAuto && rawIntent !== 'neutral' ? true : false
                 };
             }
         } catch (err) {
@@ -192,28 +224,44 @@ Responde estrictamente en formato JSON válido con la siguiente estructura:
         let interestScore = 0;
         let reply = null;
         let shouldRespond = false;
+        let rejectionCategory = null;
 
         if (simpleCheck.isRejection) {
             intent = 'rejection';
-            angerScore = simpleCheck.reason.includes('explícito') ? 8 : 4;
+            angerScore = simpleCheck.reason.includes('explícito') ? 8 : 2;
+            rejectionCategory = this.classifyRejectionCategoryHeuristic(message);
             reply = await this.generateApology(leadName);
             shouldRespond = true;
         } else if (isInterest) {
             intent = 'interest';
             interestScore = 8;
-            reply = "¡Buenísimo! Ya le avisé a un asesor especializado de Nexte para que se comunique con vos a la brevedad y te pase los ejemplos. ¡Muchas gracias!";
+            reply = "¡Buenísimo! Ya le avisé a un asesor especializado de NatoH Systems para que se comunique con vos a la brevedad y te pase la demo personalizada.";
             shouldRespond = true;
         }
 
         return {
             intent,
+            isHumanReply: true,
+            isAutomatedOrOtherBot: false,
             confidence: simpleCheck.confidence,
             angerScore,
             interestScore,
+            rejectionCategory,
             reason: simpleCheck.reason,
+            rejectionStudy: simpleCheck.isRejection ? `Rechazo humano detectado (${rejectionCategory}): "${message.slice(0, 100)}"` : null,
+            improvementTip: null,
             reply,
             shouldRespond
         };
+    }
+
+    classifyRejectionCategoryHeuristic(message = '') {
+        const msg = String(message || '').toLowerCase();
+        if (/recepcionista|secretaria|emplead|encarga de eso|chica que atiende/.test(msg)) return 'tiene_recepcionista_o_equipo';
+        if (/ya tenemos|ya tengo|tenemos sistema|tenemos web|tengo diseñador|otro proveedor/.test(msg)) return 'ya_tiene_sistema_o_web';
+        if (/por ahora|mas adelante|más adelante|año que viene|mes que viene|otro momento|no estamos buscando/.test(msg)) return 'postergado_timing_o_presupuesto';
+        if (/borra|spam|molest|sacame|eliminame|deja de/.test(msg)) return 'molesto_o_spam';
+        return 'rechazo_corto_sin_motivo';
     }
 
     /**
@@ -302,42 +350,89 @@ Responde estrictamente en formato JSON válido con la siguiente estructura:
     }
 
     /**
-     * Verificar si es una respuesta automática del negocio
+     * Verificar si es una respuesta automática de WhatsApp Business o de OTRO BOT / Asistente Virtual
      */
-    isAutoResponse(message) {
-        const msg = message.toLowerCase();
+    isAutoResponse(message, responseDelaySeconds = null) {
+        if (!message || typeof message !== 'string') {
+            return { isAutoResponse: true, isOtherBot: false, reason: 'Empty message' };
+        }
+        const msg = message.trim();
+        const lower = msg.toLowerCase();
 
+        // 0. Mensajes de sistema / archivos adjuntos automáticos / vCards
+        if (/^\[archivo:|begin:vcard|e2e_notification|notification_template/i.test(msg)) {
+            return {
+                isAutoResponse: true,
+                isOtherBot: false,
+                reason: 'Archivo automático de sistema o vCard de WhatsApp Business'
+            };
+        }
+
+        // 1. Patrones de OTROS BOTS / Asistentes Virtuales que nos tratan como paciente/cliente de su negocio
+        const otherBotPatterns = [
+            /soy [a-záéíóú]+ de .*por este canal solo/i,
+            /este canal es exclusivo para consultas y turnos/i,
+            /en este chat solo ayudamos con info sobre/i,
+            /¿?necesit[áa]s agendar un turno\??/i,
+            /te comunicaste con /i,
+            /voy a acompañarte durante la atenci[óo]n/i,
+            /los turnos se reservan solo con seña previa/i,
+            /actualmente estoy trabajando [úu]nicamente con servicios/i,
+            /contamos con varios servicios de /i,
+            /¿?turno est[ée]tica o turno m[ée]dico\??/i
+        ];
+
+        if (otherBotPatterns.some(pattern => pattern.test(msg))) {
+            return {
+                isAutoResponse: true,
+                isOtherBot: true,
+                reason: 'Respuesta de otro Bot / Asistente Virtual de turnos del comercio'
+            };
+        }
+
+        // 2. Patrones clásicos de auto-respuesta de WhatsApp Business
         const autoPatterns = [
             /gracias por comunicarte/i,
+            /gracias por contactarnos/i,
+            /gracias por contactar a/i,
+            /gracias por escribirnos/i,
             /te responderemos a la brevedad/i,
+            /en breve responder[ée] tu mensaje/i,
+            /a la brevedad ser[áa] respondido/i,
             /nuestro horario de atenci[óo]n/i,
+            /nuestro horario es de/i,
+            /en este momento no podemos responderte/i,
             /en este momento no podemos/i,
             /dejanos tu consulta/i,
+            /d[ée]janos tu mensaje/i,
             /bienvenido a/i,
             /este es un mensaje autom[áa]tico/i,
             /men[úu] principal/i,
             /marqu?e [0-9] para/i,
-            /horarios?:/i,
-            /nos encontramos en/i
+            /nos encontramos en/i,
+            /apenas podamos vamos a responder/i
         ];
 
-        const isAuto = autoPatterns.some(pattern => msg.match(pattern));
-
-        if (!isAuto && msg.length < 10 && msg.match(/^(hola|buen d[ií]a)/)) {
+        if (autoPatterns.some(pattern => pattern.test(msg))) {
             return {
                 isAutoResponse: true,
-                reason: 'Short greeting considered auto-reply'
+                isOtherBot: false,
+                reason: 'Auto-respuesta de bienvenida/ausencia de WhatsApp Business'
             };
         }
 
-        if (isAuto) {
+        // 3. Si llegó en menos de 18 segundos desde nuestro primer mensaje y tiene más de 80 caracteres (imposible tipeo humano)
+        // EXCEPCIÓN: Si expresa explícitamente un rechazo u objeción humana ("tenemos recepcionista que se encarga", "ya tenemos sistema", etc.)
+        const hasExplicitHumanRejection = /tenemos recepcionista|se encarga de todo eso|mi jefa|ya tenemos (un )?sistema|no gracias|no estoy interesad|por ahora te agradezco/i.test(msg);
+        if (typeof responseDelaySeconds === 'number' && responseDelaySeconds >= 0 && responseDelaySeconds < 18 && msg.length > 80 && !hasExplicitHumanRejection) {
             return {
                 isAutoResponse: true,
-                reason: 'Auto-reply pattern matched'
+                isOtherBot: false,
+                reason: `Respuesta instantánea (<18s, ${msg.length} chars) — Auto-respuesta de WhatsApp Business`
             };
         }
 
-        return { isAutoResponse: false };
+        return { isAutoResponse: false, isOtherBot: false };
     }
 
     /**

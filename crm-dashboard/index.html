@@ -192,7 +192,10 @@
                                 <option value="hoteles_alojamientos">🏨 Hoteles y Alojamientos (Reservas)</option>
                                 <option value="institutos_academias">🎓 Institutos y Academias (IA/Gestión)</option>
                                 <option value="abogados_contadores">⚖️ Estudios Jurídicos y Contables (Web)</option>
-                                <option value="arquitectura_construccion">📐 Arquitectura y Constructoras (Web)</option>
+                                <option value="arquitectura_construccion">🏗️ Constructoras y Arquitectura (CRM + Ingresos)</option>
+                                <option value="psicologia">🧠 Consultorios de Psicología (Turnero + IA)</option>
+                                <option value="predios_futbol">⚽ Predios de Fútbol y Complejos (Grilla + Señas)</option>
+                                <option value="asociaciones_civiles">🏛️ Asociaciones Civiles y Clubes (Gestión + IA)</option>
                                 <option value="restaurantes">🍽️ Restaurantes y Bares (Carta QR)</option>
                                 <option value="mueblerias_deco">🛋️ Mueblerías y Decoración (E-Commerce)</option>
                                 <option value="indumentaria">👗 Indumentaria y Showrooms (E-Commerce)</option>
@@ -240,6 +243,38 @@
                 <!-- PER-BOT DAILY STATS -->
                 <div class="per-bot-stats" id="perBotStatsContainer">
                     <!-- Bot cards will be injected dynamically or updated here -->
+                </div>
+
+                <!-- 🧠 AGENTE 6: ESTUDIO CHATGPT DE "NO INTERESADOS" (RESPUESTAS HUMANAS POSTERIORES) -->
+                <div class="dashboard-content" style="margin-top: 25px;">
+                    <div class="dashboard-panel" style="background: linear-gradient(135deg, #111b21 0%, #1a2730 100%); border: 1px solid #3b4a54; border-radius: 14px; padding: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span class="material-icons" style="color: #ff9800; font-size: 22px;">psychology</span>
+                                    <h2 style="font-size: 17px; font-weight: 700; color: #e9edef; margin: 0;">Agente 6: Estudio ChatGPT de "No Interesados" (Respuestas Humanas Posteriores)</h2>
+                                </div>
+                                <p style="font-size: 12px; color: #8696a0; margin: 4px 0 0 30px;">
+                                    Excluye auto-respuestas instantáneas de WhatsApp Business y otros bots de turnos; analiza solo cuando una persona real lee y responde después.
+                                </p>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                <span id="notIntHumanBadge" style="background: rgba(239, 83, 80, 0.15); color: #ef5350; border: 1px solid rgba(239, 83, 80, 0.35); padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                                    👤 Humanos No Interesados: -
+                                </span>
+                                <span id="notIntFilteredBotsBadge" style="background: rgba(83, 189, 235, 0.12); color: #53bdeb; border: 1px solid rgba(83, 189, 235, 0.3); padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                                    🤖 Auto-Replies / Otros Bots Ignorados: -
+                                </span>
+                                <button id="btnRunNotIntStudy" onclick="fetchNotInterestedStudy(true)" style="background: #00a884; color: #111b21; border: none; font-weight: 700; padding: 8px 14px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                                    <span class="material-icons" style="font-size: 16px;">auto_awesome</span> Analizar con ChatGPT Ahora
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="notInterestedStudyContainer" style="color: #aebac1; font-size: 13px;">
+                            Cargando estudio de respuestas humanas de No Interesados...
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ACTIVIDAD RECIENTE -->

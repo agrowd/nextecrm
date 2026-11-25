@@ -103,6 +103,7 @@ const { closerCopilot } = require('./services/closerCopilot');
 const { cleanAndFormatArgentinianNumber } = require('./services/phoneValidator');
 const AITextGenerator = require('../bot/services/aiTextGenerator');
 const serverAiGenerator = new AITextGenerator();
+const { runNotInterestedStudy } = require('./services/notInterestedAnalyzer');
 // MongoDB es la fuente principal de datos
 
 const http = require('http');
@@ -130,7 +131,9 @@ async function ensureBotEnv() {
     }
 
     for (const bot of botInstances) {
-      const envPath = path.join(__dirname, `../${bot.dir}/.env`);
+      const botDirFull = path.join(__dirname, `../${bot.dir}`);
+      if (!fsSync.existsSync(botDirFull)) continue;
+      const envPath = path.join(botDirFull, '.env');
       const exists = fsSync.existsSync(envPath);
       
       let content = exists ? fsSync.readFileSync(envPath, 'utf8') : baseContent;
@@ -3295,6 +3298,35 @@ app.get('/api/scraper/cities', (req, res) => {
     const zones = geoGridScanner.getPresetZones();
     res.json({ success: true, zones });
   } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 🧠 AGENTE 6: ESTUDIO CHATGPT DE "NO INTERESADOS" (RESPUESTAS HUMANAS POSTERIORES, SIN AUTO-REPLIES NI OTROS BOTS)
+app.get(['/api/leads/not-interested-study', '/leads/not-interested-study'], async (req, res) => {
+  try {
+    const force = req.query.force === 'true';
+    if (!force) {
+      const cached = await Config.findOne({ key: 'not_interested_study' }).lean().catch(() => null);
+      if (cached && cached.value && cached.value.totalHumanNotInterested > 0) {
+        return res.json({ success: true, study: cached.value, cached: true });
+      }
+    }
+    const study = await runNotInterestedStudy({ Lead, Message, Config, forceAi: force });
+    res.json({ success: true, study, cached: false });
+  } catch (error) {
+    console.error('Error en GET /api/leads/not-interested-study:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post(['/api/leads/study-not-interested', '/leads/study-not-interested'], async (req, res) => {
+  try {
+    console.log('🧠 [AGENTE 6] Ejecutando estudio profundo con ChatGPT de mensajes reales de No Interesados...');
+    const study = await runNotInterestedStudy({ Lead, Message, Config, forceAi: true });
+    res.json({ success: true, study });
+  } catch (error) {
+    console.error('Error en POST /api/leads/study-not-interested:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

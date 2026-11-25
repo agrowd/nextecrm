@@ -4225,6 +4225,128 @@ async function markCurrentTargetScanned() {
 }
 
 // Global exports multi-agente
+async function fetchNotInterestedStudy(force = false) {
+    const container = document.getElementById('notInterestedStudyContainer');
+    const btn = document.getElementById('btnRunNotIntStudy');
+    if (btn && force) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-icons rotating" style="font-size: 16px;">sync</span> Estudiando con ChatGPT...';
+    }
+    try {
+        const endpoint = force ? '/leads/study-not-interested' : '/leads/not-interested-study';
+        const res = await fetchAPI(endpoint, { method: force ? 'POST' : 'GET' });
+        const data = await res.json();
+        if (data && data.success && data.study) {
+            renderNotInterestedStudy(data.study);
+        }
+    } catch (e) {
+        console.warn('Error fetching not interested study:', e);
+        if (container) container.innerHTML = '<p style="color:#8696a0;">No se pudo cargar el estudio en este momento.</p>';
+    } finally {
+        if (btn && force) {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-icons" style="font-size: 16px;">auto_awesome</span> Analizar con ChatGPT Ahora';
+        }
+    }
+}
+
+function renderNotInterestedStudy(study) {
+    const container = document.getElementById('notInterestedStudyContainer');
+    const humanBadge = document.getElementById('notIntHumanBadge');
+    const botsBadge = document.getElementById('notIntFilteredBotsBadge');
+
+    if (humanBadge) humanBadge.textContent = `👤 Humanos No Interesados: ${study.totalHumanNotInterested || 0}`;
+    if (botsBadge) botsBadge.textContent = `🤖 Auto-Replies / Otros Bots Ignorados: ${study.totalAutomatedOrBotsFilteredOut || 0}`;
+    if (!container) return;
+
+    const ai = study.aiStudy || {};
+    const cats = Array.isArray(study.breakdownByCategory) ? study.breakdownByCategory : [];
+    const hiddenObj = Array.isArray(ai.hiddenObjections) ? ai.hiddenObjections : [];
+    const leads = Array.isArray(study.leads) ? study.leads : [];
+
+    const catsHtml = cats.map(c => `
+        <div style="background: #111b21; padding: 10px 14px; border-radius: 8px; border: 1px solid #202c33;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+                <span style="color: #e9edef; font-weight: 600;">${escapeHtml(c.label)}</span>
+                <span style="color: #ff9800; font-weight: 700;">${c.count} (${c.percentage}%)</span>
+            </div>
+            <div style="height: 6px; background: #202c33; border-radius: 3px; overflow: hidden;">
+                <div style="height: 100%; width: ${Math.max(4, c.percentage)}%; background: #ff9800;"></div>
+            </div>
+        </div>
+    `).join('');
+
+    const objectionsHtml = hiddenObj.map(o => `
+        <div style="background: #111b21; padding: 12px 14px; border-radius: 10px; border-left: 3px solid #00a884;">
+            <div style="font-size: 13px; font-weight: 700; color: #e9edef; margin-bottom: 4px;">${escapeHtml(o.pattern || '')}</div>
+            <div style="font-size: 12px; color: #8696a0; margin-bottom: 4px;">💬 <i>"${escapeHtml(o.whatTheySay || '')}"</i></div>
+            <div style="font-size: 12px; color: #aebac1; margin-bottom: 4px;">🧠 <b>Qué piensan realmente:</b> ${escapeHtml(o.realMeaning || '')}</div>
+            <div style="font-size: 12px; color: #25d366;">🎯 <b>Ajuste de Venta / Rebote:</b> ${escapeHtml(o.howToFixInPitch || '')}</div>
+        </div>
+    `).join('');
+
+    const leadsRowsHtml = leads.slice(0, 15).map(l => `
+        <div style="background: #111b21; padding: 12px 14px; border-radius: 8px; border: 1px solid #202c33; display: flex; flex-direction: column; gap: 5px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div>
+                    <strong style="color: #e9edef; font-size: 13px;">${escapeHtml(l.name)}</strong>
+                    <span style="color: #8696a0; font-size: 11px; margin-left: 6px;">(${escapeHtml(l.category || 'Comercio')})</span>
+                </div>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <span style="background: rgba(255, 152, 0, 0.14); color: #ffb74d; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                        ⏱️ ${escapeHtml(l.responseDelayFormatted || 'Diferido')} (Msg ${l.respondedAtMessageNumber || 4}/4)
+                    </span>
+                    <span style="background: rgba(239, 83, 80, 0.14); color: #ef5350; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+                        ${escapeHtml(l.rejectionCategoryLabel || l.rejectionCategory)}
+                    </span>
+                </div>
+            </div>
+            <div style="color: #fff; font-size: 12.5px; background: #182229; padding: 7px 10px; border-radius: 6px;">
+                💬 "${escapeHtml(l.whatsappResponse)}"
+            </div>
+            ${l.rejectionStudy ? `<div style="color: #aebac1; font-size: 11.5px;">🧠 <b>Estudio ChatGPT:</b> ${escapeHtml(l.rejectionStudy)}</div>` : ''}
+            ${l.rejectionImprovementTip ? `<div style="color: #00a884; font-size: 11.5px;">💡 <b>Acción sugerida:</b> ${escapeHtml(l.rejectionImprovementTip)}</div>` : ''}
+        </div>
+    `).join('');
+
+    container.innerHTML = `
+        <div style="background: #182229; border: 1px solid #2a3942; border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+            <div style="font-size: 13px; font-weight: 700; color: #ffb74d; margin-bottom: 6px;">📊 Diagnóstico Estratégico de ChatGPT</div>
+            <div style="font-size: 13px; color: #e9edef; line-height: 1.5;">${escapeHtml(ai.executiveSummary || '')}</div>
+            ${ai.timingAndStepAnalysis ? `<div style="font-size: 12px; color: #8696a0; margin-top: 8px;">⏱️ <b>Análisis de Tiempo de Respuesta:</b> ${escapeHtml(ai.timingAndStepAnalysis)}</div>` : ''}
+        </div>
+
+        ${catsHtml ? `
+        <div style="margin-bottom: 16px;">
+            <div style="font-size: 12px; font-weight: 700; color: #8696a0; text-transform: uppercase; margin-bottom: 8px;">Motivos Reales de "No Interesado" (Humanos Posteriores)</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px;">
+                ${catsHtml}
+            </div>
+        </div>` : ''}
+
+        ${objectionsHtml ? `
+        <div style="margin-bottom: 16px;">
+            <div style="font-size: 12px; font-weight: 700; color: #8696a0; text-transform: uppercase; margin-bottom: 8px;">Patrones Detectados por ChatGPT y Cómo Destrabarlos</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+                ${objectionsHtml}
+            </div>
+        </div>` : ''}
+
+        <div>
+            <div style="font-size: 12px; font-weight: 700; color: #8696a0; text-transform: uppercase; margin-bottom: 8px;">Respuestas Humanas de "No Interesados" Estudiadas (${leads.length})</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 10px; max-height: 420px; overflow-y: auto; padding-right: 4px;">
+                ${leadsRowsHtml || '<p style="color:#8696a0;">No hay respuestas humanas de rechazo registradas.</p>'}
+            </div>
+        </div>
+    `;
+}
+
+setTimeout(() => {
+    fetchNotInterestedStudy(false);
+}, 2500);
+
+window.fetchNotInterestedStudy = fetchNotInterestedStudy;
+window.renderNotInterestedStudy = renderNotInterestedStudy;
 window.escapeHtml = escapeHtml;
 window.loadCopilotSuggestion = loadCopilotSuggestion;
 window.applyCopilotReply = applyCopilotReply;
