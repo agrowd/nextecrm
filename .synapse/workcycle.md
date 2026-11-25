@@ -1006,3 +1006,16 @@ docker compose logs -f
   3. **Aislamiento de Secuencia Activa ante Mensajes Entrantes de Otros Contactos (`isCurrentProcessingLead`):**
      - En `handleIncomingMessage` (`bot/index.js` y `bot_1..4`), si un contacto anterior o con etiqueta activa (ej. `VENTA`) enviaba un mensaje mientras el bot estaba en medio de una secuencia de 4 mensajes hacia un lead nuevo, `this.abortCurrentSequence = true` se activaba globalmente y cortaba la secuencia del lead actual en el Mensaje 1/4.
      - Ahora `this.abortCurrentSequence` y `this.currentlyProcessingLead.stopSending` solo se activan cuando `isCurrentProcessingLead === true` (el remitente coincide con el lead que está recibiendo la secuencia en ese momento).
+
+## [2026-11-25 14:55] - Mejora Comercial y SEO de Mensajes Salientes con Nuevas Demos en Vivo, Gestión de Ingresos y Prueba Social Anónima (`D-53`)
+- **Archivos Actualizados y Sincronizados:**
+  1. `bot/services/aiTextGenerator.js` (y `bot_1..4/services/aiTextGenerator.js`):
+     - Actualizadas las 7 secuencias dinámicas (`serviceFallbacks`) y el `systemPrompt` / `userPrompt` de OpenAI (`gpt-4o-mini`).
+     - Incorporadas las capacidades nuevas de las demos en vivo: **escucha de audios de WhatsApp**, **validación de fotos de comprobantes de seña/transferencia**, **bloqueo automático en Agenda de Turnos/Canchas sin sobreturnos**, **seguimiento automático a las 24 hs** y **módulo de Gestión de Ingresos y Caja**.
+     - Incorporada **prueba social anónima** mencionando experiencia real comprobada en **Consultorios Odontológicos, Centros de Estética, Depilación Definitiva, Psicólogos, Empresas de Construcción, Predios de Fútbol, Asociaciones Civiles y Gestión de Ingresos** (prohibiendo estrictamente dar nombres propios de marcas o clientes).
+     - Nuevo cierre en **Mensaje 4** (sin link en frío) ofreciendo pasar el acceso a la **demo interactiva en vivo personalizada con el nombre del negocio** para probarla 1 minuto desde el celular.
+     - Agregado método `checkHealth()` en `AITextGenerator` para eliminar el warning al iniciar el bot.
+  2. `server/services/painAnalyzer.js`:
+     - Ampliado el scoring B2B (+20 pts) y los dossiers heurísticos/IA para incluir psicología, depilación, construcción, predios de fútbol, asociaciones civiles y gestión de ingresos.
+  3. `server/services/closerCopilot.js` & `server/services/geoGridScanner.js` & `server/index.js`:
+     - Actualizado `buildPersonalizedDemoUrl` y la respuesta de 1 clic (`interes_demo`) del Copiloto Closer, sumados los rubros de Psicología, Predios de Fútbol, Construcción y Asociaciones Civiles en `RUBROS_CATALOG`, y actualizado `/api/ai-config`.

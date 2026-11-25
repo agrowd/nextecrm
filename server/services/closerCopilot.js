@@ -12,37 +12,40 @@
 const axios = require('axios');
 
 const NATOH_PRICING_REFERENCE = `
-PLANES Y PRECIOS OFICIALES NATOH SYSTEMS (https://natohsystems.com) - IDIOMA DUEÑO DE NEGOCIO:
-1. ⭐ PLAN RECOMENDADO (MENSUAL): Doble Agente de IA + Sistema CRM / Turnero / Pedidos y Página Web Incluidos -> $175.000 / mes (Armado completo + Mes 1: $350.000 en 2 pagos).
-   - Incluye: Agente IA #1 (responde WhatsApp y Web en <15s las 24 hs) + Agente IA #2 (carga clientes, agenda turnos con recordatorios o anota pedidos y sigue presupuestos automáticamente) + el Sistema (CRM de Ventas, Turnero Online o Gestor de Pedidos) + Página Web mantenida al día.
+PLANES Y PRECIOS OFICIALES NATOH SYSTEMS (https://natohsystems.com) - IDIOMA DUEÑO DE NEGOCIO + SEO COMERCIAL:
+1. ⭐ PLAN RECOMENDADO (MENSUAL): Doble Agente de IA + Sistema CRM / Turnero / Pedidos, Gestión de Ingresos y Página Web SEO Incluidos -> $175.000 / mes (Armado completo + Mes 1: $350.000 en 2 pagos).
+   - Incluye: Agente IA #1 (responde WhatsApp y Web en <15s las 24 hs, escucha audios de voz y valida fotos de comprobantes de seña/transferencia) + Agente IA #2 (bloquea turnos o canchas en la agenda sin sobreturnos, descuenta stock, registra cobros en Gestión de Ingresos y reactiva presupuestos abiertos a las 24 hs) + el Sistema completo + Página Web posicionada con SEO en Google.
 2. 🤖 PLAN AGENTE IA RESPONDEDOR 24/7 (MENSUAL): $115.000 / mes (Instalación y entrenamiento + Mes 1: $180.000).
-   - Incluye: El Agente de IA entrenado con tus precios, catálogo y horarios respondiendo consultas 24/7 en WhatsApp y en tu Web.
-3. 🌐 PÁGINA WEB PROFESIONAL (PAGO ÚNICO SIN ABONO MENSUAL): $250.000 pago único (50% al iniciar y 50% al entregar lista en 5 a 7 días).
-4. ⚙️ SISTEMA DE GESTIÓN / STOCK / PEDIDOS / TURNERO A MEDIDA (PAGO ÚNICO): $350.000 pago único (50% al iniciar y 50% contra entrega funcionando).
+   - Incluye: El Agente de IA entrenado con tus precios, catálogo y disponibilidad respondiendo texto, audios y comprobantes 24/7 en WhatsApp y en tu Web.
+3. 🌐 PÁGINA WEB PROFESIONAL CON SEO EN GOOGLE (PAGO ÚNICO SIN ABONO MENSUAL): $250.000 pago único (50% al iniciar y 50% al entregar lista en 5 a 7 días).
+4. ⚙️ SISTEMA DE GESTIÓN DE INGRESOS / STOCK / PEDIDOS / TURNERO A MEDIDA (PAGO ÚNICO): $350.000 pago único (50% al iniciar y 50% contra entrega funcionando).
+
+EXPERIENCIA REAL COMPROBADA (PRUEBA SOCIAL ANÓNIMA — NUNCA DAR NOMBRES PROPIOS DE CLIENTES):
+- Ya desarrollamos y pusimos en producción sistemas para: **Consultorios Odontológicos, Centros de Estética y Depilación Definitiva, Consultorios de Psicología, Empresas de Construcción, Predios de Fútbol y Complejos Deportivos, Asociaciones Civiles y Sistemas de Gestión de Ingresos y Caja**.
 
 LINKS DE DEMOS INTERACTIVAS EN VIVO (PERSONALIZABLES CON &negocio=Nombre):
 - Sala general de Demos: https://natohsystems.com/demos
-- Odontología / Salud (Turnero + CRM): https://natohsystems.com/demos?rubro=odontologia
-- Estética / Depilación / Peluquería (Turnero + Señas): https://natohsystems.com/demos?rubro=estetica
-- Taller / Lubricentro / Canchas (Boxes + Señas): https://natohsystems.com/demos?rubro=taller
-- Mayoristas / Distribuidoras (Stock en vivo + Pedidos + CRM): https://natohsystems.com/demos?rubro=mayorista
-- Gastronomía / Restaurantes (Carta QR + Comandas $0 comisión): https://natohsystems.com/demos?rubro=gastronomia
-- Tiendas / Comercios (Catálogo + Stock + CRM): https://natohsystems.com/demos?rubro=ecommerce
+- Odontología / Psicología / Salud (Turnero + Señas + Gestión de Ingresos + CRM): https://natohsystems.com/demos?rubro=odontologia
+- Estética / Depilación Definitiva / Peluquería (Turnero por Gabinete + Señas + Gestión de Ingresos): https://natohsystems.com/demos?rubro=estetica
+- Predios de Fútbol / Complejos Deportivos / Talleres (Grilla de Canchas/Boxes + Validación de Señas + Ingresos): https://natohsystems.com/demos?rubro=taller
+- Mayoristas / Distribuidoras / Corralones (Stock en vivo + Pedidos + Gestión de Ingresos + CRM): https://natohsystems.com/demos?rubro=mayorista
+- Gastronomía / Restaurantes (Carta QR + Comandas + Caja $0 comisión): https://natohsystems.com/demos?rubro=gastronomia
+- Tiendas / Comercios (Catálogo + Stock + Gestión de Ingresos + CRM): https://natohsystems.com/demos?rubro=ecommerce
 - Inmobiliarias / Concesionarias (Agenda visitas + CRM): https://natohsystems.com/demos?rubro=inmobiliaria
-- Empresas / Servicios (Tablero Kanban CRM + Seguimiento 24h): https://natohsystems.com/demos?rubro=crm
+- Construcción / Asociaciones Civiles / Empresas / Servicios (Tablero Kanban CRM + Seguimiento 24h + Gestión de Ingresos): https://natohsystems.com/demos?rubro=crm
 `;
 
 function buildPersonalizedDemoUrl(lead) {
     const cat = `${lead?.category || ''} ${lead?.keyword || ''} ${lead?.name || ''}`.toLowerCase();
     let rubroKey = 'odontologia';
-    if (/estetic|depil|peluquer|barber|spa/.test(cat)) rubroKey = 'estetica';
-    else if (/odont|dent|clinic|medic|salud|kinesi|psicol|veterin/.test(cat)) rubroKey = 'odontologia';
-    else if (/taller|lubricent|mecan|cancha|futbol|padel|gimnasio/.test(cat)) rubroKey = 'taller';
+    if (/estetic|depil|cosmetolog|peluquer|barber|spa/.test(cat)) rubroKey = 'estetica';
+    else if (/odont|dent|clinic|medic|salud|kinesi|psicol|terap|veterin/.test(cat)) rubroKey = 'odontologia';
+    else if (/taller|lubricent|mecan|cancha|futbol|padel|predio|deport|gimnasio/.test(cat)) rubroKey = 'taller';
     else if (/mayor|distrib|corralon|ferreter|fabric|logist/.test(cat)) rubroKey = 'mayorista';
     else if (/restaur|bar|cafe|pizz|hamburg|gastro|panad|helad/.test(cat)) rubroKey = 'gastronomia';
     else if (/ropa|indument|zapater|muebler|tienda|comercio|optica/.test(cat)) rubroKey = 'ecommerce';
     else if (/inmobiliar|propiedad|concesionar|auto/.test(cat)) rubroKey = 'inmobiliaria';
-    else if (/construct|estudio|contab|abogad|empres|consult/.test(cat)) rubroKey = 'crm';
+    else if (/construct|obra|arquitect|asociacion|fundacion|club|mutual|estudio|contab|abogad|empres|consult/.test(cat)) rubroKey = 'crm';
     const negocioParam = lead?.name ? `&negocio=${encodeURIComponent(lead.name)}` : '';
     return `https://natohsystems.com/demos?rubro=${rubroKey}${negocioParam}`;
 }
@@ -82,10 +85,10 @@ class CloserCopilot {
 
             return {
                 stage: 'interes_demo',
-                stageLabel: '🔥 Interés Activo / Pide Ver la Demo',
-                detectedObjection: 'Aceptó ver el ejemplo de cómo responde el Agente IA y cómo se carga en el sistema',
-                coachingTip: 'Enviale el link personalizado con el nombre de su negocio a la Sala de Demos Interactiva para que lo pruebe en vivo.',
-                suggestedReply: `¡Genial! Mirá, te armé este enlace directo personalizado para *${name}* donde podés probarlo vos mismo desde el celu sin instalar nada:\n👉 ${demoUrl}\n\nAhí a la izquierda podés escribirle al *Agente IA #1* (o mandar audio/comprobante), y a la derecha vas a ver en vivo cómo el *Agente IA #2* actualiza todo en el sistema. ¡Probalo y decime qué te parece!`,
+                stageLabel: '🔥 Interés Activo / Pide Ver la Demo en Vivo',
+                detectedObjection: 'Aceptó probar la demo interactiva personalizada para ver cómo atienden los 2 Agentes IA y cómo impactan turnos, ventas e ingresos',
+                coachingTip: 'Enviale el link personalizado con el nombre de su negocio a la Sala de Demos Interactiva indicando que puede probar texto, audios de voz, comprobantes de seña y seguimiento a las 24 hs.',
+                suggestedReply: `¡Genial! Mirá, te armé este acceso directo personalizado con el nombre de *${name}* para que lo pruebes vos mismo desde el celu sin instalar nada:\n👉 ${demoUrl}\n\nAhí podés escribirle al *Agente IA #1*, mandarle un *audio de voz* o una *foto de comprobante de seña*, y ver en vivo cómo el *Agente IA #2* bloquea el turno/pedido, registra el cobro en *Gestión de Ingresos* y hace seguimiento a las 24 hs (como ya implementamos en odontólogos, estética, depilación, psicólogos, constructoras, predios de fútbol y asociaciones civiles). ¡Probalo 1 minuto y decime qué te parece!`,
                 confidence: 0.96
             };
         }

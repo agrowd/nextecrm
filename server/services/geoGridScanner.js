@@ -110,20 +110,23 @@ const RUBROS_CATALOG = [
     { id: 'concesionarias_autos', label: 'Concesionarias y Agencias de Autos', query: 'concesionaria de autos multimarca', targetSolution: 'ia_natoh', priority: 9 },
     { id: 'talleres_lubricentros', label: 'Talleres Mecánicos, Lubricentros y Repuestos', query: 'taller mecanico integral repuestos', targetSolution: 'software_turnero', priority: 8 },
 
-    // 2. CLÍNICAS, SALUD Y BIENESTAR (Turneros + IA WhatsApp 24/7 + Gestión de Pacientes)
+    // 2. CLÍNICAS, SALUD, PSICOLOGÍA, DEPILACIÓN Y PREDIOS DEPORTIVOS (Turneros + IA WhatsApp 24/7 + Gestión de Ingresos)
     { id: 'clinicas_centros_medicos', label: 'Clínicas, Policonsultorios y Diagnóstico', query: 'centro medico policonsultorio', targetSolution: 'software_turnero', priority: 10 },
     { id: 'odontologia', label: 'Consultorios y Clínicas Odontológicas', query: 'consultorio odontologico centro dental', targetSolution: 'software_turnero', priority: 10 },
-    { id: 'estetica', label: 'Centros de Estética, Spa y Depilación', query: 'centro de estetica corporal', targetSolution: 'software_turnero', priority: 9 },
+    { id: 'estetica', label: 'Centros de Estética y Depilación Definitiva', query: 'centro de estetica depilacion definitiva', targetSolution: 'software_turnero', priority: 10 },
+    { id: 'psicologia', label: 'Consultorios de Psicología y Salud Mental', query: 'centro de psicologia consultorio psicologico', targetSolution: 'software_turnero', priority: 9 },
+    { id: 'predios_futbol', label: 'Predios de Fútbol, Canchas y Complejos Deportivos', query: 'complejo de canchas de futbol 5 padel predio deportivo', targetSolution: 'software_turnero', priority: 9 },
     { id: 'veterinarias', label: 'Clínicas Veterinarias y Pet Shops', query: 'veterinaria clinica veterinaria', targetSolution: 'software_turnero', priority: 9 },
     { id: 'gimnasios', label: 'Gimnasios, Crossfit y Pilates', query: 'gimnasio centro de entrenamiento', targetSolution: 'software_turnero', priority: 8 },
     { id: 'peluquerias', label: 'Peluquerías, Barberías y Salones', query: 'peluqueria barberia', targetSolution: 'software_turnero', priority: 7 },
 
-    // 3. INMOBILIARIAS, EDUCACIÓN, TURISMO Y SERVICIOS PROFESIONALES (Webs Corporativas + Agentes IA)
+    // 3. CONSTRUCCIÓN, ASOCIACIONES CIVILES, INMOBILIARIAS Y SERVICIOS PROFESIONALES (CRM + Gestión de Ingresos + Agentes IA)
     { id: 'inmobiliarias', label: 'Inmobiliarias y Desarrolladoras', query: 'inmobiliaria propiedades', targetSolution: 'ia_natoh', priority: 10 },
+    { id: 'arquitectura_construccion', label: 'Empresas de Construcción y Estudios de Arquitectura', query: 'empresa constructora estudio de arquitectura obras', targetSolution: 'software_custom_erp', priority: 10 },
+    { id: 'asociaciones_civiles', label: 'Asociaciones Civiles, Clubes, Fundaciones y Mutuales', query: 'asociacion civil fundacion mutual club social', targetSolution: 'software_custom_erp', priority: 9 },
     { id: 'hoteles_alojamientos', label: 'Hoteles, Apart Hotel y Cabañas', query: 'hotel apart hotel alojamiento', targetSolution: 'software_turnero', priority: 9 },
     { id: 'institutos_academias', label: 'Institutos Educativos y Academias', query: 'instituto educativo academia cursos', targetSolution: 'ia_natoh', priority: 8 },
     { id: 'abogados_contadores', label: 'Estudios Jurídicos y Contables', query: 'estudio juridico contable', targetSolution: 'web_express', priority: 8 },
-    { id: 'arquitectura_construccion', label: 'Estudios de Arquitectura y Constructoras', query: 'estudio de arquitectura empresa constructora', targetSolution: 'web_express', priority: 8 },
 
     // 4. GASTRONOMÍA Y COMERCIO (Carta QR Sin Comisiones + E-Commerce)
     { id: 'restaurantes', label: 'Restaurantes, Bares y Cafeterías', query: 'restaurante bar gastronomia', targetSolution: 'gastronomia_pedidos', priority: 9 },
