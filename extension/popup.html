@@ -342,24 +342,25 @@
     <div id="panel-auto" class="panel active">
       <div class="card">
         <div class="card-title">
-          <span>🎯 Próximo Lugar Virgen (CRM)</span>
-          <span id="targetBadge" class="badge">Sin repetir</span>
+          <span id="targetHeaderTitle">🧠 Próximo Destino Ruta IA (Provincias + Capital)</span>
+          <span id="targetBadge" class="badge purple">Ruta IA</span>
         </div>
-        <div id="targetZoneName" class="target-zone">Consultando CRM...</div>
+        <div id="targetProvincePill" style="font-size:10px;font-weight:700;color:#c4b5fd;margin-bottom:2px;">🇦🇷 Argentina</div>
+        <div id="targetZoneName" class="target-zone">Consultando Estratega IA...</div>
         <div id="targetRubroLabel" class="target-rubro">—</div>
-        <div id="targetReason" class="target-reason">Sincronizado con tus lugares configurados en el CRM.</div>
+        <div id="targetReason" class="target-reason">ChatGPT analiza toda tu base para elegir provincias y rubros vírgenes.</div>
 
         <div class="grid-2" style="margin-top:8px">
           <div>
-            <label class="field-lbl" style="margin-top:0">Filtrar Ciudad</label>
+            <label class="field-lbl" style="margin-top:0">Provincia / Región</label>
             <select id="cityFilter">
-              <option value="">🌎 Todas (Auto)</option>
+              <option value="">🇦🇷 Nacional (Ruta IA)</option>
             </select>
           </div>
           <div>
             <label class="field-lbl" style="margin-top:0">Filtrar Rubro</label>
             <select id="rubroFilter">
-              <option value="">🏢 Todos (Prioridad)</option>
+              <option value="">🏢 Todos (Prioridad IA)</option>
             </select>
           </div>
         </div>
@@ -368,6 +369,7 @@
           <button id="shuffleTargetBtn" class="btn btn-secondary">⏭️ Otra Zona</button>
           <button id="markTargetDoneBtn" class="btn btn-secondary">✅ Marcar Hecha</button>
         </div>
+        <button id="analyzeAllBtn" class="btn btn-secondary" style="margin-top:6px;border-color:rgba(139,92,246,0.5);color:#d8b4fe;background:rgba(139,92,246,0.12);">🧠 Analizar Toda la Base + Recalcular Ruta IA</button>
       </div>
 
       <!-- Direction & Anti-Repeat Settings -->

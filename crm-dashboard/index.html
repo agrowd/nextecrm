@@ -166,16 +166,24 @@
                         </div>
                         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                             <select id="agent1CityFilter" onchange="fetchNextScrapingTarget(false)" style="background: #202c33; color: #e9edef; border: 1px solid #3b4a54; padding: 8px 10px; border-radius: 8px; font-size: 12px; cursor: pointer;">
-                                <option value="">🌎 Ciudad: Automática (IA)</option>
+                                <option value="">🇦🇷 Nacional: Ruta IA (Provincias + Capital)</option>
                                 <option value="custom">⭐ Lugares Personalizados (CRM)</option>
-                                <option value="caba">📍 CABA</option>
+                                <option value="caba">📍 CABA (Capital Federal)</option>
                                 <option value="gba_norte">📍 GBA Zona Norte</option>
                                 <option value="gba_sur">📍 GBA Zona Sur</option>
                                 <option value="gba_oeste">📍 GBA Zona Oeste</option>
-                                <option value="cordoba">📍 Córdoba Capital</option>
-                                <option value="rosario">📍 Rosario</option>
-                                <option value="mendoza">📍 Mendoza</option>
-                                <option value="mar_del_plata">📍 Mar del Plata</option>
+                                <option value="pba_interior">🏔️ Interior Prov. Buenos Aires (La Plata, MdP, Bahía, Tandil)</option>
+                                <option value="cordoba">🏔️ Córdoba (Capital, Carlos Paz, Río Cuarto)</option>
+                                <option value="santa_fe">🏔️ Santa Fe (Rosario, Capital, Rafaela)</option>
+                                <option value="mendoza">🏔️ Mendoza (Capital, Godoy Cruz, San Rafael)</option>
+                                <option value="patagonia_norte">🏔️ Neuquén &amp; Río Negro (Neuquén, Bariloche, Cipolletti)</option>
+                                <option value="patagonia_sur">🏔️ Patagonia Sur (Comodoro, Madryn, Ushuaia)</option>
+                                <option value="tucuman">🏔️ Tucumán (San Miguel, Yerba Buena)</option>
+                                <option value="salta_jujuy">🏔️ Salta &amp; Jujuy</option>
+                                <option value="entre_rios">🏔️ Entre Ríos (Paraná, Concordia, Gualeguaychú)</option>
+                                <option value="nea">🏔️ NEA (Corrientes, Posadas, Resistencia)</option>
+                                <option value="cuyo_norte">🏔️ San Juan &amp; San Luis</option>
+                                <option value="centro_norte">🏔️ La Pampa, Santiago del Estero &amp; Catamarca</option>
                             </select>
                             <select id="agent1RubroFilter" onchange="fetchNextScrapingTarget(true)" style="background: #202c33; color: #e9edef; border: 1px solid #3b4a54; padding: 8px 10px; border-radius: 8px; font-size: 12px; cursor: pointer; max-width: 230px;">
                                 <option value="">🏢 Rubro NatoH: Prioridad B2B</option>
@@ -214,14 +222,15 @@
                             </button>
                             <button id="btnMarkScanned" onclick="markCurrentTargetScanned()" class="btn-action" title="Marcar zona como escaneada en BD" style="background: #202c33; color: #e9edef; border: 1px solid #3b4a54; padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 13px;"><span class="material-icons" style="font-size: 16px; color: #25d366;">check</span> Marcar Escaneada</button>
                             <button id="btnZonesHistory" onclick="openZonesHistoryModal('history')" class="btn-action" title="Configurar lugares/rubros del scraper y ver zonas ya escaneadas" style="background: linear-gradient(135deg, #1f3542, #182a35); color: #53bdeb; border: 1px solid #53bdeb66; padding: 8px 13px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600;"><span class="material-icons" style="font-size: 16px;">tune</span> Configurar Lugares &amp; Historial</button>
+                            <button id="btnAnalyzeAllGeo" onclick="runFullDatabaseAnalysisFromCrm()" class="btn-action" title="Sincronizar zonas históricas, analizar dossiers/webs pendientes y armar Ruta IA por Provincias + Capital" style="background: linear-gradient(135deg, #7c3aed, #2563eb); color: #fff; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; box-shadow: 0 4px 14px rgba(124,58,237,0.35);"><span class="material-icons" style="font-size: 17px;">auto_awesome</span> 🧠 Analizar Todo + Ruta IA</button>
                         </div>
                     </div>
 
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-top: 18px; padding-top: 18px; border-top: 1px solid #202c33;">
                         <div style="background: #111b21; padding: 12px 14px; border-radius: 8px; border: 1px solid #202c33;">
-                            <div style="font-size: 11px; color: #8696a0; text-transform: uppercase;">📍 Zona & Coordenadas</div>
+                            <div style="font-size: 11px; color: #8696a0; text-transform: uppercase;">📍 Zona &amp; Provincia</div>
                             <div style="font-size: 14px; font-weight: 600; color: #e9edef; margin-top: 4px;" id="targetZoneName">Cargando...</div>
-                            <div style="font-size: 11px; color: #00a884; margin-top: 2px;" id="targetZoneCity">CABA / GBA</div>
+                            <div style="font-size: 11px; color: #00a884; margin-top: 2px;" id="targetZoneCity">Argentina</div>
                         </div>
                         <div style="background: #111b21; padding: 12px 14px; border-radius: 8px; border: 1px solid #202c33;">
                             <div style="font-size: 11px; color: #8696a0; text-transform: uppercase;">🏢 Rubro / Sector</div>
@@ -229,15 +238,24 @@
                             <div style="font-size: 11px; color: #aebac1; margin-top: 2px;" id="targetSearchQuery">-</div>
                         </div>
                         <div style="background: #111b21; padding: 12px 14px; border-radius: 8px; border: 1px solid #202c33;">
-                            <div style="font-size: 11px; color: #8696a0; text-transform: uppercase;">🎯 Solución Objetivo Nexte</div>
+                            <div style="font-size: 11px; color: #8696a0; text-transform: uppercase;">🎯 Solución Objetivo NatoH</div>
                             <div style="font-size: 14px; font-weight: 600; color: #ffb74d; margin-top: 4px;" id="targetSolutionLabel">-</div>
                             <div style="font-size: 11px; color: #8696a0; margin-top: 2px;">Propuesta a la medida del rubro</div>
                         </div>
                         <div style="background: #111b21; padding: 12px 14px; border-radius: 8px; border: 1px solid #202c33;">
-                            <div style="font-size: 11px; color: #8696a0; text-transform: uppercase;">🌐 Cobertura de Base de Datos</div>
+                            <div style="font-size: 11px; color: #8696a0; text-transform: uppercase;">🌐 Cobertura Nacional</div>
                             <div style="font-size: 14px; font-weight: 600; color: #25d366; margin-top: 4px;" id="targetCoverageStats">Calculando...</div>
                             <div style="font-size: 11px; color: #8696a0; margin-top: 2px;" id="targetHistoryCount">0 combinaciones escaneadas</div>
                         </div>
+                    </div>
+
+                    <!-- 🧠 HOJA DE RUTA IA NACIONAL (PROVINCIAS + CAPITAL) -->
+                    <div id="aiGeoRouteContainer" style="margin-top: 18px; padding-top: 16px; border-top: 1px solid #202c33;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                            <div style="font-size:13px; font-weight:700; color:#c4b5fd;">🧠 Estrategia &amp; Hoja de Ruta IA (Provincias + Capital — Sin Repetir)</div>
+                            <button onclick="fetchAiRoutePlan(true)" style="background:#202c33; color:#c4b5fd; border:1px solid #7c3aed66; padding:5px 11px; border-radius:7px; font-size:11px; font-weight:600; cursor:pointer;">🔄 Recalcular Ruta con ChatGPT</button>
+                        </div>
+                        <div id="aiGeoRouteBody" style="font-size:12px; color:#8696a0;">Cargando análisis geográfico IA de toda la base...</div>
                     </div>
                 </div>
 
@@ -1100,7 +1118,7 @@
 
     <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="app.js?v=3.2"></script>
+    <script src="app.js?v=3.3"></script>
     <script>
         // Init app
         document.addEventListener('DOMContentLoaded', () => {

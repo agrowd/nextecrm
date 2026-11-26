@@ -207,6 +207,15 @@ async function refreshNextTarget(skipCurrent = false) {
   if (res?.ok && res.data?.success) {
     currentTarget = res.data;
     const t = res.data;
+    const prov = t.zone?.province || 'Argentina';
+    const provPill = el('targetProvincePill');
+    if (provPill) {
+      provPill.textContent = t.isAiRecommended
+        ? `🇦🇷 ${prov} · ⭐ Prioridad IA ${t.aiPriorityScore || 92}/100`
+        : `🇦🇷 ${prov}`;
+    }
+    const hdr = el('targetHeaderTitle');
+    if (hdr) hdr.textContent = t.isAiRecommended ? '🧠 Ruta IA (Provincias + Capital)' : '🎯 Próximo Lugar Virgen (CRM)';
     el('targetZoneName').textContent = t.zone ? `📍 ${t.zone.name}` : 'Sin zonas';
     el('targetRubroLabel').textContent = t.rubro ? `🏢 ${t.rubro.label}` : '—';
     el('targetReason').textContent = t.reason || '';
@@ -214,6 +223,9 @@ async function refreshNextTarget(skipCurrent = false) {
     if (t.allExhausted) {
       badge.textContent = '100% Completado';
       badge.className = 'badge warn';
+    } else if (t.isAiRecommended) {
+      badge.textContent = 'Ruta IA ✓';
+      badge.className = 'badge purple';
     } else {
       badge.textContent = `${t.remainingVirginCount ?? '?'} vírgenes`;
       badge.className = 'badge';
@@ -250,14 +262,15 @@ function renderZonesHistoryList() {
     return;
   }
 
-  box.innerHTML = list.slice(0, 60).map(r => {
+  box.innerHTML = list.slice(0, 80).map(r => {
     const dt = r.lastScannedAt || r.scannedAt || r.updatedAt;
     const dtStr = dt ? new Date(dt).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) : '';
+    const provTag = r.province ? ` · 🇦🇷 ${escapeHtml(r.province)}` : '';
     return `
       <div class="zone-item">
         <div class="zone-item-main">
           <div class="zone-item-title">📍 ${escapeHtml(r.zoneName || r.zoneId)}</div>
-          <div class="zone-item-sub">🏢 ${escapeHtml(r.keywordLabel || r.keyword)} · ✅ ${r.validLeadsIngested || 0} calif. ${dtStr ? `· ${dtStr}` : ''}</div>
+          <div class="zone-item-sub">🏢 ${escapeHtml(r.keywordLabel || r.keyword)}${provTag} · ✅ ${r.validLeadsIngested || 0} calif. ${dtStr ? `· ${dtStr}` : ''}</div>
         </div>
         <div class="row" style="gap:4px">
           ${r.googleMapsUrl ? `<button class="mini-btn map" data-url="${escapeHtml(r.googleMapsUrl)}" title="Abrir en Google Maps">🗺️</button>` : ''}
@@ -309,6 +322,26 @@ el('cityFilter').onchange = () => refreshNextTarget(false);
 el('rubroFilter').onchange = () => refreshNextTarget(false);
 el('shuffleTargetBtn').onclick = () => refreshNextTarget(true);
 el('zonesSearchInp').oninput = () => renderZonesHistoryList();
+
+const analyzeAllBtn = el('analyzeAllBtn');
+if (analyzeAllBtn) {
+  analyzeAllBtn.onclick = async () => {
+    analyzeAllBtn.disabled = true;
+    const orig = analyzeAllBtn.textContent;
+    analyzeAllBtn.textContent = '⏳ Analizando base + Ruta IA...';
+    appendLog('🧠 Analizando toda la base (zonas históricas, dossiers, webs y Ruta IA)...', 'info');
+    const res = await sendBg({ action: 'apiAnalyzeAll' });
+    if (res?.ok && res.data?.success) {
+      const d = res.data;
+      appendLog(`✅ Análisis listo: ${d.zonesSyncedFromHistory} zonas guardadas · ${d.dossiersAndScoresAnalyzed} dossiers · ${d.aiRoutePlan?.recommendedRoute?.length || 0} destinos Ruta IA`, 'success');
+      await Promise.all([loadCatalogAndTarget(), loadZonesHistory()]);
+    } else {
+      appendLog(`❌ Error en análisis global: ${res?.error || 'sin respuesta'}`, 'error');
+    }
+    analyzeAllBtn.disabled = false;
+    analyzeAllBtn.textContent = orig;
+  };
+}
 
 el('markTargetDoneBtn').onclick = async () => {
   if (!currentTarget?.zone || !currentTarget?.rubro) return;

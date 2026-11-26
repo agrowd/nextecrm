@@ -122,6 +122,10 @@ const LeadSchema = new mongoose.Schema({
   // 🗺️ Zona de Escaneo GPS (Agente 1)
   scannedZoneId: { type: String, default: '', trim: true },
   scannedZoneName: { type: String, default: '', trim: true },
+  province: { type: String, default: '', trim: true },
+  placeKey: { type: String, default: '', trim: true, index: true },
+  openingHours: { type: String, default: '', trim: true },
+  businessStatus: { type: String, default: 'open', trim: true }, // 'open' | 'temporarily_closed' | 'permanently_closed'
   // 🎯 Calificación de Calidad del Lead ("Clientes que Sirven")
   isQualified: { type: Boolean, default: true },
   qualificationReason: { type: String, default: '', trim: true }

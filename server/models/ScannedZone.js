@@ -1,9 +1,10 @@
 const mongoose = require('mongoose');
 
 const ScannedZoneSchema = new mongoose.Schema({
-  zoneId: { type: String, required: true, trim: true, lowercase: true }, // ej: 'caba_palermo_soho', 'manual_quilmes_oeste'
+  zoneId: { type: String, required: true, trim: true, lowercase: true }, // ej: 'caba_palermo_soho', 'cba_nueva_cordoba'
   zoneName: { type: String, required: true, trim: true }, // ej: 'Palermo Soho (CABA)'
-  city: { type: String, default: 'custom', trim: true }, // ej: 'caba', 'gba_sur', 'custom'
+  city: { type: String, default: 'custom', trim: true }, // ej: 'caba', 'cordoba', 'neuquen', 'custom'
+  province: { type: String, default: '', trim: true }, // ej: 'CABA', 'Buenos Aires (GBA Sur)', 'Córdoba', 'Neuquén'
   keyword: { type: String, required: true, trim: true, lowercase: true }, // ej: 'odontologia', 'distribuidoras'
   keywordLabel: { type: String, default: '', trim: true }, // ej: 'Consultorios y Clínicas Odontológicas'
   searchQuery: { type: String, default: '', trim: true }, // ej: 'odontología en Palermo'

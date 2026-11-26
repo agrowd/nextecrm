@@ -4638,10 +4638,126 @@ function renderNotInterestedStudy(study) {
     `;
 }
 
+async function fetchAiRoutePlan(force = false) {
+    const bodyEl = document.getElementById('aiGeoRouteBody');
+    if (bodyEl && force) {
+        bodyEl.innerHTML = '<div style="padding:14px;color:#c4b5fd;">🧠 ChatGPT está analizando tus 5.000+ leads, provincias vírgenes y tasa de calificación para armar tu Ruta Nacional...</div>';
+    }
+    try {
+        const endpoint = force ? '/scraper/ai-plan-route' : '/scraper/ai-route-plan';
+        const res = await fetchAPI(endpoint, {
+            method: force ? 'POST' : 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            ...(force ? { body: JSON.stringify({ focus: 'national' }) } : {})
+        });
+        const data = await res.json();
+        if (data?.success && data.plan) {
+            renderAiRoutePlan(data.plan);
+        }
+    } catch (e) {
+        if (bodyEl) bodyEl.innerHTML = `<span style="color:#ef5350;">Error cargando Ruta IA: ${escapeHtml(e.message)}</span>`;
+    }
+}
+
+function renderAiRoutePlan(plan) {
+    const bodyEl = document.getElementById('aiGeoRouteBody');
+    if (!bodyEl || !plan) return;
+
+    const provs = (plan.provinceScorecard || []).map(p => {
+        const satColor = p.saturation === 'saturado' ? '#ff8a80' : p.saturation === 'parcial' ? '#ffd54f' : '#34d399';
+        const satBg = p.saturation === 'saturado' ? '#ef53501f' : p.saturation === 'parcial' ? '#f59e0b1f' : '#10b9811f';
+        const icon = p.saturation === 'saturado' ? '🔴' : p.saturation === 'parcial' ? '🟡' : '🟢';
+        return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:99px;font-size:11px;background:${satBg};border:1px solid ${satColor}55;color:${satColor};font-weight:600;" title="${p.leadsTotal} leads | ${p.scannedZonesCount}/${p.totalSubZones} subzonas escaneadas">
+            ${icon} ${escapeHtml(p.province)}: <strong style="color:#fff;">${p.leadsTotal}</strong>
+        </span>`;
+    }).join('');
+
+    const routeCards = (plan.recommendedRoute || []).map((step, i) => {
+        const done = Boolean(step.alreadyScanned);
+        return `
+        <div style="background:${done ? '#0e191e' : '#111b21'}; border:1px solid ${done ? '#25d36655' : (step.isInteriorProvince ? '#7c3aed66' : '#2a3942')}; border-radius:10px; padding:11px 13px; display:flex; flex-direction:column; justify-content:space-between; gap:8px; opacity:${done ? '0.68' : '1'};">
+            <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:5px;">
+                    <span style="font-size:10px; font-weight:800; padding:2px 7px; border-radius:99px; background:${step.isInteriorProvince ? '#7c3aed33' : '#0284c733'}; color:${step.isInteriorProvince ? '#d8b4fe' : '#7dd3fc'};">
+                        #${i + 1} · 🇦🇷 ${escapeHtml(step.province)}
+                    </span>
+                    <span style="font-size:10px; font-weight:700; color:${done ? '#25d366' : '#ffb74d'};">
+                        ${done ? '✅ Escaneada' : `⭐ ${step.priorityScore || 90}/100`}
+                    </span>
+                </div>
+                <div style="font-size:13px; font-weight:700; color:#e9edef;">📍 ${escapeHtml(step.zoneName)}</div>
+                <div style="font-size:11.5px; font-weight:600; color:#00d4a1; margin-top:2px;">🏢 ${escapeHtml(step.rubroLabel)}</div>
+                <div style="font-size:11px; color:#aebac1; margin-top:5px; line-height:1.4;">${escapeHtml(step.whyGoHere || '')}</div>
+                ${step.bestOfferAngle ? `<div style="font-size:10.5px; color:#ffd54f; margin-top:4px;">💡 ${escapeHtml(step.bestOfferAngle)}</div>` : ''}
+            </div>
+            <div style="display:flex; gap:6px; margin-top:4px;">
+                <a href="${escapeHtml(step.googleMapsUrl)}" target="_blank" style="flex:1; text-align:center; background:#00a884; color:#0b141a; font-weight:700; font-size:11px; padding:6px 8px; border-radius:7px; text-decoration:none;">🗺️ Abrir en Maps</a>
+                ${!done ? `<button onclick="markSpecificZoneScanned('${escapeHtml(step.zoneId)}','${escapeHtml(step.zoneName)}','${escapeHtml(step.city)}','${escapeHtml(step.rubroId)}','${escapeHtml(step.rubroLabel)}')" style="background:#202c33; color:#e9edef; border:1px solid #3b4a54; padding:6px 9px; border-radius:7px; font-size:11px; cursor:pointer;">✓ Hecho</button>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+
+    bodyEl.innerHTML = `
+        <div style="background:#111b21; border:1px solid #7c3aed44; border-left:3px solid #8b5cf6; border-radius:9px; padding:11px 14px; margin-bottom:12px;">
+            <div style="font-size:12.5px; color:#e9edef; line-height:1.45;"><strong>Diagnóstico IA de toda la base:</strong> ${escapeHtml(plan.executiveDiagnosis || '')}</div>
+            <div style="font-size:11.5px; color:#aebac1; margin-top:5px; line-height:1.4;">🇦🇷 <strong>Estrategia Federal:</strong> ${escapeHtml(plan.provinceStrategy || '')}</div>
+        </div>
+
+        <div style="margin-bottom:12px;">
+            <div style="font-size:11px; color:#8696a0; text-transform:uppercase; font-weight:700; margin-bottom:6px;">Mapa de Saturación por Provincia / Región (🟢 Virgen · 🟡 Parcial · 🔴 Saturado)</div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">${provs}</div>
+        </div>
+
+        <div style="font-size:11px; color:#8696a0; text-transform:uppercase; font-weight:700; margin-bottom:8px;">Próximos ${plan.recommendedRoute?.length || 0} Destinos Recomendados por ChatGPT (la Extensión sigue esta ruta automáticamente)</div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:10px;">
+            ${routeCards}
+        </div>
+    `;
+}
+
+async function runFullDatabaseAnalysisFromCrm() {
+    const btn = document.getElementById('btnAnalyzeAllGeo');
+    const orig = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-icons rotating" style="font-size:16px;">sync</span> Analizando toda la base + Ruta IA...';
+    }
+    try {
+        const res = await fetchAPI('/scraper/analyze-all', { method: 'POST' });
+        const data = await res.json();
+        if (data?.success) {
+            if (data.aiRoutePlan) renderAiRoutePlan(data.aiRoutePlan);
+            await Promise.all([
+                fetchNextScrapingTarget(false),
+                fetchQualificationStats()
+            ]);
+            ui.modal.show(
+                '🧠 Análisis Completo Finalizado',
+                `Se analizó toda la base de datos en ${(data.durationMs / 1000).toFixed(1)}s:\n\n• 🗺️ Zonas históricas sincronizadas (anti-repetición): ${data.zonesSyncedFromHistory}\n• 🎯 Leads analizados (Dossier + Score): ${data.dossiersAndScoresAnalyzed}\n• 🌐 Sitios web auditados en cola: ${data.pendingWebsAudited}\n• 🚫 Descartados sin móvil: ${data.discardedUnqualified}\n• 🧠 Destinos en nueva Ruta IA Nacional: ${data.aiRoutePlan?.recommendedRoute?.length || 0}`,
+                'success',
+                [{ text: '¡Excelente!', value: true, color: '#00a884' }]
+            );
+        } else {
+            alert('Error analizando base: ' + (data.error || 'Error desconocido'));
+        }
+    } catch (e) {
+        alert('Error de red al analizar la base: ' + e.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+        }
+    }
+}
+
 setTimeout(() => {
     fetchNotInterestedStudy(false);
+    fetchAiRoutePlan(false);
 }, 2500);
 
+window.fetchAiRoutePlan = fetchAiRoutePlan;
+window.renderAiRoutePlan = renderAiRoutePlan;
+window.runFullDatabaseAnalysisFromCrm = runFullDatabaseAnalysisFromCrm;
 window.fetchNotInterestedStudy = fetchNotInterestedStudy;
 window.renderNotInterestedStudy = renderNotInterestedStudy;
 window.escapeHtml = escapeHtml;

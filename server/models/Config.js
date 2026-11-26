@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 
 const ConfigSchema = new mongoose.Schema({
-    key: { type: String, required: true, unique: true }, // e.g., 'global_bot_settings'
+    key: { type: String, required: true, unique: true }, // e.g., 'global_bot_settings', 'scraper_config', 'ai_route_plan', 'not_interested_study'
+    value: { type: mongoose.Schema.Types.Mixed, default: null },
     settings: {
         delays: {
             min: { type: Number, default: 45 },
@@ -34,6 +35,6 @@ const ConfigSchema = new mongoose.Schema({
             }]
         }
     }
-}, { timestamps: true });
+}, { timestamps: true, strict: false });
 
 module.exports = mongoose.model('Config', ConfigSchema);

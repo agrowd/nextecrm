@@ -104,6 +104,7 @@ const { cleanAndFormatArgentinianNumber } = require('./services/phoneValidator')
 const AITextGenerator = require('../bot/services/aiTextGenerator');
 const serverAiGenerator = new AITextGenerator();
 const { runNotInterestedStudy } = require('./services/notInterestedAnalyzer');
+const { generateAiGeoRoutePlan, runFullDatabaseAnalysis } = require('./services/aiGeoStrategist');
 // MongoDB es la fuente principal de datos
 
 const http = require('http');
@@ -444,7 +445,11 @@ app.post('/ingest', async (req, res) => {
       let qualificationReason = 'Móvil comercial verificado';
       let leadStatus = 'pending';
 
-      if (!phoneCheck.valid) {
+      if (leadData.businessStatus === 'permanently_closed') {
+        isQualified = false;
+        leadStatus = 'discarded';
+        qualificationReason = 'Negocio cerrado permanentemente en Google Maps';
+      } else if (!phoneCheck.valid) {
         isQualified = false;
         leadStatus = 'discarded';
         qualificationReason = phoneCheck.error || 'Sin teléfono móvil válido';
@@ -457,26 +462,19 @@ app.post('/ingest', async (req, res) => {
       const effectivePhone = phoneCheck.valid ? phoneCheck.formatted : rawPhone;
       const cleanSuffix = effectivePhone.replace(/\D/g, '').slice(-8);
 
-      // Verificar duplicados por teléfono formateado, sufijo o índice compuesto (name + phone)
+      // Verificar duplicados por placeKey, teléfono formateado, sufijo o índice compuesto (name + phone)
       let exists = null;
+      const dupOr = [];
+      if (leadData.placeKey) dupOr.push({ placeKey: leadData.placeKey });
       if (cleanSuffix && cleanSuffix.length >= 8) {
-        exists = await Lead.findOne({
-          $or: [
-            { phone: effectivePhone },
-            { phone: new RegExp(cleanSuffix + '$') },
-            ...(leadData.name ? [{ name: leadData.name, phone: effectivePhone }] : [])
-          ]
-        });
+        dupOr.push({ phone: effectivePhone }, { phone: new RegExp(cleanSuffix + '$') });
       } else if (effectivePhone) {
-        exists = await Lead.findOne({
-          $or: [
-            { phone: effectivePhone },
-            ...(leadData.name ? [{ name: leadData.name, phone: effectivePhone }] : [])
-          ]
-        });
-      } else if (leadData.name) {
-        // Negocios sin teléfono (phone: ""): chequear por name + phone para no chocar con el índice único name_1_phone_1
-        exists = await Lead.findOne({ name: leadData.name, phone: effectivePhone });
+        dupOr.push({ phone: effectivePhone });
+      }
+      if (leadData.name) dupOr.push({ name: leadData.name, phone: effectivePhone });
+
+      if (dupOr.length > 0) {
+        exists = await Lead.findOne({ $or: dupOr });
       }
 
       if (exists) {
@@ -514,7 +512,11 @@ app.post('/ingest', async (req, res) => {
           priorityTier: initialScore.priorityTier,
           scoreBreakdown: initialScore.scoreBreakdown,
           scannedZoneId: leadData.zoneId || '',
-          scannedZoneName: leadData.zoneName || leadData.location || ''
+          scannedZoneName: leadData.zoneName || leadData.location || '',
+          province: leadData.province || '',
+          placeKey: leadData.placeKey || '',
+          openingHours: leadData.openingHours || '',
+          businessStatus: leadData.businessStatus || 'open'
         });
       } catch (createErr) {
         if (createErr && createErr.code === 11000) {
@@ -3402,16 +3404,92 @@ app.post('/api/scraper/generate-grid', (req, res) => {
   }
 });
 
-// GET /api/scraper/next-target - Obtener próxima zona y rubro recomendados sin repetición (Agente 1 + Config CRM)
+// GET /api/scraper/next-target - Obtener próxima zona y rubro recomendados sin repetición (Agente 1 + Ruta IA + Config CRM)
 app.get('/api/scraper/next-target', async (req, res) => {
   try {
     const excludeKeys = req.query.exclude
       ? String(req.query.exclude).split(',').map(s => s.trim()).filter(Boolean)
       : [];
-    const target = await geoGridScanner.getNextRecommendedTarget(req.query.city, req.query.rubro, excludeKeys);
+    const preferAiRoute = req.query.ai !== 'false';
+    const target = await geoGridScanner.getNextRecommendedTarget(req.query.city, req.query.rubro, excludeKeys, preferAiRoute);
     res.json(target);
   } catch (error) {
     console.error('Error obteniendo próximo objetivo de scraping:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/scraper/ai-route-plan - Obtener la Hoja de Ruta IA Nacional (Provincias + GBA + Capital)
+app.get('/api/scraper/ai-route-plan', async (req, res) => {
+  try {
+    const force = req.query.force === 'true';
+    const focus = req.query.focus || 'national';
+    const scannedZones = await ScannedZone.find({}).select('zoneId keyword').lean();
+    const scannedSet = new Set(scannedZones.map(z => `${String(z.zoneId).toLowerCase()}::${String(z.keyword).toLowerCase()}`));
+
+    if (!force) {
+      const cached = await Config.findOne({ key: 'ai_route_plan' }).lean().catch(() => null);
+      if (cached && cached.value && Array.isArray(cached.value.recommendedRoute)) {
+        const enrichedRoute = cached.value.recommendedRoute.map(step => ({
+          ...step,
+          alreadyScanned: scannedSet.has(`${String(step.zoneId).toLowerCase()}::${String(step.rubroId).toLowerCase()}`)
+        }));
+        return res.json({
+          success: true,
+          cached: true,
+          plan: { ...cached.value, recommendedRoute: enrichedRoute }
+        });
+      }
+    }
+
+    const plan = await generateAiGeoRoutePlan({ Lead, ScannedZone, Config, focus });
+    res.json({ success: true, cached: false, plan });
+  } catch (error) {
+    console.error('Error en GET /api/scraper/ai-route-plan:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/scraper/ai-plan-route - Regenerar con ChatGPT la Hoja de Ruta por Provincias + Capital
+app.post('/api/scraper/ai-plan-route', async (req, res) => {
+  try {
+    const focus = req.body?.focus || 'national';
+    console.log(`🧠 [AGENTE 1-IA] Planificando Ruta Geográfica Nacional (${focus}) con ChatGPT...`);
+    const plan = await generateAiGeoRoutePlan({ Lead, ScannedZone, Config, focus });
+    res.json({ success: true, plan });
+  } catch (error) {
+    console.error('Error en POST /api/scraper/ai-plan-route:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/scraper/sync-zones-from-leads - Reconstruir zonas escaneadas desde los leads históricos
+app.post('/api/scraper/sync-zones-from-leads', async (req, res) => {
+  try {
+    const result = await geoGridScanner.syncZonesFromLeads(Lead);
+    res.json(result);
+  } catch (error) {
+    console.error('Error sincronizando zonas desde leads:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/scraper/analyze-all - Analizar TODA la base (Sincronizar zonas + Dossiers + Scores + Webs + Ruta IA Nacional)
+app.post('/api/scraper/analyze-all', async (req, res) => {
+  try {
+    console.log('🚀 [ANALIZAR TODO] Ejecutando sincronización de zonas, auditoría/dossiers y Ruta IA Nacional...');
+    const result = await runFullDatabaseAnalysis({
+      Lead,
+      ScannedZone,
+      Config,
+      auditWebsite,
+      calculateLeadScore,
+      cleanAndFormatArgentinianNumber,
+      classifyExternalUrl
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('Error en POST /api/scraper/analyze-all:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -3487,12 +3565,15 @@ app.post('/api/scraper/check-places', async (req, res) => {
 
     const cleanUrls = [];
     const cleanNames = [];
+    const cleanPlaceKeys = [];
     for (const p of places) {
       if (p.mapsUrl) cleanUrls.push(String(p.mapsUrl).split(/[?#]/)[0]);
       if (p.name && String(p.name).trim().length >= 2) cleanNames.push(String(p.name).trim());
+      if (p.key && String(p.key).trim().length >= 4) cleanPlaceKeys.push(String(p.key).trim());
     }
 
     const orClauses = [];
+    if (cleanPlaceKeys.length > 0) orClauses.push({ placeKey: { $in: cleanPlaceKeys } });
     if (cleanUrls.length > 0) orClauses.push({ mapsUrl: { $in: cleanUrls } });
     if (cleanNames.length > 0) orClauses.push({ name: { $in: cleanNames } });
 
@@ -3501,17 +3582,19 @@ app.post('/api/scraper/check-places', async (req, res) => {
     }
 
     const existingDocs = await Lead.find({ $or: orClauses })
-      .select('name mapsUrl status')
+      .select('name mapsUrl placeKey status')
       .lean();
 
+    const existingKeySet = new Set(existingDocs.map(d => String(d.placeKey || '').trim()).filter(Boolean));
     const existingUrlSet = new Set(existingDocs.map(d => String(d.mapsUrl || '').split(/[?#]/)[0]).filter(Boolean));
     const existingNameSet = new Set(existingDocs.map(d => String(d.name || '').toLowerCase().trim()).filter(Boolean));
 
     const existingKeys = [];
     for (const p of places) {
+      const k = p.key ? String(p.key).trim() : '';
       const u = p.mapsUrl ? String(p.mapsUrl).split(/[?#]/)[0] : '';
       const n = p.name ? String(p.name).toLowerCase().trim() : '';
-      if ((u && existingUrlSet.has(u)) || (n && existingNameSet.has(n))) {
+      if ((k && existingKeySet.has(k)) || (u && existingUrlSet.has(u)) || (n && existingNameSet.has(n))) {
         existingKeys.push(p.key);
       }
     }

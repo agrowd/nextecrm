@@ -69,7 +69,26 @@
     return rand(min, max);
   }
 
-  /* ───── PlaceKey canónico (elimina duplicación DOM y saltos al principio) ───── */
+  /* ───── PlaceKey canónico + GPS URL + Detección de Anuncios Patrocinados ───── */
+  function extractCoordsFromCurrentUrl() {
+    const m = window.location.href.match(/@(-?\d+\.\d+),(-?\d+\.\d+),(\d+(?:\.\d+)?)z/);
+    if (m) {
+      return { lat: parseFloat(m[1]), lng: parseFloat(m[2]), zoom: Math.round(parseFloat(m[3])) };
+    }
+    return null;
+  }
+
+  function isSponsoredCard(anchor) {
+    try {
+      const article = anchor?.closest('[role="article"]') || anchor?.parentElement;
+      if (!article) return false;
+      const txt = (article.innerText || '').slice(0, 140);
+      return /\b(patrocinado|sponsored|anuncio)\b/i.test(txt);
+    } catch {
+      return false;
+    }
+  }
+
   function extractPlaceKey(href = '', fallbackLabel = '') {
     if (href) {
       // 1. Hex CID único de Google Maps (ej: !1s0x95bcca...:0x...)
@@ -110,6 +129,7 @@
     }
     const uniqueMap = new Map();
     for (const a of anchors) {
+      if (isSponsoredCard(a)) continue; // Saltar anuncios patrocinados que contaminan la zona
       const href = a.getAttribute('href') || a.href || '';
       const label = getCardLabelFromAnchor(a);
       const key = extractPlaceKey(href, label);
@@ -477,7 +497,7 @@
     await delay(2000);
   }
 
-  /* ───── Extracción enriquecida de ficha ───── */
+  /* ───── Extracción enriquecida de ficha (incluye horarios, estado cerrado, teléfono robusto y expansión de reseñas) ───── */
   const getText = (css, xpArr, scope) => {
     for (const s of css) { const el = scope.querySelector(s); if (el?.innerText?.trim()) return el.innerText.trim(); }
     for (const p of xpArr) { const el = xp(p, scope); if (el?.textContent?.trim()) return el.textContent.trim(); }
@@ -489,6 +509,155 @@
     return '';
   };
 
+  function extractPhoneRobust(main) {
+    // 1. data-item-id="phone:tel:+549..." (fuente más confiable en Google Maps moderno)
+    const phoneBtn = main.querySelector('button[data-item-id^="phone:tel:"]');
+    if (phoneBtn) {
+      const attr = phoneBtn.getAttribute('data-item-id') || '';
+      const cleanFromAttr = attr.replace(/^phone:tel:/i, '').trim();
+      if (cleanFromAttr.replace(/\D/g, '').length >= 7) return cleanFromAttr;
+      const txt = (phoneBtn.innerText || '').trim();
+      if (txt) return txt;
+    }
+    // 2. Link tel: o botón con aria-label Teléfono
+    const telLink = main.querySelector('a[href^="tel:"]');
+    if (telLink) {
+      const cleanHref = (telLink.getAttribute('href') || '').replace(/^tel:/i, '').trim();
+      if (cleanHref.replace(/\D/g, '').length >= 7) return cleanHref;
+    }
+    const ariaBtn = main.querySelector('button[aria-label*="Teléfono:"], button[aria-label*="Phone:"]');
+    if (ariaBtn) {
+      const m = (ariaBtn.getAttribute('aria-label') || '').match(/(?:Teléfono|Phone):\s*(.+)$/i);
+      if (m && m[1]) return m[1].trim();
+    }
+    return getText(PHONE_CSS, PHONE_XP, main);
+  }
+
+  function extractBusinessStatus(main) {
+    const txt = (main.innerText || '').slice(0, 900);
+    if (/cerrado permanentemente|permanently closed/i.test(txt)) return 'permanently_closed';
+    if (/cerrado temporalmente|temporarily closed/i.test(txt)) return 'temporarily_closed';
+    return 'open';
+  }
+
+  function extractOpeningHours(main) {
+    try {
+      const hrEl = main.querySelector('div[aria-label*="Horario"], button[data-item-id="oh"], div.t39EBf');
+      const aria = hrEl?.getAttribute('aria-label') || hrEl?.innerText || '';
+      return aria.replace(/\s+/g, ' ').trim().slice(0, 220);
+    } catch {
+      return '';
+    }
+  }
+
+  async function extractFromCurrentMainPanel(target, kw, loc, zoneMeta = {}) {
+    const main = document.querySelector('[role="main"]');
+    if (!main) throw new Error('Panel principal no disponible');
+
+    const titleText = readCurrentTitleText() || target.label || '';
+    if (!titleText) throw new Error('Título de ficha vacío');
+
+    const rawWebHref = getHref(WEB_CSS, WEB_XP, main);
+    let instagramUrl = '';
+    let facebookUrl = '';
+    let externalPlatform = '';
+
+    if (rawWebHref) {
+      const lw = rawWebHref.toLowerCase();
+      if (lw.includes('instagram.com/')) { instagramUrl = rawWebHref; externalPlatform = 'instagram'; }
+      else if (lw.includes('facebook.com/') || lw.includes('fb.com/')) { facebookUrl = rawWebHref; externalPlatform = 'facebook'; }
+      else if (lw.includes('linktr.ee/') || lw.includes('bio.link/') || lw.includes('beacons.ai/')) externalPlatform = 'linktree';
+      else if (lw.includes('pedidosya.com') || lw.includes('rappi.com')) externalPlatform = 'pedidosya';
+      else if (lw.includes('wa.me/') || lw.includes('api.whatsapp.com')) externalPlatform = 'whatsapp_link';
+      else if (lw.includes('tiendanube') || lw.includes('mitiendanube')) externalPlatform = 'tiendanube';
+    }
+
+    try {
+      main.querySelectorAll('a[href]').forEach(a => {
+        const h = (a.href || '').toLowerCase();
+        if (!instagramUrl && h.includes('instagram.com/')) instagramUrl = a.href;
+        if (!facebookUrl && (h.includes('facebook.com/') || h.includes('fb.com/'))) facebookUrl = a.href;
+      });
+    } catch {}
+
+    const coordsNow = extractCoordsFromCurrentUrl();
+    const lead = {
+      name: titleText,
+      phone: extractPhoneRobust(main),
+      address: getText(ADDR_CSS, ADDR_XP, main),
+      website: rawWebHref,
+      instagramUrl: instagramUrl || undefined,
+      facebookUrl: facebookUrl || undefined,
+      externalPlatform: externalPlatform || undefined,
+      openingHours: extractOpeningHours(main) || undefined,
+      businessStatus: extractBusinessStatus(main),
+      placeKey: target.key || extractPlaceKey(window.location.href, titleText),
+      lat: coordsNow?.lat ?? zoneMeta.center?.lat ?? undefined,
+      lng: coordsNow?.lng ?? zoneMeta.center?.lng ?? undefined,
+      keyword: kw,
+      location: loc,
+      zoneId: zoneMeta.zoneId || undefined,
+      zoneName: zoneMeta.zoneName || undefined,
+      province: zoneMeta.province || undefined,
+      mapsUrl: target.cleanUrl || location.href.split(/[?#]/)[0],
+      category: getText(CAT_CSS, CAT_XP, main)
+    };
+
+    const headerScope = main.querySelector('div.TIHn2, div.lMbq3e') || main;
+    let ratingStr = getText(['div.F7nice span[aria-hidden="true"]'], [], headerScope);
+    if (!ratingStr) {
+      const starsEl = headerScope.querySelector('span[role="img"][aria-label*="estrella"], span[role="img"][aria-label*="star"]');
+      const m = starsEl?.getAttribute('aria-label')?.match(/([\d,\.]+)/);
+      if (m) ratingStr = m[1];
+    }
+    if (ratingStr) {
+      const rVal = parseFloat(ratingStr.replace(',', '.'));
+      if (!isNaN(rVal) && rVal > 0 && rVal <= 5) lead.rating = rVal;
+    }
+
+    let reviewsStr = getText(['span[aria-label*="reseña"]', 'span[aria-label*="review"]', 'button[jsaction*="pane.rating.moreReviews"]'], [], headerScope);
+    if (!reviewsStr) {
+      const m = headerScope.querySelector('div.F7nice')?.innerText?.match(/\(([\d\.,]+)\)/);
+      if (m) reviewsStr = m[1];
+    }
+    if (reviewsStr) {
+      const v = parseInt(reviewsStr.replace(/\D/g, ''), 10);
+      if (!isNaN(v) && v > 0) lead.reviewCount = v;
+    }
+
+    // Micro-scroll del panel de detalle y expansión de botón "Más" para capturar dolores completos en reseñas
+    try {
+      const pane = main.querySelector('div.m6QErb.DxyBCb') || main;
+      if (pane) {
+        pane.scrollBy({ top: 680, behavior: 'smooth' });
+        await delay(420);
+        main.querySelectorAll('button.w8nwRe, button[aria-label*="Ver más"]').forEach((b, idx) => {
+          if (idx < 4) { try { b.click(); } catch {} }
+        });
+        await delay(180);
+      }
+    } catch {}
+
+    lead.reviews = [];
+    try {
+      const seen = new Set();
+      main.querySelectorAll('div.jftiEf, div[data-review-id]').forEach(cr => {
+        if (lead.reviews.length >= 6) return;
+        const text = (cr.querySelector('span.wiI7pd, div.MyEned')?.innerText || '').trim();
+        if (text.length > 10 && !seen.has(text)) {
+          seen.add(text);
+          const author = (cr.querySelector('div.d4r55, div.WNx5W')?.innerText || '').trim();
+          const starM = cr.querySelector('span.kvMYJc, span[role="img"]')?.getAttribute('aria-label')?.match(/([\d,\.]+)/);
+          const starRating = starM ? parseFloat(starM[1].replace(',', '.')) : null;
+          const timeStr = (cr.querySelector('span.rsqaWe')?.innerText || '').trim();
+          lead.reviews.push({ text, rating: starRating, author, time: timeStr });
+        }
+      });
+    } catch {}
+
+    return lead;
+  }
+
   async function openAndExtract(target, anchor, kw, loc, zoneMeta = {}, tries = 2) {
     for (let at = 0; at < tries; at++) {
       if (checkStop()) return null;
@@ -496,105 +665,23 @@
         const prevTitle = readCurrentTitleText();
         const expectedLabel = target.label || getCardLabelFromAnchor(anchor);
 
-        // block: 'nearest' evita saltos bruscos de scroll hacia arriba o abajo
         anchor.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         await rwait();
         paintCardBadge(anchor, 'active', '⚡ Raspando...');
         anchor.click();
 
         await waitForSel('[role="main"]', 14000);
-        const titleText = await getUpdatedTitleText(prevTitle, expectedLabel, 7500);
+        await getUpdatedTitleText(prevTitle, expectedLabel, 7500);
         await delay(420);
 
-        const main = document.querySelector('[role="main"]');
-        if (!main) throw new Error('Panel principal no disponible');
+        const lead = await extractFromCurrentMainPanel(target, kw, loc, zoneMeta);
 
-        const rawWebHref = getHref(WEB_CSS, WEB_XP, main);
-        let instagramUrl = '';
-        let facebookUrl = '';
-        let externalPlatform = '';
-
-        if (rawWebHref) {
-          const lw = rawWebHref.toLowerCase();
-          if (lw.includes('instagram.com/')) { instagramUrl = rawWebHref; externalPlatform = 'instagram'; }
-          else if (lw.includes('facebook.com/') || lw.includes('fb.com/')) { facebookUrl = rawWebHref; externalPlatform = 'facebook'; }
-          else if (lw.includes('linktr.ee/') || lw.includes('bio.link/') || lw.includes('beacons.ai/')) externalPlatform = 'linktree';
-          else if (lw.includes('pedidosya.com') || lw.includes('rappi.com')) externalPlatform = 'pedidosya';
-          else if (lw.includes('wa.me/') || lw.includes('api.whatsapp.com')) externalPlatform = 'whatsapp_link';
-          else if (lw.includes('tiendanube') || lw.includes('mitiendanube')) externalPlatform = 'tiendanube';
+        if (lead.businessStatus === 'permanently_closed') {
+          sessionStats.discarded++;
+          paintCardBadge(anchor, 'discarded', '🚫 Cerrado');
+          log(`🚫 Cerrado permanentemente: ${lead.name}`, 'warn');
+          return null;
         }
-
-        try {
-          main.querySelectorAll('a[href]').forEach(a => {
-            const h = (a.href || '').toLowerCase();
-            if (!instagramUrl && h.includes('instagram.com/')) instagramUrl = a.href;
-            if (!facebookUrl && (h.includes('facebook.com/') || h.includes('fb.com/'))) facebookUrl = a.href;
-          });
-        } catch {}
-
-        const lead = {
-          name: titleText,
-          phone: getText(PHONE_CSS, PHONE_XP, main),
-          address: getText(ADDR_CSS, ADDR_XP, main),
-          website: rawWebHref,
-          instagramUrl: instagramUrl || undefined,
-          facebookUrl: facebookUrl || undefined,
-          externalPlatform: externalPlatform || undefined,
-          keyword: kw,
-          location: loc,
-          zoneId: zoneMeta.zoneId || undefined,
-          zoneName: zoneMeta.zoneName || undefined,
-          mapsUrl: target.cleanUrl || location.href.split(/[?#]/)[0],
-          category: getText(CAT_CSS, CAT_XP, main)
-        };
-
-        const headerScope = main.querySelector('div.TIHn2, div.lMbq3e') || main;
-        let ratingStr = getText(['div.F7nice span[aria-hidden="true"]'], [], headerScope);
-        if (!ratingStr) {
-          const starsEl = headerScope.querySelector('span[role="img"][aria-label*="estrella"], span[role="img"][aria-label*="star"]');
-          const m = starsEl?.getAttribute('aria-label')?.match(/([\d,\.]+)/);
-          if (m) ratingStr = m[1];
-        }
-        if (ratingStr) {
-          const rVal = parseFloat(ratingStr.replace(',', '.'));
-          if (!isNaN(rVal) && rVal > 0 && rVal <= 5) lead.rating = rVal;
-        }
-
-        let reviewsStr = getText(['span[aria-label*="reseña"]', 'span[aria-label*="review"]', 'button[jsaction*="pane.rating.moreReviews"]'], [], headerScope);
-        if (!reviewsStr) {
-          const m = headerScope.querySelector('div.F7nice')?.innerText?.match(/\(([\d\.,]+)\)/);
-          if (m) reviewsStr = m[1];
-        }
-        if (reviewsStr) {
-          const v = parseInt(reviewsStr.replace(/\D/g, ''), 10);
-          if (!isNaN(v) && v > 0) lead.reviewCount = v;
-        }
-
-        // Micro-scroll del panel de detalle para cargar reseñas públicas
-        try {
-          const pane = main.querySelector('div.m6QErb.DxyBCb') || main;
-          if (pane) {
-            pane.scrollBy({ top: 620, behavior: 'smooth' });
-            await delay(420);
-          }
-        } catch {}
-
-        lead.reviews = [];
-        try {
-          const seen = new Set();
-          main.querySelectorAll('div.jftiEf, div[data-review-id]').forEach(cr => {
-            if (lead.reviews.length >= 6) return;
-            const text = (cr.querySelector('span.wiI7pd, div.MyEned')?.innerText || '').trim();
-            if (text.length > 10 && !seen.has(text)) {
-              seen.add(text);
-              const author = (cr.querySelector('div.d4r55, div.WNx5W')?.innerText || '').trim();
-              const starM = cr.querySelector('span.kvMYJc, span[role="img"]')?.getAttribute('aria-label')?.match(/([\d,\.]+)/);
-              const starRating = starM ? parseFloat(starM[1].replace(',', '.')) : null;
-              const timeStr = (cr.querySelector('span.rsqaWe')?.innerText || '').trim();
-              lead.reviews.push({ text, rating: starRating, author, time: timeStr });
-            }
-          });
-        } catch {}
 
         const fp = `${lead.name}|${lead.phone}|${lead.address}`.toLowerCase().trim();
         if (sentLeadFingerprints.has(fp)) {
@@ -683,30 +770,41 @@
     return { kw: kw || 'General', loc: loc || 'Zona Actual', rawSearch: `${kw || 'General'} ${loc || 'Zona Actual'}` };
   }
 
-  /* ───── Verificador en vivo de Zona ya Escaneada en el HUD ───── */
+  /* ───── Verificador en vivo de Zona ya Escaneada en el HUD (con Coordenadas GPS reales) ───── */
   async function checkCurrentViewZoneMemory(force = false) {
     const pill = document.getElementById('natoh-hud-zone-mem');
     if (!pill || isCurrentlyScraping) return;
     const { kw, loc, rawSearch } = inferQueryFromPage('', '');
-    const sig = `${kw}|${loc}|${rawSearch}`.toLowerCase();
+    const coords = extractCoordsFromCurrentUrl();
+    const coordSig = coords ? `${coords.lat.toFixed(2)},${coords.lng.toFixed(2)}` : '';
+    const sig = `${kw}|${loc}|${rawSearch}|${coordSig}`.toLowerCase();
     if (!force && (sig === lastCheckedZoneSignature || kw === 'General')) return;
     lastCheckedZoneSignature = sig;
 
     const res = await sendBg({
       action: 'apiCheckZone',
-      payload: { keyword: kw, location: loc, searchQuery: rawSearch }
+      payload: {
+        keyword: kw,
+        location: loc,
+        searchQuery: rawSearch,
+        googleMapsUrl: window.location.href,
+        center: coords || undefined
+      }
     });
     if (res?.ok && res.data?.success) {
+      const resolvedLabel = res.data.resolved?.zoneName
+        ? `${res.data.resolved.zoneName}${res.data.resolved.province ? ` (${res.data.resolved.province})` : ''}`
+        : loc;
       if (res.data.alreadyScanned && res.data.record) {
         const rec = res.data.record;
         const dt = rec.lastScannedAt || rec.scannedAt;
         const dtStr = dt ? new Date(dt).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) : '';
-        pill.textContent = `⚠️ Ya raspado (${dtStr} · ${rec.validLeadsIngested || 0} calif.)`;
+        pill.textContent = `⚠️ Ya raspado: ${resolvedLabel} (${dtStr} · ${rec.validLeadsIngested || 0} calif.)`;
         pill.style.background = 'rgba(245,158,11,0.16)';
         pill.style.borderColor = 'rgba(245,158,11,0.5)';
         pill.style.color = '#fbbf24';
       } else {
-        pill.textContent = `🟢 Lugar virgen: ${kw} · ${loc}`;
+        pill.textContent = `🟢 Virgen: ${resolvedLabel} · ${kw}`;
         pill.style.background = 'rgba(0,212,161,0.13)';
         pill.style.borderColor = 'rgba(0,212,161,0.4)';
         pill.style.color = '#34d399';
@@ -714,7 +812,7 @@
     }
   }
 
-  /* ───── Ejecutor Principal de Raspado de Vista (Bottom-Up o Top-Down, Cero Loops) ───── */
+  /* ───── Ejecutor Principal de Raspado de Vista (Bottom-Up/Top-Down + Checkpoints Garantizados + Cero Loops) ───── */
   async function processLoadedFeed({ kw, kwLabel = '', loc, rawSearch = '', zoneMeta = {}, isAgent1Auto = false }) {
     sessionStats.current = 0;
     sessionStats.total = 0;
@@ -723,13 +821,47 @@
     sessionStats.discarded = 0;
     sessionStats.errors = 0;
 
-    // 1. Scroll completo hasta el final recolectando PlaceKeys únicos
+    const sampleAddresses = [];
+    let checkpointSent = false;
+    const coords = zoneMeta.center?.lat ? zoneMeta.center : extractCoordsFromCurrentUrl();
+
+    const saveZoneCheckpoint = async (status = 'in_progress') => {
+      try {
+        checkpointSent = true;
+        await sendBg({
+          action: 'apiCheckpointZone',
+          payload: {
+            zoneId: zoneMeta.zoneId || '',
+            zoneName: zoneMeta.zoneName || loc,
+            location: loc,
+            city: zoneMeta.city || 'custom',
+            province: zoneMeta.province || '',
+            keyword: kw,
+            keywordLabel: kwLabel || kw,
+            searchQuery: rawSearch,
+            googleMapsUrl: window.location.href,
+            center: coords || undefined,
+            zoom: coords?.zoom || zoneMeta.zoom || 15,
+            sampleAddresses: sampleAddresses.slice(0, 12),
+            scrapeDirection: activeSettings.direction,
+            totalLeadsFound: sessionStats.total,
+            validLeadsIngested: sessionStats.qualified,
+            discardedLeads: sessionStats.discarded,
+            duplicatesSkipped: sessionStats.duplicates,
+            status,
+            source: isAgent1Auto ? 'extension_auto' : 'extension_manual'
+          }
+        });
+      } catch {}
+    };
+
+    // 1. Scroll completo hasta el final recolectando PlaceKeys únicos (excluyendo anuncios patrocinados)
     const discoveredTargets = await scrollFeedAndCollect();
-    if (checkStop()) return { totalCards: discoveredTargets.length };
+    if (checkStop()) return { totalCards: discoveredTargets.length, sampleAddresses, checkpointSent };
 
     if (discoveredTargets.length === 0) {
       log('⚠️ No se encontraron tarjetas en esta vista de Google Maps', 'warn');
-      return { totalCards: 0 };
+      return { totalCards: 0, sampleAddresses, checkpointSent };
     }
 
     // 2. Pre-chequeo por lote contra MongoDB (salta negocios ya existentes en el CRM sin cliquear)
@@ -769,6 +901,9 @@
       'success'
     );
 
+    // Checkpoint inicial inmediato para asegurar que la zona ya quede registrada
+    await saveZoneCheckpoint('in_progress');
+
     // 4. Iterar sin repetir jamás una tarjeta ni saltar de vuelta arriba
     for (let i = 0; i < orderedTargets.length; i++) {
       await waitWhilePaused();
@@ -777,14 +912,12 @@
       const target = orderedTargets[i];
       sessionStats.current = i + 1;
 
-      // Ya procesada en esta pestaña
       if (sessionProcessedKeys.has(target.key)) {
         sessionStats.duplicates++;
         updateHud(`Raspando ${i + 1}/${orderedTargets.length}`, '#00d4a1', `⏭️ Ya procesado: ${target.label}`);
         continue;
       }
 
-      // Ya existe en la base de datos del CRM (pre-chequeo)
       if (existingInCrmKeys.has(target.key)) {
         sessionProcessedKeys.add(target.key);
         sessionStats.duplicates++;
@@ -805,7 +938,13 @@
       sessionProcessedKeys.add(target.key);
 
       if (lead) {
+        if (lead.address && sampleAddresses.length < 15) sampleAddresses.push(lead.address);
         await sendLeadToBackend(lead, liveAnchor);
+      }
+
+      // Checkpoint cada 6 tarjetas para que nunca se pierda la zona aunque se cierre el navegador
+      if ((i + 1) % 6 === 0) {
+        saveZoneCheckpoint('in_progress');
       }
 
       if (i < orderedTargets.length - 1 && !checkStop()) {
@@ -821,6 +960,8 @@
       loc,
       rawSearch,
       zoneMeta,
+      sampleAddresses,
+      checkpointSent,
       isAgent1Auto
     };
   }
@@ -842,25 +983,52 @@
     isCurrentlyScraping = true;
 
     const { kw, loc, rawSearch } = inferQueryFromPage(msg.keyword, msg.location);
+    const liveCoords = extractCoordsFromCurrentUrl();
     const zoneMeta = {
       zoneId: msg.zoneId || '',
       zoneName: msg.zoneName || loc,
       city: msg.city || 'custom',
-      center: msg.center,
-      zoom: msg.zoom
+      province: msg.province || '',
+      center: (msg.center && typeof msg.center.lat === 'number') ? msg.center : (liveCoords || undefined),
+      zoom: msg.zoom || liveCoords?.zoom || 15
     };
+
+    if (msg.isAiRecommended && msg.aiReason) {
+      const pill = document.getElementById('natoh-hud-zone-mem');
+      if (pill) {
+        pill.textContent = `🧠 ${msg.province || 'IA'}: ${msg.aiReason.slice(0, 58)}`;
+        pill.style.background = 'rgba(139,92,246,0.18)';
+        pill.style.borderColor = 'rgba(139,92,246,0.55)';
+        pill.style.color = '#d8b4fe';
+      }
+    }
 
     updateHud('Iniciando...', '#00d4a1', `Preparando "${kw}" en "${loc}"`, 'starting');
     log(`📍 Iniciando vista: "${kw}" en "${loc}" (${activeSettings.direction === 'bottom-up' ? '⬆️ Abajo→Arriba' : '⬇️ Arriba→Abajo'})`, 'info');
 
-    let summary = { totalCards: 0 };
+    let summary = { totalCards: 0, sampleAddresses: [], checkpointSent: false };
     try {
       let hasCards = false;
       try {
-        await waitFor(() => collectVisibleCardObjects().length > 0, 12000);
+        await waitFor(() => collectVisibleCardObjects().length > 0, 10000);
         hasCards = true;
       } catch {
-        if (msg.searchQuery || (kw && kw !== 'General')) {
+        // Verificar si Maps abrió directamente una ficha única en lugar del feed lateral
+        const directMainTitle = readCurrentTitleText();
+        if (directMainTitle && !getFeed() && !msg.searchQuery) {
+          log(`📇 Ficha única detectada en pantalla: "${directMainTitle}"`, 'info');
+          const singleLead = await extractFromCurrentMainPanel(
+            { key: extractPlaceKey(window.location.href, directMainTitle), cleanUrl: window.location.href.split(/[?#]/)[0], label: directMainTitle },
+            kw, loc, zoneMeta
+          );
+          if (singleLead) {
+            if (singleLead.address) summary.sampleAddresses.push(singleLead.address);
+            summary.totalCards = 1;
+            sessionStats.total = 1;
+            sessionStats.current = 1;
+            await sendLeadToBackend(singleLead, null);
+          }
+        } else if (msg.searchQuery || (kw && kw !== 'General')) {
           const q = msg.searchQuery || `${kw} en ${loc}`.trim();
           await doSearch(q);
           await waitFor(() => collectVisibleCardObjects().length > 0, 20000);
@@ -869,7 +1037,7 @@
       }
 
       if (hasCards && !checkStop()) {
-        await delay(1000);
+        await delay(900);
         summary = await processLoadedFeed({
           kw,
           kwLabel: msg.keywordLabel || kw,
@@ -878,7 +1046,7 @@
           zoneMeta,
           isAgent1Auto: Boolean(msg.isAgent1Auto)
         });
-      } else if (!hasCards) {
+      } else if (!hasCards && summary.totalCards === 0) {
         log('⚠️ No se encontraron negocios en esta vista', 'warn');
       }
     } catch (err) {
@@ -888,38 +1056,43 @@
       pauseRequested = false;
     }
 
-    const wasAbortedEarly = checkStop() && sessionStats.current < Math.max(3, Math.floor(sessionStats.total * 0.4));
+    const finalCoords = zoneMeta.center?.lat ? zoneMeta.center : extractCoordsFromCurrentUrl();
+    const shouldSaveZone = msg.isAgent1Auto || sessionStats.current > 0 || (summary.totalCards > 0 && !checkStop());
 
-    // Guardar SIEMPRE en la memoria del CRM (manual o auto) si se completó la zona o se procesó al menos el 40%
+    // Guardar SIEMPRE en la memoria del CRM (con coordenadas GPS + direcciones reales para que NUNCA quede como "Vista GPS")
     await sendBg({
       action: 'zoneFinished',
       zoneId: zoneMeta.zoneId,
       zoneName: zoneMeta.zoneName || loc,
       location: loc,
       city: zoneMeta.city,
+      province: zoneMeta.province,
       keyword: kw,
       keywordLabel: msg.keywordLabel || kw,
       searchQuery: msg.searchQuery || rawSearch,
       googleMapsUrl: msg.googleMapsUrl || window.location.href,
-      center: zoneMeta.center,
-      zoom: zoneMeta.zoom,
+      center: finalCoords || undefined,
+      zoom: finalCoords?.zoom || zoneMeta.zoom,
+      sampleAddresses: summary.sampleAddresses || [],
       direction: activeSettings.direction,
       totalCards: summary.totalCards || sessionStats.total,
       qualifiedCount: sessionStats.qualified,
       discardedCount: sessionStats.discarded,
       duplicatesCount: sessionStats.duplicates,
+      status: checkStop() && sessionStats.current < Math.floor(sessionStats.total * 0.5) ? 'in_progress' : 'completed',
+      alreadyCheckpointed: Boolean(summary.checkpointSent),
       isAgent1Auto: Boolean(msg.isAgent1Auto),
       stopped: checkStop(),
-      skipMarkScanned: wasAbortedEarly && !msg.isAgent1Auto
+      skipMarkScanned: !shouldSaveZone
     });
 
     if (!msg.isAgent1Auto) {
       if (checkStop()) {
-        updateHud('Detenido', '#fbbf24', `Detenido en ${sessionStats.current}/${sessionStats.total}`, 'idle');
-        log('⏹️ Scraping detenido por el usuario', 'warn');
+        updateHud('Detenido', '#fbbf24', `Detenido en ${sessionStats.current}/${sessionStats.total} (zona guardada)`, 'idle');
+        log('⏹️ Scraping detenido por el usuario (progreso de zona guardado en CRM)', 'warn');
       } else {
         updateHud('Completado ✓', '#34d399', `Listo: ${sessionStats.qualified} nuevos · ${sessionStats.duplicates} ya en CRM`, 'done');
-        log(`🏁 Finalizado: ${sessionStats.qualified} nuevos | ${sessionStats.duplicates} ya en CRM | ${sessionStats.discarded} descartados`, 'success');
+        log(`🏁 Finalizado y zona guardada: ${sessionStats.qualified} nuevos | ${sessionStats.duplicates} ya en CRM | ${sessionStats.discarded} desc.`, 'success');
       }
       notifyScrapingDone();
       checkCurrentViewZoneMemory(true);

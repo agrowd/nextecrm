@@ -254,8 +254,14 @@ async function launchNextAgentTarget() {
     }
 
     const { zone, rubro, googleMapsUrl, searchQuery } = targetObj;
+    const provTag = zone.province ? ` [${zone.province}]` : '';
     state.currentTargetLabel = `${rubro.label} · ${zone.name}`;
-    emitLog(`🎯 Objetivo virgen: ${rubro.label} en ${zone.name}`, 'success');
+    emitLog(
+      data.isAiRecommended
+        ? `🧠 Ruta IA${provTag}: ${rubro.label} en ${zone.name}`
+        : `🎯 Objetivo virgen${provTag}: ${rubro.label} en ${zone.name}`,
+      'success'
+    );
     broadcastState();
 
     state.awaitingTabLoad = true;
@@ -282,9 +288,12 @@ async function launchNextAgentTarget() {
               zoneId: zone.id,
               zoneName: zone.name,
               city: zone.city,
+              province: zone.province || '',
               center: zone.center,
               zoom: zone.zoom,
               googleMapsUrl,
+              aiReason: data.reason || '',
+              isAiRecommended: Boolean(data.isAiRecommended),
               isAgent1Auto: true,
               settings: activeSettings
             }, (resp, err) => {
@@ -411,6 +420,37 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  if (msg.action === 'apiGetAiRoutePlan') {
+    apiFetchJson(`/api/scraper/ai-route-plan${msg.force ? '?force=true' : ''}`, { method: 'GET' })
+      .then(data => sendResponse({ ok: true, data }))
+      .catch(err => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
+  if (msg.action === 'apiRunAiRoutePlan') {
+    apiFetchJson('/api/scraper/ai-plan-route', { method: 'POST', body: JSON.stringify({ focus: msg.focus || 'national' }) })
+      .then(data => sendResponse({ ok: true, data }))
+      .catch(err => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
+  if (msg.action === 'apiAnalyzeAll') {
+    apiFetchJson('/api/scraper/analyze-all', { method: 'POST', body: JSON.stringify({}) })
+      .then(data => sendResponse({ ok: true, data }))
+      .catch(err => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
+  if (msg.action === 'apiCheckpointZone') {
+    apiFetchJson('/api/scraper/mark-scanned', {
+      method: 'POST',
+      body: JSON.stringify({ ...(msg.payload || {}), isCheckpoint: true })
+    })
+      .then(data => sendResponse({ ok: true, data }))
+      .catch(err => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
   if (msg.action === 'openCrmDashboard') {
     getCrmDashboardUrl().then(url => {
       chrome.tabs.create({ url });
@@ -516,17 +556,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           zoneName: msg.zoneName || msg.location || '',
           location: msg.location || msg.zoneName || '',
           city: msg.city || 'custom',
+          province: msg.province || '',
           keyword: msg.keyword || '',
           keywordLabel: msg.keywordLabel || msg.keyword || '',
           searchQuery: msg.searchQuery || '',
           googleMapsUrl: msg.googleMapsUrl || '',
           center: msg.center,
           zoom: msg.zoom,
+          sampleAddresses: msg.sampleAddresses || [],
           scrapeDirection: msg.direction || 'bottom-up',
           totalLeadsFound: msg.totalCards || msg.leadsFound || 0,
           validLeadsIngested: msg.qualifiedCount || 0,
           discardedLeads: msg.discardedCount || 0,
           duplicatesSkipped: msg.duplicatesCount || 0,
+          status: msg.status || 'completed',
+          isCheckpoint: Boolean(msg.alreadyCheckpointed),
           source: msg.isAgent1Auto ? 'extension_auto' : 'extension_manual'
         });
       }

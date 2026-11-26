@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "NatoH Systems — GMaps Leads Scraper Pro",
-  "description": "Scraper Google Maps con memoria anti-repetición sincronizada al CRM, raspado Abajo→Arriba sin saltos y HUD interactivo",
-  "version": "3.0.0",
+  "name": "NatoH Systems — GMaps Leads Scraper Pro IA",
+  "description": "Scraper Google Maps con Estratega Geográfico IA (Provincias + Capital), guardado automático de zonas GPS, raspado Abajo→Arriba y análisis completo",
+  "version": "3.1.0",
   "permissions": [
     "activeTab",
     "storage",
