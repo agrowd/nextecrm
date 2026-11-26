@@ -2,64 +2,467 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>GMaps Leads Scraper - Nexte AI</title>
+  <title>NatoH Systems — GMaps Scraper Pro</title>
   <style>
-    * { box-sizing:border-box;font-family:system-ui,-apple-system,Arial,sans-serif }
-    body { margin:0;background:#0f172a;color:#f1f5f9 }
-    .wrap { width:370px;padding:14px }
-    h1 { margin:0 0 10px;font-size:1.05rem;font-weight:700;color:#38bdf8;display:flex;align-items:center;gap:6px }
-    label { display:block;margin:7px 0 3px;font-size:.8rem;font-weight:600;color:#94a3b8 }
-    input { width:100%;padding:7px 9px;border:1px solid #334155;border-radius:6px;background:#1e293b;color:#f8fafc;font-size:.85rem }
-    input:focus { outline:none;border-color:#38bdf8 }
-    button { width:100%;padding:9px 10px;margin-top:8px;border:0;border-radius:6px;background:#0284c7;color:#fff;font-weight:700;font-size:.85rem;cursor:pointer;transition:opacity .15s }
-    button:hover { opacity:.92 }
-    button[disabled] { opacity:.45;cursor:not-allowed }
-    #agent1Btn { background:linear-gradient(135deg,#7c3aed,#2563eb);margin-top:10px;padding:11px;font-size:.9rem }
-    #currentViewBtn { background:#0d9488;margin-top:7px }
-    #stopBtn { background:#ef4444;display:none;margin-top:10px;padding:11px;font-size:.9rem }
-    #logArea { margin-top:12px;height:150px;padding:8px;background:#020617;color:#cbd5e1;font-size:.76rem;border-radius:6px;border:1px solid #1e293b;overflow-y:auto;white-space:pre-line;font-family:monospace }
-    .card { background:#1e293b;border-radius:8px;padding:9px 11px;border:1px solid #334155;margin-bottom:8px }
-    .row { display:flex;align-items:center;gap:8px }
-    .dot { width:10px;height:10px;border-radius:50%;background:#ef4444;flex:0 0 10px }
-    .dot.ok { background:#10b981;box-shadow:0 0 8px #10b981 }
-    .status-text { font-size:.8rem;color:#94a3b8 }
-    .refresh { margin-left:auto;width:34px;height:30px;margin-top:0;padding:0;border-radius:6px;background:#10b981;color:#fff;font-weight:700 }
-    .subtle { background:#334155;margin-top:6px;padding:6px;font-size:.78rem }
-    .divider { margin:12px 0 6px;border-top:1px solid #334155;padding-top:8px;font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px }
+    :root {
+      --bg-0: #0a1017;
+      --bg-1: #111b24;
+      --bg-2: #182532;
+      --bg-3: #223344;
+      --border: #253646;
+      --text: #edf2f7;
+      --muted: #8fa3b8;
+      --emerald: #00d4a1;
+      --emerald-dim: rgba(0, 212, 161, 0.14);
+      --purple: #8b5cf6;
+      --purple-dim: rgba(139, 92, 246, 0.16);
+      --blue: #38bdf8;
+      --amber: #f59e0b;
+      --red: #ef4444;
+    }
+
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; }
+    body { margin: 0; background: var(--bg-0); color: var(--text); width: 410px; max-height: 600px; overflow-y: auto; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-0); }
+    ::-webkit-scrollbar-thumb { background: #2c4052; border-radius: 99px; }
+
+    /* Header */
+    .topbar {
+      background: linear-gradient(135deg, #0c1f24 0%, #131c2e 100%);
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .brand { display: flex; align-items: center; gap: 9px; }
+    .brand-icon {
+      width: 32px; height: 32px; border-radius: 9px;
+      background: linear-gradient(135deg, var(--emerald), #0284c7);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; box-shadow: 0 4px 12px rgba(0,212,161,0.28);
+    }
+    .brand-title { font-size: 13.5px; font-weight: 800; letter-spacing: -0.2px; color: #fff; }
+    .brand-sub { font-size: 10px; color: var(--muted); display: flex; align-items: center; gap: 5px; margin-top: 1px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--red); display: inline-block; }
+    .dot.ok { background: var(--emerald); box-shadow: 0 0 8px var(--emerald); }
+
+    .top-actions { display: flex; align-items: center; gap: 5px; }
+    .icon-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s;
+    }
+    .icon-btn:hover { background: rgba(255,255,255,0.12); border-color: #3d566e; }
+    .icon-btn.crm { color: var(--emerald); border-color: rgba(0,212,161,0.35); background: var(--emerald-dim); }
+
+    /* Settings Drawer */
+    .drawer {
+      display: none;
+      background: #0d161f;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+    }
+    .drawer.open { display: block; }
+
+    /* Live Banner */
+    .live-banner {
+      display: none;
+      margin: 10px 14px 0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(0,212,161,0.12), rgba(56,189,248,0.08));
+      border: 1px solid rgba(0,212,161,0.38);
+    }
+    .live-banner.active { display: block; }
+    .live-head { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; font-weight: 700; margin-bottom: 6px; }
+    .progress-track { height: 6px; background: rgba(255,255,255,0.1); border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
+    .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--emerald), var(--blue)); border-radius: 99px; transition: width 0.25s ease; }
+    .live-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 8px; }
+    .kpi-mini { background: rgba(10,16,23,0.65); border: 1px solid var(--border); border-radius: 7px; padding: 4px 5px; text-align: center; }
+    .kpi-mini span { display: block; font-size: 9px; color: var(--muted); }
+    .kpi-mini strong { font-size: 12px; }
+
+    /* Tabs */
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 10px 14px 6px;
+    }
+    .tab-btn {
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 9px;
+      padding: 7px 6px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tab-btn:hover { color: #fff; border-color: #3b536b; }
+    .tab-btn.active {
+      background: linear-gradient(135deg, rgba(0,212,161,0.2), rgba(56,189,248,0.14));
+      color: #fff;
+      border-color: var(--emerald);
+      box-shadow: 0 2px 10px rgba(0,212,161,0.12);
+    }
+
+    /* Main Content */
+    .body { padding: 6px 14px 12px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .card {
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 11px 12px;
+      margin-bottom: 9px;
+    }
+    .card-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 7px;
+    }
+
+    /* Target Preview */
+    .target-zone { font-size: 14px; font-weight: 800; color: #fff; line-height: 1.25; }
+    .target-rubro { font-size: 12px; color: var(--emerald); font-weight: 600; margin-top: 2px; }
+    .target-reason { font-size: 10.5px; color: var(--muted); margin-top: 4px; line-height: 1.35; }
+    .badge {
+      display: inline-block; padding: 2px 7px; border-radius: 99px; font-size: 10px; font-weight: 700;
+      background: var(--emerald-dim); color: var(--emerald); border: 1px solid rgba(0,212,161,0.35);
+    }
+    .badge.warn { background: rgba(245,158,11,0.16); color: #fbbf24; border-color: rgba(245,158,11,0.4); }
+    .badge.purple { background: var(--purple-dim); color: #c4b5fd; border-color: rgba(139,92,246,0.4); }
+
+    /* Form Controls */
+    label.field-lbl { display: block; font-size: 10.5px; font-weight: 600; color: var(--muted); margin: 6px 0 3px; }
+    input[type="text"], select {
+      width: 100%;
+      padding: 7px 9px;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 12px;
+      outline: none;
+    }
+    input[type="text"]:focus, select:focus { border-color: var(--emerald); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .row { display: flex; align-items: center; gap: 6px; }
+
+    /* Segmented Toggle */
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: var(--bg-0);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3px;
+      gap: 3px;
+    }
+    .seg-opt {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      padding: 6px 5px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .seg-opt.active { background: var(--bg-3); color: #fff; box-shadow: inset 0 0 0 1px rgba(0,212,161,0.45); }
+
+    .check-row {
+      display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: #dbe7f3;
+      margin-top: 6px; cursor: pointer; user-select: none;
+    }
+    .check-row input { accent-color: var(--emerald); width: 14px; height: 14px; cursor: pointer; }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 9px;
+      padding: 10px 12px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: transform 0.1s, opacity 0.15s;
+    }
+    .btn:hover:not(:disabled) { opacity: 0.94; transform: translateY(-0.5px); }
+    .btn:disabled { opacity: 0.42; cursor: not-allowed; }
+    .btn-primary { background: linear-gradient(135deg, #00c496, #0284c7); color: #05161a; }
+    .btn-purple { background: linear-gradient(135deg, #7c3aed, #2563eb); }
+    .btn-secondary { background: var(--bg-2); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; font-size: 11.5px; }
+    .btn-amber { background: rgba(245,158,11,0.18); border: 1px solid rgba(245,158,11,0.5); color: #fcd34d; padding: 7px 10px; font-size: 11.5px; }
+    .btn-danger { background: rgba(239,68,68,0.18); border: 1px solid rgba(239,68,68,0.55); color: #fca5a5; padding: 7px 10px; font-size: 11.5px; }
+
+    /* Zones List */
+    .zones-list { max-height: 225px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-top: 7px; }
+    .zone-item {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 9px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .zone-item-main { min-width: 0; flex: 1; }
+    .zone-item-title { font-size: 11.5px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .zone-item-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .mini-btn {
+      background: var(--bg-1); border: 1px solid var(--border); color: var(--text);
+      border-radius: 6px; padding: 4px 7px; font-size: 10.5px; cursor: pointer; font-weight: 600;
+    }
+    .mini-btn.del { color: #fca5a5; border-color: rgba(239,68,68,0.4); }
+    .mini-btn.map { color: var(--blue); border-color: rgba(56,189,248,0.4); }
+
+    /* Manual chips */
+    .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+    .chip {
+      background: var(--bg-2); border: 1px solid var(--border); color: #cbd5e1;
+      border-radius: 99px; padding: 3px 8px; font-size: 10px; cursor: pointer;
+    }
+    .chip:hover { border-color: var(--emerald); color: #fff; }
+    .precheck-box {
+      margin-top: 7px; padding: 7px 9px; border-radius: 8px; background: var(--bg-0);
+      border: 1px solid var(--border); font-size: 10.5px; max-height: 90px; overflow-y: auto; display: none;
+    }
+
+    /* Log drawer */
+    .log-wrap { margin: 0 14px 12px; }
+    .log-header {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 10.5px; font-weight: 700; color: var(--muted); margin-bottom: 5px;
+    }
+    #logArea {
+      height: 115px;
+      padding: 7px 9px;
+      background: #05090e;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow-y: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 10.5px;
+      line-height: 1.45;
+    }
+    .log-line { margin-bottom: 2px; word-break: break-word; }
+    .log-ts { color: #51667a; margin-right: 4px; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>⚡ Nexte Agente 1 — GMaps Scraper</h1>
-    <div class="card">
-      <div class="row">
-        <div id="backendDot" class="dot"></div>
-        <div>
-          <div style="font-size:.85rem"><strong>Servidor VPS / CRM</strong></div>
-          <div id="backendStatus" class="status-text">Verificando...</div>
+  <!-- TOP HEADER -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-icon">🎯</div>
+      <div>
+        <div class="brand-title">NatoH Scraper Pro</div>
+        <div class="brand-sub">
+          <span id="backendDot" class="dot"></span>
+          <span id="backendStatus">Conectando al CRM...</span>
         </div>
-        <button id="backendRefresh" class="refresh" title="Refrescar conexión">↻</button>
       </div>
-      <label style="margin-top:8px">URL del Backend:</label>
-      <div class="row">
-        <input id="backendUrl" placeholder="http://149.50.128.73:8484" />
-        <button id="saveBackendBtn" class="subtle" style="width:90px;margin-top:0;padding:7px">Guardar</button>
+    </div>
+    <div class="top-actions">
+      <button id="openCrmBtn" class="icon-btn crm" title="Abrir Panel CRM">↗ CRM</button>
+      <button id="toggleCfgBtn" class="icon-btn" title="Configurar servidor VPS">⚙️</button>
+    </div>
+  </div>
+
+  <!-- BACKEND URL DRAWER -->
+  <div id="backendDrawer" class="drawer">
+    <label class="field-lbl" style="margin-top:0">URL del Servidor Backend (VPS)</label>
+    <div class="row">
+      <input id="backendUrl" type="text" placeholder="http://149.50.128.73:8484" />
+      <button id="saveBackendBtn" class="btn btn-primary" style="width:auto;padding:7px 12px;font-size:11.5px;">Guardar</button>
+      <button id="backendRefresh" class="btn btn-secondary" style="width:auto;padding:7px 10px;" title="Refrescar">↻</button>
+    </div>
+  </div>
+
+  <!-- LIVE ACTIVE SCRAPING BANNER -->
+  <div id="liveBanner" class="live-banner">
+    <div class="live-head">
+      <span id="liveTitle">🚀 Raspando Google Maps...</span>
+      <span id="livePct" style="color:var(--emerald)">0/0</span>
+    </div>
+    <div class="progress-track"><div id="liveBar" class="progress-fill"></div></div>
+    <div class="live-kpis">
+      <div class="kpi-mini"><span>✅ Nuevos</span><strong id="kpiQual" style="color:var(--emerald)">0</strong></div>
+      <div class="kpi-mini"><span>🔄 En CRM</span><strong id="kpiDup" style="color:var(--blue)">0</strong></div>
+      <div class="kpi-mini"><span>🚫 Desc.</span><strong id="kpiDisc" style="color:var(--amber)">0</strong></div>
+      <div class="kpi-mini"><span>🧭 Sentido</span><strong id="kpiDir" style="color:#c4b5fd;font-size:10px">⬆ Arriba</strong></div>
+    </div>
+    <div class="grid-2">
+      <button id="pauseBtn" class="btn btn-amber">⏸️ Pausar</button>
+      <button id="stopBtn" class="btn btn-danger">⏹️ Detener</button>
+    </div>
+  </div>
+
+  <!-- NAVIGATION TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="auto">🤖 Auto GPS</button>
+    <button class="tab-btn" data-tab="zones">🗺️ Zonas (<span id="tabZonesCount">0</span>)</button>
+    <button class="tab-btn" data-tab="manual">🔍 Manual</button>
+  </div>
+
+  <div class="body">
+    <!-- TAB 1: AUTO GPS & VISTA ACTUAL -->
+    <div id="panel-auto" class="panel active">
+      <div class="card">
+        <div class="card-title">
+          <span>🎯 Próximo Lugar Virgen (CRM)</span>
+          <span id="targetBadge" class="badge">Sin repetir</span>
+        </div>
+        <div id="targetZoneName" class="target-zone">Consultando CRM...</div>
+        <div id="targetRubroLabel" class="target-rubro">—</div>
+        <div id="targetReason" class="target-reason">Sincronizado con tus lugares configurados en el CRM.</div>
+
+        <div class="grid-2" style="margin-top:8px">
+          <div>
+            <label class="field-lbl" style="margin-top:0">Filtrar Ciudad</label>
+            <select id="cityFilter">
+              <option value="">🌎 Todas (Auto)</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-lbl" style="margin-top:0">Filtrar Rubro</label>
+            <select id="rubroFilter">
+              <option value="">🏢 Todos (Prioridad)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top:8px">
+          <button id="shuffleTargetBtn" class="btn btn-secondary">⏭️ Otra Zona</button>
+          <button id="markTargetDoneBtn" class="btn btn-secondary">✅ Marcar Hecha</button>
+        </div>
+      </div>
+
+      <!-- Direction & Anti-Repeat Settings -->
+      <div class="card">
+        <div class="card-title">
+          <span>🧭 Modo de Raspado</span>
+          <span style="font-size:10px;color:var(--emerald)">Sin volver arriba</span>
+        </div>
+        <div class="segmented">
+          <button id="dirBottomUp" class="seg-opt active" type="button">⬆️ Abajo → Arriba</button>
+          <button id="dirTopDown" class="seg-opt" type="button">⬇️ Arriba → Abajo</button>
+        </div>
+        <div class="row" style="margin-top:7px;justify-content:space-between">
+          <label class="field-lbl" style="margin:0">Velocidad entre tarjetas:</label>
+          <select id="speedPreset" style="width:165px;padding:4px 7px;font-size:11px">
+            <option value="safe">🛡️ Segura (2.5-5s)</option>
+            <option value="balanced" selected>⚡ Equilibrada (1.8-3.5s)</option>
+            <option value="fast">🚀 Rápida (1.0-2.2s)</option>
+          </select>
+        </div>
+        <label class="check-row">
+          <input type="checkbox" id="chkSkipExisting" checked />
+          ⚡ Saltar negocios ya guardados en CRM (sin cliquear)
+        </label>
+        <label class="check-row">
+          <input type="checkbox" id="chkSkipZones" checked />
+          🚫 No repetir lugares donde ya se raspó
+        </label>
+      </div>
+
+      <button id="agent1Btn" class="btn btn-purple" style="margin-bottom:7px">🤖 Iniciar Auto-Raspado GPS (Sin Repetir)</button>
+      <button id="currentViewBtn" class="btn btn-primary">📍 Raspar Esta Vista de Google Maps</button>
+    </div>
+
+    <!-- TAB 2: MEMORIA DE LUGARES & CONFIG CRM -->
+    <div id="panel-zones" class="panel">
+      <div class="card">
+        <div class="card-title">
+          <span>🗺️ Lugares Ya Escaneados</span>
+          <span id="zonesCoverageBadge" class="badge">0%</span>
+        </div>
+        <div class="progress-track" style="margin-bottom:8px"><div id="zonesCovBar" class="progress-fill"></div></div>
+        <input id="zonesSearchInp" type="text" placeholder="🔎 Buscar lugar, barrio o rubro..." />
+        <div id="zonesHistoryList" class="zones-list">
+          <div style="font-size:11px;color:var(--muted);text-align:center;padding:16px">Cargando historial desde CRM...</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>➕ Agregar Lugar Propio al CRM</span>
+          <span class="badge purple">Sincronizado</span>
+        </div>
+        <div class="row">
+          <input id="quickCustomZoneInp" type="text" placeholder="Ej: Quilmes Oeste, Banfield..." />
+          <button id="quickAddZoneBtn" class="btn btn-primary" style="width:auto;padding:7px 11px;font-size:11.5px">+ Agregar</button>
+        </div>
+        <button id="openZonesInCrmBtn" class="btn btn-secondary" style="margin-top:7px">⚙️ Abrir Configurador Completo en el CRM</button>
       </div>
     </div>
 
-    <button id="agent1Btn" title="Pide zonas GPS no escaneadas al VPS, abre Google Maps y raspa automáticamente">🤖 Auto-Raspar Zonas GPS (Agente 1)</button>
-    <button id="currentViewBtn" title="Raspa las tarjetas que están visibles ahora mismo en la pestaña de Google Maps">📍 Raspar Vista Actual de Maps</button>
+    <!-- TAB 3: COLA MANUAL CON PRE-CHEQUEO -->
+    <div id="panel-manual" class="panel">
+      <div class="card">
+        <div class="card-title">
+          <span>🔍 Cola Manual (Rubros × Lugares)</span>
+          <span class="badge">Auto-guarda en CRM</span>
+        </div>
+        <label class="field-lbl" style="margin-top:0">Rubros (separados por coma)</label>
+        <input id="keywords" type="text" placeholder="odontología, estética, construcción" />
+        <div id="rubroChips" class="chips"></div>
 
-    <div class="divider">Búsqueda Manual por Cola</div>
-    <label>Rubros (separados por coma):</label>
-    <input id="keywords" placeholder="odontología, estética, inmobiliaria" />
-    <label>Ubicaciones (separadas por coma):</label>
-    <input id="locations" placeholder="Palermo, Belgrano, Caballito" />
-    <button id="startBtn">🔍 Iniciar Cola Manual</button>
-    <button id="stopBtn">⏹️ Detener Scraping</button>
+        <label class="field-lbl">Lugares / Barrios (separados por coma)</label>
+        <input id="locations" type="text" placeholder="Palermo, Quilmes Centro, Lanús" />
+        <div id="zoneChips" class="chips"></div>
 
+        <div id="manualPrecheckBox" class="precheck-box"></div>
+
+        <div class="grid-2" style="margin-top:9px">
+          <button id="checkManualQueueBtn" class="btn btn-secondary">🔎 Revisar Repetidos</button>
+          <button id="startBtn" class="btn btn-primary">🚀 Iniciar Cola</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PERSISTENT LOG DRAWER -->
+  <div class="log-wrap">
+    <div class="log-header">
+      <span>📟 Actividad en Vivo</span>
+      <button id="clearLogBtn" class="mini-btn" style="padding:2px 6px;font-size:10px">Limpiar</button>
+    </div>
     <div id="logArea"></div>
   </div>
+
   <script src="popup.js"></script>
 </body>
 </html>

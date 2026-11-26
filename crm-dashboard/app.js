@@ -4062,6 +4062,8 @@ async function fetchQualificationStats() {
     }
 }
 
+window._skippedTargetKeys = [];
+
 async function fetchNextScrapingTarget(forceShuffle = false) {
     const reasonEl = getEl('targetReason');
     if (reasonEl) reasonEl.textContent = 'Consultando memoria de zonas NatoH Systems y calculando próximo objetivo sin solapamiento...';
@@ -4069,10 +4071,18 @@ async function fetchNextScrapingTarget(forceShuffle = false) {
     try {
         const citySel = getEl('agent1CityFilter')?.value || '';
         const rubroSel = getEl('agent1RubroFilter')?.value || '';
+        if (forceShuffle && window.currentTargetPlan?.zone?.id && window.currentTargetPlan?.rubro?.id) {
+            const curKey = `${window.currentTargetPlan.zone.id}::${window.currentTargetPlan.rubro.id}`;
+            if (!window._skippedTargetKeys.includes(curKey)) window._skippedTargetKeys.push(curKey);
+            if (window._skippedTargetKeys.length > 25) window._skippedTargetKeys.shift();
+        } else if (!forceShuffle) {
+            window._skippedTargetKeys = [];
+        }
+
         const params = new URLSearchParams();
         if (citySel) params.set('city', citySel);
         if (rubroSel) params.set('rubro', rubroSel);
-        if (forceShuffle) params.set('shuffle', String(Date.now()));
+        if (window._skippedTargetKeys.length > 0) params.set('exclude', window._skippedTargetKeys.join(','));
         const qs = params.toString() ? `?${params.toString()}` : '';
 
         const res = await fetchAPI(`/scraper/next-target${qs}`);
@@ -4090,29 +4100,316 @@ async function fetchNextScrapingTarget(forceShuffle = false) {
     }
 }
 
-async function openZonesHistoryModal() {
-    try {
-        const res = await fetchAPI('/scraper/zones-history?limit=40');
-        const data = await res.json();
-        if (!data || !data.success) {
-            alert('No se pudo cargar el historial de zonas.');
-            return;
-        }
-        const recs = data.records || [];
-        const lines = recs.length > 0
-            ? recs.map((r, i) => `${i + 1}. 📍 ${r.zoneName || r.zoneId} — 🏢 ${r.keywordLabel || r.keyword} (${r.validLeadsIngested || 0} calif. / ${r.totalLeadsFound || 0} vistos)`).join('\n')
-            : 'Aún no hay zonas registradas en el historial.';
+window._zmHistoryData = [];
+window._zmCatalogData = null;
+window._zmPendingData = [];
 
-        ui.modal.show(
-            `🗺️ Cobertura GPS: ${data.coveragePercent || 0}% (${data.totalScannedCombinations || 0}/${data.totalPossibleCombinations || 620})`,
-            `Últimas zonas y rubros escaneados por Agente 1:\n\n${lines}`,
-            'info',
-            [{ text: 'Cerrar', value: true, color: '#00a884' }]
-        );
+async function openZonesHistoryModal(initialTab = 'history') {
+    const modal = document.getElementById('zonesManagerModal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    switchZonesModalTab(initialTab);
+    await refreshZonesManagerModalData();
+}
+
+function closeZonesManagerModal() {
+    const modal = document.getElementById('zonesManagerModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function switchZonesModalTab(tab = 'history') {
+    const panels = {
+        history: document.getElementById('zmPanelHistory'),
+        config: document.getElementById('zmPanelConfig'),
+        pending: document.getElementById('zmPanelPending')
+    };
+    const btns = {
+        history: document.getElementById('zmTabBtnHistory'),
+        config: document.getElementById('zmTabBtnConfig'),
+        pending: document.getElementById('zmTabBtnPending')
+    };
+    Object.entries(panels).forEach(([k, el]) => {
+        if (el) el.style.display = k === tab ? 'block' : 'none';
+    });
+    Object.entries(btns).forEach(([k, btn]) => {
+        if (!btn) return;
+        if (k === tab) {
+            btn.style.background = '#00a884';
+            btn.style.color = '#0b141a';
+            btn.style.border = 'none';
+            btn.style.fontWeight = '700';
+        } else {
+            btn.style.background = '#202c33';
+            btn.style.color = '#aebac1';
+            btn.style.border = '1px solid #2f3b43';
+            btn.style.fontWeight = '600';
+        }
+    });
+}
+
+async function refreshZonesManagerModalData() {
+    try {
+        const [histRes, catRes, pendRes] = await Promise.all([
+            fetchAPI('/scraper/zones-history?limit=300'),
+            fetchAPI('/scraper/catalog'),
+            fetchAPI('/scraper/pending-targets?limit=40')
+        ]);
+        const [histData, catData, pendData] = await Promise.all([histRes.json(), catRes.json(), pendRes.json()]);
+
+        if (histData?.success) {
+            window._zmHistoryData = histData.records || [];
+            const cEl = document.getElementById('zmCountHistory');
+            if (cEl) cEl.textContent = String(histData.totalScannedCombinations || window._zmHistoryData.length);
+            const covPill = document.getElementById('zmCoveragePill');
+            if (covPill) covPill.textContent = `Cobertura: ${histData.coveragePercent || 0}% (${histData.totalScannedCombinations || 0}/${histData.totalPossibleCombinations || 0})`;
+            renderScannedZonesTable();
+        }
+        if (catData?.success) {
+            window._zmCatalogData = catData;
+            renderScraperConfigTab();
+            syncCrmCustomRubroFilter(catData);
+        }
+        if (pendData?.success) {
+            window._zmPendingData = pendData.pending || [];
+            const pEl = document.getElementById('zmCountPending');
+            if (pEl) pEl.textContent = String(pendData.totalVirgin || window._zmPendingData.length);
+            renderPendingZonesTable();
+        }
     } catch (e) {
-        console.error('Error cargando historial de zonas:', e);
-        alert('Error de conexión al consultar historial de zonas.');
+        console.error('Error refrescando Gestor de Zonas:', e);
     }
+}
+
+function syncCrmCustomRubroFilter(catData) {
+    const sel = document.getElementById('agent1RubroFilter');
+    if (!sel || !catData?.rubros) return;
+    const existingValues = new Set(Array.from(sel.options).map(o => o.value));
+    catData.rubros.filter(r => r.isCustom).forEach(r => {
+        if (!existingValues.has(r.id)) {
+            const opt = document.createElement('option');
+            opt.value = r.id;
+            opt.textContent = `⭐ ${r.label} (Personalizado)`;
+            sel.insertBefore(opt, sel.options[1] || null);
+        }
+    });
+}
+
+function renderScannedZonesTable() {
+    const container = document.getElementById('zmHistoryList');
+    if (!container) return;
+    const q = (document.getElementById('zmHistorySearch')?.value || '').toLowerCase().trim();
+    const list = (window._zmHistoryData || []).filter(r => {
+        if (!q) return true;
+        return `${r.zoneName || ''} ${r.zoneId || ''} ${r.keywordLabel || ''} ${r.keyword || ''} ${r.searchQuery || ''}`.toLowerCase().includes(q);
+    });
+
+    if (list.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding: 28px; color:#8696a0; background:#182229; border-radius:10px; border:1px dashed #2f3b43;">
+            ${q ? 'No hay lugares escaneados que coincidan con ese filtro.' : 'Aún no hay lugares guardados en el historial. Al raspar desde la extensión o marcar una zona acá, aparecerán automáticamente y nunca se repetirán.'}
+        </div>`;
+        return;
+    }
+
+    container.innerHTML = list.map(r => {
+        const dt = r.lastScannedAt || r.scannedAt || r.updatedAt;
+        const dtStr = dt ? new Date(dt).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-';
+        const srcBadge = r.source === 'extension_auto' ? '🤖 Auto GPS' : r.source === 'extension_manual' ? '📍 Extensión' : r.source === 'crm_manual' ? '🖥️ CRM' : '📥 Ingesta';
+        const mapsBtn = r.googleMapsUrl
+            ? `<a href="${escapeHtml(r.googleMapsUrl)}" target="_blank" style="background:#202c33; color:#53bdeb; border:1px solid #53bdeb44; padding:5px 9px; border-radius:6px; font-size:11px; text-decoration:none; font-weight:600;">🗺️ Maps</a>`
+            : '';
+        return `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; background:#182229; border:1px solid #2a3942; border-radius:10px; padding:11px 14px; flex-wrap:wrap;">
+            <div style="min-width: 240px; flex: 1;">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <strong style="color:#e9edef; font-size:13px;">📍 ${escapeHtml(r.zoneName || r.zoneId)}</strong>
+                    <span style="background:#00a88422; color:#00a884; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:600;">🏢 ${escapeHtml(r.keywordLabel || r.keyword)}</span>
+                    <span style="background:#202c33; color:#8696a0; padding:2px 7px; border-radius:6px; font-size:10px;">${srcBadge}</span>
+                </div>
+                <div style="font-size:11px; color:#8696a0; margin-top:4px;">
+                    ✅ <strong style="color:#25d366;">${r.validLeadsIngested || 0}</strong> calificados · 📋 ${r.totalLeadsFound || 0} vistos · 🔄 ${r.duplicatesSkipped || 0} dup. · 🕒 ${dtStr}
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                ${mapsBtn}
+                <button onclick="deleteScannedZoneRecord('${escapeHtml(String(r._id))}')" title="Quitar del historial para permitir volver a raspar este lugar" style="background:#ef535020; color:#ff8a80; border:1px solid #ef535055; padding:5px 10px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer;">🔄 Liberar</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function deleteScannedZoneRecord(id) {
+    if (!confirm('¿Liberar este lugar del historial? Volverá a estar disponible para raspar.')) return;
+    try {
+        const res = await fetchAPI(`/scraper/zones-history/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data?.success) {
+            await refreshZonesManagerModalData();
+            await fetchNextScrapingTarget(false);
+        }
+    } catch (e) {
+        alert('Error liberando zona: ' + e.message);
+    }
+}
+
+function renderScraperConfigTab() {
+    const cat = window._zmCatalogData;
+    if (!cat) return;
+    const cfg = cat.config || {};
+
+    const dirEl = document.getElementById('zmCfgDirection');
+    const spdEl = document.getElementById('zmCfgSpeed');
+    const skipExEl = document.getElementById('zmCfgSkipExisting');
+    const skipZEl = document.getElementById('zmCfgSkipZones');
+    if (dirEl) dirEl.value = cfg.defaultDirection || 'bottom-up';
+    if (spdEl) spdEl.value = cfg.speedPreset || 'balanced';
+    if (skipExEl) skipExEl.checked = cfg.skipExistingLeads !== false;
+    if (skipZEl) skipZEl.checked = cfg.skipScannedZones !== false;
+
+    const customZonesEl = document.getElementById('zmCustomZonesList');
+    if (customZonesEl) {
+        const cz = cfg.customZones || [];
+        customZonesEl.innerHTML = cz.length
+            ? cz.map(z => `<span style="display:inline-flex; align-items:center; gap:6px; background:#0f2836; border:1px solid #53bdeb55; color:#e9edef; padding:4px 9px; border-radius:99px; font-size:11px;">📍 ${escapeHtml(z.name)} <button onclick="removeCustomZoneFromCrm('${escapeHtml(z.id)}')" style="background:none; border:none; color:#ff8a80; cursor:pointer; font-weight:700; padding:0;">✕</button></span>`).join('')
+            : '<span style="font-size:11px; color:#8696a0;">Todavía no agregaste lugares propios.</span>';
+    }
+
+    const customRubrosEl = document.getElementById('zmCustomRubrosList');
+    if (customRubrosEl) {
+        const cr = cfg.customRubros || [];
+        customRubrosEl.innerHTML = cr.length
+            ? cr.map(r => `<span style="display:inline-flex; align-items:center; gap:6px; background:#251636; border:1px solid #c084fc55; color:#e9edef; padding:4px 9px; border-radius:99px; font-size:11px;">🏢 ${escapeHtml(r.label)} <button onclick="removeCustomRubroFromCrm('${escapeHtml(r.id)}')" style="background:none; border:none; color:#ff8a80; cursor:pointer; font-weight:700; padding:0;">✕</button></span>`).join('')
+            : '<span style="font-size:11px; color:#8696a0;">Todavía no agregaste rubros propios.</span>';
+    }
+
+    const citiesEl = document.getElementById('zmCitiesToggleGrid');
+    if (citiesEl) {
+        citiesEl.innerHTML = (cat.cities || []).map(c => {
+            const on = c.enabled !== false;
+            return `<button onclick="toggleCityEnabledCrm('${escapeHtml(c.id)}')" style="padding:6px 11px; border-radius:99px; font-size:11px; font-weight:600; cursor:pointer; border:1px solid ${on ? '#00a88488' : '#3b4a54'}; background:${on ? '#00a88422' : '#111b21'}; color:${on ? '#00e6b8' : '#667781'}; text-decoration:${on ? 'none' : 'line-through'};">${on ? '✅' : '🚫'} ${escapeHtml(c.name)}</button>`;
+        }).join('');
+    }
+
+    const rubrosEl = document.getElementById('zmRubrosToggleGrid');
+    if (rubrosEl) {
+        rubrosEl.innerHTML = (cat.rubros || []).map(r => {
+            const on = r.enabled !== false;
+            return `<button onclick="toggleRubroEnabledCrm('${escapeHtml(r.id)}')" style="padding:5px 10px; border-radius:99px; font-size:11px; font-weight:600; cursor:pointer; border:1px solid ${on ? '#53bdeb66' : '#3b4a54'}; background:${on ? '#53bdeb1c' : '#111b21'}; color:${on ? '#e9edef' : '#667781'}; text-decoration:${on ? 'none' : 'line-through'};">${on ? '✓' : '✕'} ${escapeHtml(r.label)}</button>`;
+        }).join('');
+    }
+}
+
+async function saveScraperConfigPatch(patch) {
+    const res = await fetchAPI('/scraper/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch)
+    });
+    const data = await res.json();
+    if (data?.success) {
+        await refreshZonesManagerModalData();
+        await fetchNextScrapingTarget(false);
+    }
+    return data;
+}
+
+async function saveScraperPrefsFromCrm() {
+    await saveScraperConfigPatch({
+        defaultDirection: document.getElementById('zmCfgDirection')?.value || 'bottom-up',
+        speedPreset: document.getElementById('zmCfgSpeed')?.value || 'balanced',
+        skipExistingLeads: Boolean(document.getElementById('zmCfgSkipExisting')?.checked),
+        skipScannedZones: Boolean(document.getElementById('zmCfgSkipZones')?.checked)
+    });
+    ui.modal.show('Guardado', 'Preferencias del scraper guardadas y sincronizadas con la Extensión de Chrome.', 'success', [{ text: 'OK', value: true, color: '#00a884' }]);
+}
+
+async function addCustomZoneFromCrm() {
+    const nameInp = document.getElementById('zmNewZoneName');
+    const cityInp = document.getElementById('zmNewZoneCity');
+    const name = (nameInp?.value || '').trim();
+    if (!name) return alert('Escribí el nombre del lugar o localidad (ej: Quilmes Oeste).');
+    const current = window._zmCatalogData?.config?.customZones || [];
+    await saveScraperConfigPatch({
+        customZones: [...current, { name, city: cityInp?.value || 'custom', enabled: true }]
+    });
+    if (nameInp) nameInp.value = '';
+}
+
+async function removeCustomZoneFromCrm(id) {
+    const current = window._zmCatalogData?.config?.customZones || [];
+    await saveScraperConfigPatch({
+        customZones: current.filter(z => z.id !== id)
+    });
+}
+
+async function addCustomRubroFromCrm() {
+    const labelInp = document.getElementById('zmNewRubroLabel');
+    const queryInp = document.getElementById('zmNewRubroQuery');
+    const solInp = document.getElementById('zmNewRubroSol');
+    const label = (labelInp?.value || '').trim();
+    const query = (queryInp?.value || '').trim() || label;
+    if (!label) return alert('Escribí el nombre del rubro.');
+    const current = window._zmCatalogData?.config?.customRubros || [];
+    await saveScraperConfigPatch({
+        customRubros: [...current, { label, query, targetSolution: solInp?.value || 'ia_natoh', priority: 10, enabled: true }]
+    });
+    if (labelInp) labelInp.value = '';
+    if (queryInp) queryInp.value = '';
+}
+
+async function removeCustomRubroFromCrm(id) {
+    const current = window._zmCatalogData?.config?.customRubros || [];
+    await saveScraperConfigPatch({
+        customRubros: current.filter(r => r.id !== id)
+    });
+}
+
+async function toggleCityEnabledCrm(cityId) {
+    const disabled = new Set(window._zmCatalogData?.config?.disabledCities || []);
+    if (disabled.has(cityId)) disabled.delete(cityId); else disabled.add(cityId);
+    await saveScraperConfigPatch({ disabledCities: Array.from(disabled) });
+}
+
+async function toggleRubroEnabledCrm(rubroId) {
+    const disabled = new Set(window._zmCatalogData?.config?.disabledRubroIds || []);
+    if (disabled.has(rubroId)) disabled.delete(rubroId); else disabled.add(rubroId);
+    await saveScraperConfigPatch({ disabledRubroIds: Array.from(disabled) });
+}
+
+function renderPendingZonesTable() {
+    const container = document.getElementById('zmPendingList');
+    if (!container) return;
+    const list = window._zmPendingData || [];
+    if (list.length === 0) {
+        container.innerHTML = '<div style="padding:24px; text-align:center; color:#8696a0;">¡Ya escaneaste todas las combinaciones habilitadas! Agregá lugares nuevos en la pestaña Configurar.</div>';
+        return;
+    }
+    container.innerHTML = list.map((item, idx) => `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; background:#182229; border:1px solid #2a3942; border-radius:10px; padding:10px 14px; flex-wrap:wrap;">
+            <div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <span style="color:#8696a0; font-size:11px;">#${idx + 1}</span>
+                    <strong style="color:#e9edef; font-size:13px;">📍 ${escapeHtml(item.zone.name)}</strong>
+                    ${item.zone.isCustom ? '<span style="background:#53bdeb22; color:#53bdeb; padding:1px 6px; border-radius:6px; font-size:10px;">Personalizado</span>' : ''}
+                    <span style="background:#7e57c225; color:#d1b3ff; padding:2px 8px; border-radius:99px; font-size:11px;">🏢 ${escapeHtml(item.rubro.label)}</span>
+                </div>
+                <div style="font-size:11px; color:#8696a0; margin-top:3px;">Búsqueda: "${escapeHtml(item.searchQuery)}"</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+                <a href="${escapeHtml(item.googleMapsUrl)}" target="_blank" style="background:#00a884; color:#0b141a; padding:6px 11px; border-radius:7px; font-size:11px; font-weight:700; text-decoration:none;">🗺️ Abrir en Maps</a>
+                <button onclick="markSpecificZoneScanned('${escapeHtml(item.zone.id)}','${escapeHtml(item.zone.name)}','${escapeHtml(item.zone.city)}','${escapeHtml(item.rubro.id)}','${escapeHtml(item.rubro.label)}')" style="background:#202c33; color:#e9edef; border:1px solid #3b4a54; padding:6px 10px; border-radius:7px; font-size:11px; cursor:pointer;">✅ Marcar Hecho</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function markSpecificZoneScanned(zoneId, zoneName, city, keyword, keywordLabel) {
+    await fetchAPI('/scraper/mark-scanned', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zoneId, zoneName, city, keyword, keywordLabel, source: 'crm_manual', notes: 'Marcado desde Gestor de Zonas CRM' })
+    });
+    await refreshZonesManagerModalData();
+    await fetchNextScrapingTarget(false);
 }
 
 function renderScraperTargetWidget(target) {
@@ -4366,3 +4663,15 @@ window.fetchQualificationStats = fetchQualificationStats;
 window.prioritizeLeadInQueue = prioritizeLeadInQueue;
 window.prioritizeCurrentModalLead = prioritizeCurrentModalLead;
 window.openZonesHistoryModal = openZonesHistoryModal;
+window.closeZonesManagerModal = closeZonesManagerModal;
+window.switchZonesModalTab = switchZonesModalTab;
+window.renderScannedZonesTable = renderScannedZonesTable;
+window.deleteScannedZoneRecord = deleteScannedZoneRecord;
+window.saveScraperPrefsFromCrm = saveScraperPrefsFromCrm;
+window.addCustomZoneFromCrm = addCustomZoneFromCrm;
+window.removeCustomZoneFromCrm = removeCustomZoneFromCrm;
+window.addCustomRubroFromCrm = addCustomRubroFromCrm;
+window.removeCustomRubroFromCrm = removeCustomRubroFromCrm;
+window.toggleCityEnabledCrm = toggleCityEnabledCrm;
+window.toggleRubroEnabledCrm = toggleRubroEnabledCrm;
+window.markSpecificZoneScanned = markSpecificZoneScanned;

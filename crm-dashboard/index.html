@@ -165,8 +165,9 @@
                             <p style="color: #8696a0; font-size: 13px; margin: 0;" id="targetReason">Calculando cuadrícula no explorada para evitar duplicar leads...</p>
                         </div>
                         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                            <select id="agent1CityFilter" onchange="fetchNextScrapingTarget(true)" style="background: #202c33; color: #e9edef; border: 1px solid #3b4a54; padding: 8px 10px; border-radius: 8px; font-size: 12px; cursor: pointer;">
+                            <select id="agent1CityFilter" onchange="fetchNextScrapingTarget(false)" style="background: #202c33; color: #e9edef; border: 1px solid #3b4a54; padding: 8px 10px; border-radius: 8px; font-size: 12px; cursor: pointer;">
                                 <option value="">🌎 Ciudad: Automática (IA)</option>
+                                <option value="custom">⭐ Lugares Personalizados (CRM)</option>
                                 <option value="caba">📍 CABA</option>
                                 <option value="gba_norte">📍 GBA Zona Norte</option>
                                 <option value="gba_sur">📍 GBA Zona Sur</option>
@@ -212,7 +213,7 @@
                                 <span class="material-icons" style="font-size: 18px;">open_in_new</span> Abrir en Google Maps
                             </button>
                             <button id="btnMarkScanned" onclick="markCurrentTargetScanned()" class="btn-action" title="Marcar zona como escaneada en BD" style="background: #202c33; color: #e9edef; border: 1px solid #3b4a54; padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 13px;"><span class="material-icons" style="font-size: 16px; color: #25d366;">check</span> Marcar Escaneada</button>
-                            <button id="btnZonesHistory" onclick="openZonesHistoryModal()" class="btn-action" title="Ver historial de zonas escaneadas" style="background: #202c33; color: #53bdeb; border: 1px solid #53bdeb55; padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 13px;"><span class="material-icons" style="font-size: 16px;">map</span> Historial Zonas</button>
+                            <button id="btnZonesHistory" onclick="openZonesHistoryModal('history')" class="btn-action" title="Configurar lugares/rubros del scraper y ver zonas ya escaneadas" style="background: linear-gradient(135deg, #1f3542, #182a35); color: #53bdeb; border: 1px solid #53bdeb66; padding: 8px 13px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600;"><span class="material-icons" style="font-size: 16px;">tune</span> Configurar Lugares &amp; Historial</button>
                         </div>
                     </div>
 
@@ -970,9 +971,136 @@
     </div>
     </main>
     </div>
+    <!-- MODAL GESTOR & CONFIGURADOR DE LUGARES DEL SCRAPER (AGENTE 1) -->
+    <div id="zonesManagerModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.78); backdrop-filter: blur(5px); z-index: 99999; align-items: center; justify-content: center; padding: 20px;">
+        <div style="background: #111b21; border: 1px solid #2a3942; border-radius: 16px; width: 100%; max-width: 980px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,0.6); overflow: hidden;">
+            <div style="padding: 18px 22px; background: linear-gradient(135deg, #16242c, #0f191f); border-bottom: 1px solid #2a3942; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span class="material-icons" style="color: #00a884; font-size: 28px;">map</span>
+                    <div>
+                        <h3 style="margin: 0; font-size: 17px; color: #e9edef; font-weight: 700;">Gestor &amp; Configurador de Lugares del Scraper (Agente 1)</h3>
+                        <div id="zonesModalSubtitle" style="font-size: 12px; color: #8696a0; margin-top: 2px;">Sincronizado en vivo con tu extensión de Chrome · Anti-repetición activa</div>
+                    </div>
+                </div>
+                <button onclick="closeZonesManagerModal()" style="background: #202c33; border: 1px solid #3b4a54; color: #e9edef; width: 34px; height: 34px; border-radius: 8px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;">✕</button>
+            </div>
+
+            <div style="display: flex; gap: 6px; padding: 12px 22px; background: #0b141a; border-bottom: 1px solid #202c33; flex-wrap: wrap;">
+                <button id="zmTabBtnHistory" onclick="switchZonesModalTab('history')" style="background: #00a884; color: #0b141a; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer;">📍 Lugares Ya Escaneados (<span id="zmCountHistory">0</span>)</button>
+                <button id="zmTabBtnConfig" onclick="switchZonesModalTab('config')" style="background: #202c33; color: #aebac1; border: 1px solid #2f3b43; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 12px; cursor: pointer;">⚙️ Configurar Lugares, Rubros y Reglas</button>
+                <button id="zmTabBtnPending" onclick="switchZonesModalTab('pending')" style="background: #202c33; color: #aebac1; border: 1px solid #2f3b43; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 12px; cursor: pointer;">🧭 Próximos Vírgenes (<span id="zmCountPending">0</span>)</button>
+            </div>
+
+            <div style="padding: 18px 22px; overflow-y: auto; flex: 1;">
+                <!-- TAB 1: HISTORIAL -->
+                <div id="zmPanelHistory">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap;">
+                        <input id="zmHistorySearch" type="text" oninput="renderScannedZonesTable()" placeholder="🔎 Filtrar por lugar, barrio o rubro..." style="flex: 1; min-width: 240px; background: #202c33; border: 1px solid #2f3b43; color: #e9edef; padding: 9px 12px; border-radius: 8px; font-size: 13px;">
+                        <div id="zmCoveragePill" style="background: #00a88422; color: #00a884; border: 1px solid #00a88455; padding: 7px 12px; border-radius: 8px; font-size: 12px; font-weight: 700;">Cobertura: 0%</div>
+                    </div>
+                    <div id="zmHistoryList" style="display: flex; flex-direction: column; gap: 8px;">Cargando historial...</div>
+                </div>
+
+                <!-- TAB 2: CONFIGURADOR -->
+                <div id="zmPanelConfig" style="display: none;">
+                    <!-- Preferencias sincronizadas con la Extensión -->
+                    <div style="background: #182229; border: 1px solid #2a3942; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;">
+                        <div style="font-size: 13px; font-weight: 700; color: #00a884; margin-bottom: 10px;">⚡ Comportamiento por Defecto de la Extensión de Chrome</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; align-items: end;">
+                            <div>
+                                <label style="display: block; font-size: 11px; color: #8696a0; margin-bottom: 4px;">Dirección de Raspado</label>
+                                <select id="zmCfgDirection" style="width: 100%; background: #202c33; border: 1px solid #2f3b43; color: #e9edef; padding: 8px 10px; border-radius: 8px; font-size: 12px;">
+                                    <option value="bottom-up">⬆️ Abajo → Arriba (Recomendado, sin saltos)</option>
+                                    <option value="top-down">⬇️ Arriba → Abajo (Clásico deduplicado)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 11px; color: #8696a0; margin-bottom: 4px;">Velocidad entre Tarjetas</label>
+                                <select id="zmCfgSpeed" style="width: 100%; background: #202c33; border: 1px solid #2f3b43; color: #e9edef; padding: 8px 10px; border-radius: 8px; font-size: 12px;">
+                                    <option value="safe">🛡️ Segura (2.5 - 5.0 seg)</option>
+                                    <option value="balanced">⚡ Equilibrada (1.8 - 3.5 seg)</option>
+                                    <option value="fast">🚀 Rápida (1.0 - 2.2 seg)</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <label style="display: flex; align-items: center; gap: 7px; font-size: 12px; color: #e9edef; cursor: pointer;">
+                                    <input type="checkbox" id="zmCfgSkipExisting" checked> Saltar negocios ya en CRM (0ms)
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 7px; font-size: 12px; color: #e9edef; cursor: pointer;">
+                                    <input type="checkbox" id="zmCfgSkipZones" checked> Bloquear/avisar lugares ya hechos
+                                </label>
+                            </div>
+                            <div>
+                                <button onclick="saveScraperPrefsFromCrm()" style="width: 100%; background: #00a884; color: #0b141a; border: none; padding: 9px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer;">💾 Guardar Preferencias</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Agregar Lugares Personalizados -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 14px; margin-bottom: 16px;">
+                        <div style="background: #182229; border: 1px solid #2a3942; border-radius: 12px; padding: 14px 16px;">
+                            <div style="font-size: 13px; font-weight: 700; color: #53bdeb; margin-bottom: 10px;">📍 Agregar Lugar / Localidad Propia</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                                <input id="zmNewZoneName" type="text" placeholder="Ej: Quilmes Oeste / Banfield" style="grid-column: span 2; background: #202c33; border: 1px solid #2f3b43; color: #fff; padding: 8px 10px; border-radius: 7px; font-size: 12px;">
+                                <select id="zmNewZoneCity" style="background: #202c33; border: 1px solid #2f3b43; color: #fff; padding: 8px; border-radius: 7px; font-size: 12px;">
+                                    <option value="custom">⭐ Personalizado</option>
+                                    <option value="caba">CABA</option>
+                                    <option value="gba_norte">GBA Norte</option>
+                                    <option value="gba_sur">GBA Sur</option>
+                                    <option value="gba_oeste">GBA Oeste</option>
+                                    <option value="cordoba">Córdoba</option>
+                                    <option value="rosario">Rosario</option>
+                                    <option value="mendoza">Mendoza</option>
+                                    <option value="mar_del_plata">Mar del Plata</option>
+                                </select>
+                                <button onclick="addCustomZoneFromCrm()" style="background: #53bdeb; color: #0b141a; border: none; border-radius: 7px; font-weight: 700; font-size: 12px; cursor: pointer;">+ Agregar Lugar</button>
+                            </div>
+                            <div id="zmCustomZonesList" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;"></div>
+                        </div>
+
+                        <div style="background: #182229; border: 1px solid #2a3942; border-radius: 12px; padding: 14px 16px;">
+                            <div style="font-size: 13px; font-weight: 700; color: #c084fc; margin-bottom: 10px;">🏢 Agregar Rubro / Búsqueda Propia</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                                <input id="zmNewRubroLabel" type="text" placeholder="Nombre (ej: Ortodoncia Invisible)" style="background: #202c33; border: 1px solid #2f3b43; color: #fff; padding: 8px 10px; border-radius: 7px; font-size: 12px;">
+                                <input id="zmNewRubroQuery" type="text" placeholder="Query Maps (ej: clinica ortodoncia)" style="background: #202c33; border: 1px solid #2f3b43; color: #fff; padding: 8px 10px; border-radius: 7px; font-size: 12px;">
+                                <select id="zmNewRubroSol" style="background: #202c33; border: 1px solid #2f3b43; color: #fff; padding: 8px; border-radius: 7px; font-size: 12px;">
+                                    <option value="software_turnero">Turnero + IA + Ingresos</option>
+                                    <option value="ia_natoh">Agente IA 24/7 + CRM</option>
+                                    <option value="software_custom_erp">Sistema a Medida / Gestión</option>
+                                    <option value="gastronomia_pedidos">Gastronomía / Carta QR</option>
+                                    <option value="ecommerce">E-Commerce / Catálogo</option>
+                                    <option value="web_express">Web SEO Profesional</option>
+                                </select>
+                                <button onclick="addCustomRubroFromCrm()" style="background: #c084fc; color: #0b141a; border: none; border-radius: 7px; font-weight: 700; font-size: 12px; cursor: pointer;">+ Agregar Rubro</button>
+                            </div>
+                            <div id="zmCustomRubrosList" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Activar / Desactivar Ciudades y Rubros del Auto-Agente -->
+                    <div style="background: #182229; border: 1px solid #2a3942; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px;">
+                        <div style="font-size: 13px; font-weight: 700; color: #e9edef; margin-bottom: 8px;">🌎 Ciudades Habilitadas para Auto-Raspado (Clic para activar/desactivar)</div>
+                        <div id="zmCitiesToggleGrid" style="display: flex; flex-wrap: wrap; gap: 7px;"></div>
+                    </div>
+
+                    <div style="background: #182229; border: 1px solid #2a3942; border-radius: 12px; padding: 14px 16px;">
+                        <div style="font-size: 13px; font-weight: 700; color: #e9edef; margin-bottom: 8px;">🏢 Rubros Habilitados para Auto-Raspado (Clic para activar/desactivar)</div>
+                        <div id="zmRubrosToggleGrid" style="display: flex; flex-wrap: wrap; gap: 7px;"></div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: PRÓXIMOS VÍRGENES -->
+                <div id="zmPanelPending" style="display: none;">
+                    <div style="font-size: 12px; color: #8696a0; margin-bottom: 10px;">Combinaciones de <strong>Lugar × Rubro</strong> que todavía NO fueron raspadas (respetando tu configuración):</div>
+                    <div id="zmPendingList" style="display: flex; flex-direction: column; gap: 8px;">Cargando próximos objetivos...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="app.js?v=3.0"></script>
+    <script src="app.js?v=3.2"></script>
     <script>
         // Init app
         document.addEventListener('DOMContentLoaded', () => {

@@ -5,6 +5,20 @@
 - **Status:** ✅ COMPLETED, SYNCHRONIZED & DEPLOYED TO VPS
 - **Git Info:** master
 
+### 70. Rediseño Completo Extensión Chrome Pro v3.0 + Fix Loop de Tarjetas (Abajo→Arriba) + Gestor de Lugares en CRM (`D-55`, `ERR-23`, `ERR-24`)
+- **Causa/Requerimiento:** Solicitud del usuario: mejorar UI/UX y funcionamiento de toda la extensión, guardar y evitar repetir lugares ya raspados (configurables y accesibles desde el CRM) y solucionar el problema de que el scraper volvía hacia arriba repitiendo tarjetas (incorporando raspado de abajo hacia arriba).
+- **Implementación Técnica Realizada:**
+  1. **Backend & Memoria de Lugares (`ScannedZone.js`, `geoGridScanner.js`, `server/index.js`):**
+     - Esquema `ScannedZone` corregido (`center.lat/lng` opcionales + `lastScannedAt`, `scanCount`, `searchQuery`, `googleMapsUrl`, `scrapeDirection`, `duplicatesSkipped`).
+     - Configuración persistente `scraper_config` (lugares propios, rubros propios, ciudades/rubros habilitados, dirección por defecto `bottom-up`, velocidad y reglas anti-repetición).
+     - Nuevos endpoints: `GET/PUT /api/scraper/config`, `GET /api/scraper/pending-targets`, `DELETE /api/scraper/zones-history/:id`, `POST /api/scraper/check-zone` y `POST /api/scraper/check-places` (pre-chequeo por lote de leads ya existentes en MongoDB).
+  2. **CRM Dashboard (`crm-dashboard/index.html` & `crm-dashboard/app.js`):**
+     - Nuevo Modal **Gestor & Configurador de Lugares del Scraper** con 3 pestañas: Lugares ya Escaneados (con buscador, link a Maps y botón `Liberar`), Configurador de Lugares/Rubros Propios y Reglas de la Extensión, y Próximos Lugares Vírgenes.
+  3. **Extensión Chrome Pro v3.0 (`manifest.json`, `background.js`, `popup.html`, `popup.js`, `content.js`):**
+     - UI/UX dark SaaS con 3 pestañas (`Auto GPS`, `Zonas CRM`, `Cola Manual`), banner de progreso en vivo con Pausa/Reanudar, logs persistentes y acceso 1-clic al CRM.
+     - HUD flotante en Google Maps arrastrable, colapsable, con indicador en vivo de zona virgen vs ya escaneada y badges visuales por tarjeta (`✅ Guardado`, `🔄 En CRM`, `🚫 Sin tel.`).
+     - Fix definitivo del loop que saltaba arriba: deduplicación estricta por `PlaceKey` único + raspado **Abajo → Arriba (`bottom-up`)** por defecto + búsqueda viva del nodo DOM + pre-chequeo batch contra MongoDB.
+
 ### 69. Fix de `HTTP 500` en `POST /ingest` por Duplicados sin Teléfono (`E11000 duplicate key error: name_1_phone_1`)
 - **Causa Raíz Detectada en Logs de Producción (`nexte-backend-error.log`):**
   1. Cuando el scraper encontraba un negocio en Google Maps **sin número de teléfono** (`phone: ""`), como `"ZETTA BEBIDAS - Mayorista Y Minorista de Bebidas"` o `"Distribuidora Mayorista JM"`, el endpoint `POST /ingest` en `server/index.js` solo chequeaba duplicados si `cleanSuffix.length >= 8` o `if (effectivePhone)`.

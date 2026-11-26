@@ -635,14 +635,17 @@ app.post('/ingest', async (req, res) => {
         if (matchedRubro) kw = matchedRubro.id;
       }
 
-      if (zId && kw) {
+      if (zId && kw && !first.skipAutoZoneMark) {
         geoGridScanner.recordZoneScan({
           zoneId: zId,
           zoneName: zName || zId,
+          location: first.location || '',
           keyword: kw,
           totalLeadsFound: leads.length,
           validLeadsIngested: added,
-          discardedLeads: discarded
+          discardedLeads: discarded,
+          duplicatesSkipped: duplicates,
+          source: 'ingest_auto'
         }).catch(e => console.warn('Aviso guardando memoria de zona:', e.message));
       }
     }
@@ -3349,12 +3352,42 @@ app.post(['/api/leads/study-not-interested', '/leads/study-not-interested'], asy
   }
 });
 
-// GET /api/scraper/catalog - Catálogo completo de Ciudades, Subzonas y Rubros NatoH Systems
-app.get('/api/scraper/catalog', (req, res) => {
+// GET /api/scraper/catalog - Catálogo unificado (presets + lugares/rubros personalizados del CRM)
+app.get('/api/scraper/catalog', async (req, res) => {
   try {
-    const catalog = geoGridScanner.getCatalog();
+    const catalog = await geoGridScanner.getMergedCatalog();
     res.json({ success: true, ...catalog });
   } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/scraper/config - Configuración de lugares, rubros y preferencias del scraper (compartida CRM <-> Extensión)
+app.get('/api/scraper/config', async (req, res) => {
+  try {
+    const config = await geoGridScanner.getScraperConfig();
+    res.json({ success: true, config });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT / POST /api/scraper/config - Guardar configuración de lugares personalizados y reglas del scraper desde CRM o Extensión
+app.put('/api/scraper/config', async (req, res) => {
+  try {
+    const config = await geoGridScanner.saveScraperConfig(req.body || {});
+    res.json({ success: true, config });
+  } catch (error) {
+    console.error('Error guardando scraper_config:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+app.post('/api/scraper/config', async (req, res) => {
+  try {
+    const config = await geoGridScanner.saveScraperConfig(req.body || {});
+    res.json({ success: true, config });
+  } catch (error) {
+    console.error('Error guardando scraper_config:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -3369,10 +3402,13 @@ app.post('/api/scraper/generate-grid', (req, res) => {
   }
 });
 
-// GET /api/scraper/next-target - Obtener próxima zona y rubro recomendados sin repetición (Agente 1)
+// GET /api/scraper/next-target - Obtener próxima zona y rubro recomendados sin repetición (Agente 1 + Config CRM)
 app.get('/api/scraper/next-target', async (req, res) => {
   try {
-    const target = await geoGridScanner.getNextRecommendedTarget(req.query.city, req.query.rubro);
+    const excludeKeys = req.query.exclude
+      ? String(req.query.exclude).split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+    const target = await geoGridScanner.getNextRecommendedTarget(req.query.city, req.query.rubro, excludeKeys);
     res.json(target);
   } catch (error) {
     console.error('Error obteniendo próximo objetivo de scraping:', error);
@@ -3380,10 +3416,26 @@ app.get('/api/scraper/next-target', async (req, res) => {
   }
 });
 
+// GET /api/scraper/pending-targets - Lista de combinaciones vírgenes pendientes de escanear
+app.get('/api/scraper/pending-targets', async (req, res) => {
+  try {
+    const limit = Math.min(100, parseInt(req.query.limit || 40, 10));
+    const result = await geoGridScanner.getPendingTargets({
+      preferredCity: req.query.city || null,
+      preferredRubro: req.query.rubro || null,
+      limit
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('Error obteniendo zonas pendientes:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // GET /api/scraper/zones-history - Historial de zonas y rubros ya escaneados con métricas
 app.get('/api/scraper/zones-history', async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit || 50);
+    const limit = Math.min(500, parseInt(req.query.limit || 200, 10));
     const history = await geoGridScanner.getScannedHistory(limit);
     res.json(history);
   } catch (error) {
@@ -3392,13 +3444,85 @@ app.get('/api/scraper/zones-history', async (req, res) => {
   }
 });
 
-// POST /api/scraper/mark-scanned - Registrar manualmente o por webhook que una zona fue escaneada
+// POST /api/scraper/mark-scanned - Registrar que un lugar/zona + rubro ya fue escaneado (manual o auto)
 app.post('/api/scraper/mark-scanned', async (req, res) => {
   try {
-    const result = await geoGridScanner.recordZoneScan(req.body);
+    const result = await geoGridScanner.recordZoneScan(req.body || {});
     res.json(result);
   } catch (error) {
     console.error('Error marcando zona como escaneada:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE /api/scraper/zones-history/:id - Liberar una zona del historial para permitir re-escanearla
+app.delete('/api/scraper/zones-history/:id', async (req, res) => {
+  try {
+    const result = await geoGridScanner.deleteScannedZone(req.params.id);
+    res.json(result);
+  } catch (error) {
+    console.error('Error eliminando zona escaneada:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/scraper/check-zone - Verificar antes de raspar si un lugar + rubro ya fue escaneado
+app.post('/api/scraper/check-zone', async (req, res) => {
+  try {
+    const result = await geoGridScanner.checkZoneScanned(req.body || {});
+    res.json(result);
+  } catch (error) {
+    console.error('Error verificando zona escaneada:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/scraper/check-places - Pre-chequeo por lote de negocios visibles en Maps para saltar los ya guardados en CRM sin hacer clic
+app.post('/api/scraper/check-places', async (req, res) => {
+  try {
+    const places = Array.isArray(req.body?.places) ? req.body.places.slice(0, 250) : [];
+    if (places.length === 0) {
+      return res.json({ success: true, existingKeys: [], matchedCount: 0 });
+    }
+
+    const cleanUrls = [];
+    const cleanNames = [];
+    for (const p of places) {
+      if (p.mapsUrl) cleanUrls.push(String(p.mapsUrl).split(/[?#]/)[0]);
+      if (p.name && String(p.name).trim().length >= 2) cleanNames.push(String(p.name).trim());
+    }
+
+    const orClauses = [];
+    if (cleanUrls.length > 0) orClauses.push({ mapsUrl: { $in: cleanUrls } });
+    if (cleanNames.length > 0) orClauses.push({ name: { $in: cleanNames } });
+
+    if (orClauses.length === 0) {
+      return res.json({ success: true, existingKeys: [], matchedCount: 0 });
+    }
+
+    const existingDocs = await Lead.find({ $or: orClauses })
+      .select('name mapsUrl status')
+      .lean();
+
+    const existingUrlSet = new Set(existingDocs.map(d => String(d.mapsUrl || '').split(/[?#]/)[0]).filter(Boolean));
+    const existingNameSet = new Set(existingDocs.map(d => String(d.name || '').toLowerCase().trim()).filter(Boolean));
+
+    const existingKeys = [];
+    for (const p of places) {
+      const u = p.mapsUrl ? String(p.mapsUrl).split(/[?#]/)[0] : '';
+      const n = p.name ? String(p.name).toLowerCase().trim() : '';
+      if ((u && existingUrlSet.has(u)) || (n && existingNameSet.has(n))) {
+        existingKeys.push(p.key);
+      }
+    }
+
+    res.json({
+      success: true,
+      existingKeys,
+      matchedCount: existingKeys.length
+    });
+  } catch (error) {
+    console.error('Error en check-places:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

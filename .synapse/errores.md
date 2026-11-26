@@ -192,6 +192,22 @@ Este archivo documenta errores encontrados y sus soluciones para NO repetirlos.
 
 ---
 
+## ERR-23: Scraper vuelve hacia arriba y empieza de nuevo con tarjetas anteriores (2026-11-26)
+**Síntoma:** Al llegar al final de las tarjetas de Google Maps, el scroll saltaba violentamente hacia arriba y el scraper volvía a cliquear la tarjeta #1, #2, etc.
+**Root Cause:** `cardsList()` en `extension/content.js` hacía `[...document.querySelectorAll('[role="article"]'), ...document.querySelectorAll('a.hfpxzc')]` y usaba `new Set(nodes)`. Como el `<div>` y su `<a>` hijo son nodos DOM diferentes, el array tenía TODAS las tarjetas duplicadas (`[art1..artN, link1..linkN]`). Al llegar al índice `N`, tomaba `link1` y llamaba a `scrollIntoView()`, saltando de golpe arriba del todo.
+**Solución:** Recolectar únicamente `a.hfpxzc[href*="/maps/place/"]` deduplicados por `PlaceKey` canónico (`!1s0x...:0x...` o slug), procesar por defecto **Abajo → Arriba (`bottom-up`)** desde el final del scroll con búsqueda viva del nodo DOM + `sessionProcessedKeys` + pre-chequeo por lote en `/api/scraper/check-places`.
+**Estado:** ✅ FIXED
+
+---
+
+## ERR-24: `ScannedZone` fallaba al guardar zonas manuales (`center.lat is required`) (2026-11-26)
+**Síntoma:** Al terminar o ingestar zonas manuales, `recordZoneScan` arrojaba `ValidationError: center.lat is required` y además Mongoose descartaba `lastScannedAt` y `scanCount` porque no existían en el esquema.
+**Root Cause:** `ScannedZoneSchema` exigía `center.lat` y `center.lng` como `required: true` y carecía de los campos `lastScannedAt`, `scanCount`, `searchQuery`, `googleMapsUrl` y `scrapeDirection`.
+**Solución:** Hacer opcionales `center.lat`/`lng` (`default: null`), añadir todos los campos de telemetría/URL/dirección al esquema, y conectar un configurador completo en CRM (`Config: scraper_config`) sincronizado con la extensión.
+**Estado:** ✅ FIXED
+
+---
+
 ## ERR-01: `outside_business_hours` cuando estamos en horario (2026-02-05)
 **Síntoma:** Bot 1 muestra `⚠️ Rate limit alcanzado: outside_business_hours` a las 08:18 Argentina.
 **Root Cause:** `rateLimiter.js` funciones `getNextBusinessHour()` y `getSmartDelay()` usaban `new Date().getHours()` que retorna hora UTC del servidor, NO hora Argentina.

@@ -1,13 +1,14 @@
 /**
- * 🗺️ AGENTE 1: GEO-GRID SCANNER & MEMORIA PERSISTENTE DE ZONAS (NatoH Systems B2B Edition)
- * 
- * Calcula y planifica cuadrículas de coordenadas GPS sobre ciudades argentinas
- * y lleva el registro histórico en MongoDB (`ScannedZone`) de qué sub-zonas
- * y qué rubros ya fueron escaneados para evitar repeticiones y maximizar
- * el descubrimiento de negocios calificados para NatoH Systems (natohsystems.com).
+ * 🗺️ AGENTE 1: GEO-GRID SCANNER, CONFIGURADOR DE LUGARES & MEMORIA PERSISTENTE ANTI-REPETICIÓN
+ * (NatoH Systems B2B Edition)
+ *
+ * - Gestiona el catálogo base + lugares/rubros personalizados configurados desde el CRM (`Config: scraper_config`)
+ * - Registra en MongoDB (`ScannedZone`) cada lugar + rubro escaneado (tanto en modo Auto GPS como Manual)
+ * - Impide repetir lugares/búsquedas ya escaneadas (y permite consultar, buscar, abrir en Maps o liberar desde el CRM y la Extensión)
  */
 
 const ScannedZone = require('../models/ScannedZone');
+const Config = require('../models/Config');
 
 const PRESET_ZONES = {
     caba: {
@@ -56,6 +57,12 @@ const PRESET_ZONES = {
         name: 'Mar del Plata',
         center: { lat: -38.0055, lng: -57.5426 },
         bounds: { north: -37.950, south: -38.060, west: -57.620, east: -57.520 },
+        defaultZoom: 15
+    },
+    custom: {
+        name: 'Lugares Personalizados (CRM)',
+        center: { lat: -34.6037, lng: -58.3816 },
+        bounds: { north: -34.535, south: -34.685, west: -58.530, east: -58.350 },
         defaultZoom: 15
     }
 };
@@ -134,7 +141,239 @@ const RUBROS_CATALOG = [
     { id: 'indumentaria', label: 'Locales de Ropa, Calzado y Showrooms', query: 'tienda de ropa showroom indumentaria', targetSolution: 'ecommerce', priority: 7 }
 ];
 
+const DEFAULT_SCRAPER_CONFIG = {
+    customZones: [],      // [{ id, name, city, lat, lng, zoom, enabled: true }]
+    customRubros: [],     // [{ id, label, query, targetSolution, priority, enabled: true }]
+    disabledCities: [],   // ['mar_del_plata', ...]
+    disabledZoneIds: [],  // ['caba_microcentro', ...]
+    disabledRubroIds: [], // ['peluquerias', ...]
+    defaultDirection: 'bottom-up', // 'bottom-up' | 'top-down'
+    skipExistingLeads: true,
+    skipScannedZones: true,
+    speedPreset: 'balanced' // 'safe' | 'balanced' | 'fast'
+};
+
+function stripAccents(str = '') {
+    return String(str || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+}
+
+function normalizeSlug(str = '') {
+    return stripAccents(str)
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 80);
+}
+
+function buildGoogleMapsUrl(zone, rubro) {
+    const cleanZoneName = String(zone?.name || zone?.id || '').replace(/\(.*\)/, '').trim();
+    const rawQuery = rubro?.query || rubro?.label || rubro?.id || 'comercio';
+    if (zone && typeof zone.lat === 'number' && typeof zone.lng === 'number' && !isNaN(zone.lat) && !isNaN(zone.lng)) {
+        const encodedQuery = encodeURIComponent(rawQuery);
+        return `https://www.google.com/maps/search/${encodedQuery}/@${zone.lat},${zone.lng},${zone.zoom || 15}z`;
+    }
+    const fullQuery = cleanZoneName ? `${rawQuery} en ${cleanZoneName}` : rawQuery;
+    return `https://www.google.com/maps/search/${encodeURIComponent(fullQuery)}`;
+}
+
 class GeoGridScanner {
+    async getScraperConfig() {
+        try {
+            const doc = await Config.findOne({ key: 'scraper_config' }).lean();
+            if (doc && doc.value && typeof doc.value === 'object') {
+                return {
+                    ...DEFAULT_SCRAPER_CONFIG,
+                    ...doc.value,
+                    customZones: Array.isArray(doc.value.customZones) ? doc.value.customZones : [],
+                    customRubros: Array.isArray(doc.value.customRubros) ? doc.value.customRubros : [],
+                    disabledCities: Array.isArray(doc.value.disabledCities) ? doc.value.disabledCities : [],
+                    disabledZoneIds: Array.isArray(doc.value.disabledZoneIds) ? doc.value.disabledZoneIds : [],
+                    disabledRubroIds: Array.isArray(doc.value.disabledRubroIds) ? doc.value.disabledRubroIds : []
+                };
+            }
+        } catch (err) {
+            console.warn('⚠️ [GeoGridScanner] Error leyendo scraper_config:', err.message);
+        }
+        return { ...DEFAULT_SCRAPER_CONFIG };
+    }
+
+    async saveScraperConfig(patch = {}) {
+        const current = await this.getScraperConfig();
+        const next = {
+            ...current,
+            ...patch
+        };
+
+        // Sanitizar customZones
+        if (Array.isArray(next.customZones)) {
+            const seenZ = new Set();
+            next.customZones = next.customZones
+                .filter(z => z && (z.name || z.id))
+                .map(z => {
+                    const name = String(z.name || z.id).trim();
+                    const id = z.id ? normalizeSlug(z.id) : `custom_${normalizeSlug(name)}`;
+                    return {
+                        id,
+                        name,
+                        city: z.city || 'custom',
+                        lat: z.lat !== '' && z.lat !== null && z.lat !== undefined && !isNaN(Number(z.lat)) ? Number(z.lat) : null,
+                        lng: z.lng !== '' && z.lng !== null && z.lng !== undefined && !isNaN(Number(z.lng)) ? Number(z.lng) : null,
+                        zoom: Number(z.zoom) || 15,
+                        isCustom: true,
+                        enabled: z.enabled !== false
+                    };
+                })
+                .filter(z => {
+                    if (!z.id || seenZ.has(z.id)) return false;
+                    seenZ.add(z.id);
+                    return true;
+                });
+        }
+
+        // Sanitizar customRubros
+        if (Array.isArray(next.customRubros)) {
+            const seenR = new Set();
+            next.customRubros = next.customRubros
+                .filter(r => r && (r.label || r.query || r.id))
+                .map(r => {
+                    const label = String(r.label || r.query || r.id).trim();
+                    const query = String(r.query || r.label || r.id).trim();
+                    const id = r.id ? normalizeSlug(r.id) : `custom_${normalizeSlug(label)}`;
+                    return {
+                        id,
+                        label,
+                        query,
+                        targetSolution: r.targetSolution || 'ia_natoh',
+                        priority: Number(r.priority) || 10,
+                        isCustom: true,
+                        enabled: r.enabled !== false
+                    };
+                })
+                .filter(r => {
+                    if (!r.id || seenR.has(r.id)) return false;
+                    seenR.add(r.id);
+                    return true;
+                });
+        }
+
+        await Config.findOneAndUpdate(
+            { key: 'scraper_config' },
+            { $set: { key: 'scraper_config', value: next, updatedAt: new Date() } },
+            { upsert: true, new: true }
+        );
+
+        return next;
+    }
+
+    /**
+     * Devuelve el catálogo unificado (presets + personalizados en CRM)
+     */
+    async getMergedCatalog() {
+        const cfg = await this.getScraperConfig();
+        const disabledCitiesSet = new Set(cfg.disabledCities || []);
+        const disabledZonesSet = new Set(cfg.disabledZoneIds || []);
+        const disabledRubrosSet = new Set(cfg.disabledRubroIds || []);
+
+        const allSubZones = [
+            ...cfg.customZones.map(z => ({ ...z, isCustom: true })),
+            ...GRANULAR_SUBZONES.map(z => ({ ...z, isCustom: false }))
+        ].map(z => ({
+            ...z,
+            enabled: z.enabled !== false && !disabledZonesSet.has(z.id) && !disabledCitiesSet.has(z.city)
+        }));
+
+        const allRubros = [
+            ...cfg.customRubros.map(r => ({ ...r, isCustom: true })),
+            ...RUBROS_CATALOG.map(r => ({ ...r, isCustom: false }))
+        ].map(r => ({
+            ...r,
+            enabled: r.enabled !== false && !disabledRubrosSet.has(r.id)
+        }));
+
+        return {
+            cities: this.getPresetZones().map(c => ({
+                ...c,
+                enabled: !disabledCitiesSet.has(c.id)
+            })),
+            subZones: allSubZones,
+            rubros: allRubros,
+            config: cfg
+        };
+    }
+
+    /**
+     * Resuelve cualquier input manual o automático contra el catálogo para evitar duplicar zonas con nombres parecidos
+     */
+    async resolveZoneAndRubro({ zoneId = '', zoneName = '', location = '', keyword = '', keywordLabel = '', searchQuery = '' } = {}) {
+        const merged = await this.getMergedCatalog();
+        const rawLoc = String(zoneId || zoneName || location || '').trim();
+        const locNorm = stripAccents(rawLoc);
+        const locSlug = normalizeSlug(rawLoc);
+
+        let matchedZone = null;
+        if (locNorm) {
+            matchedZone = merged.subZones.find(z => {
+                const zIdNorm = stripAccents(z.id);
+                const zNameNorm = stripAccents(z.name);
+                const zBase = zNameNorm.split('(')[0].trim();
+                return (
+                    zIdNorm === locNorm ||
+                    zIdNorm === locSlug ||
+                    zNameNorm === locNorm ||
+                    zBase === locNorm ||
+                    (locNorm.length >= 4 && (zBase.includes(locNorm) || locNorm.includes(zBase)))
+                );
+            });
+        }
+
+        const rawKw = String(keyword || keywordLabel || '').trim();
+        const kwNorm = stripAccents(rawKw);
+        const kwSlug = normalizeSlug(rawKw);
+
+        let matchedRubro = null;
+        if (kwNorm) {
+            matchedRubro = merged.rubros.find(r => {
+                const rIdNorm = stripAccents(r.id);
+                const rLabelNorm = stripAccents(r.label);
+                const rQueryNorm = stripAccents(r.query);
+                return (
+                    rIdNorm === kwNorm ||
+                    rIdNorm === kwSlug ||
+                    rLabelNorm === kwNorm ||
+                    rQueryNorm === kwNorm ||
+                    (kwNorm.length >= 4 && (rLabelNorm.includes(kwNorm) || rQueryNorm.includes(kwNorm) || kwNorm.includes(rIdNorm)))
+                );
+            });
+        }
+
+        const resolvedZoneId = matchedZone ? matchedZone.id : (locSlug || 'vista_maps');
+        const resolvedZoneName = matchedZone ? matchedZone.name : (zoneName || location || zoneId || 'Vista Google Maps');
+        const resolvedCity = matchedZone ? matchedZone.city : 'custom';
+        const resolvedCenter = matchedZone && typeof matchedZone.lat === 'number' && typeof matchedZone.lng === 'number'
+            ? { lat: matchedZone.lat, lng: matchedZone.lng }
+            : { lat: null, lng: null };
+        const resolvedZoom = matchedZone?.zoom || 15;
+
+        const resolvedKeyword = matchedRubro ? matchedRubro.id : (kwSlug || 'general');
+        const resolvedKeywordLabel = matchedRubro ? matchedRubro.label : (keywordLabel || keyword || 'General');
+
+        return {
+            zoneId: resolvedZoneId,
+            zoneName: resolvedZoneName,
+            city: resolvedCity,
+            center: resolvedCenter,
+            zoom: resolvedZoom,
+            keyword: resolvedKeyword,
+            keywordLabel: resolvedKeywordLabel,
+            searchQuery: searchQuery || `${matchedRubro ? matchedRubro.query : resolvedKeywordLabel} en ${resolvedZoneName.replace(/\(.*\)/, '').trim()}`,
+            matchedZone,
+            matchedRubro
+        };
+    }
+
     /**
      * Genera una cuadrícula de puntos GPS dentro de un área para búsquedas hiper-locales
      */
@@ -201,94 +440,155 @@ class GeoGridScanner {
     }
 
     /**
-     * Calcula la próxima combinación (Sub-zona + Rubro) que NO haya sido escaneada aún,
-     * o bien la que se haya escaneado hace más tiempo.
-     * Permite filtrar opcionalmente por `preferredCity` y/o `preferredRubro`.
+     * Verifica si una zona + rubro (o búsqueda manual) YA fue escaneada previamente
      */
-    async getNextRecommendedTarget(preferredCity = null, preferredRubro = null) {
-        const scannedRecords = await ScannedZone.find({}).sort({ lastScannedAt: -1 }).lean();
+    async checkZoneScanned(params = {}) {
+        const resolved = await this.resolveZoneAndRubro(params);
+        const queryOr = [
+            { zoneId: resolved.zoneId, keyword: resolved.keyword }
+        ];
+        if (params.searchQuery && String(params.searchQuery).trim().length >= 4) {
+            const cleanQ = String(params.searchQuery).trim();
+            queryOr.push({ searchQuery: new RegExp('^' + cleanQ.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') });
+        }
+
+        const record = await ScannedZone.findOne({ $or: queryOr }).lean();
+        return {
+            success: true,
+            alreadyScanned: Boolean(record),
+            record: record || null,
+            resolved
+        };
+    }
+
+    /**
+     * Devuelve la lista de próximas combinaciones vírgenes (no escaneadas) respetando la config del CRM
+     */
+    async getPendingTargets({ preferredCity = null, preferredRubro = null, excludeKeys = [], limit = 30 } = {}) {
+        const merged = await this.getMergedCatalog();
+        const scannedRecords = await ScannedZone.find({}).sort({ lastScannedAt: -1, scannedAt: -1 }).lean();
 
         const scannedMap = new Map();
         for (const rec of scannedRecords) {
-            const key = `${rec.zoneId}::${rec.keyword}`;
-            scannedMap.set(key, rec);
+            scannedMap.set(`${String(rec.zoneId).toLowerCase()}::${String(rec.keyword).toLowerCase()}`, rec);
+        }
+        const excludeSet = new Set((excludeKeys || []).map(k => String(k).toLowerCase()));
+
+        let candidateZones = merged.subZones.filter(z => z.enabled);
+        if (preferredCity && preferredCity !== 'all') {
+            candidateZones = candidateZones.filter(z => z.city === preferredCity || z.id === preferredCity);
         }
 
-        const candidateZones = (preferredCity && preferredCity !== 'all')
-            ? GRANULAR_SUBZONES.filter(z => z.city === preferredCity || z.id === preferredCity)
-            : GRANULAR_SUBZONES;
+        let candidateRubros = merged.rubros.filter(r => r.enabled);
+        if (preferredRubro && preferredRubro !== 'all') {
+            candidateRubros = candidateRubros.filter(r => r.id === preferredRubro || r.query === preferredRubro);
+        }
 
-        const candidateRubros = (preferredRubro && preferredRubro !== 'all')
-            ? RUBROS_CATALOG.filter(r => r.id === preferredRubro || r.query === preferredRubro)
-            : RUBROS_CATALOG;
+        const effectiveZones = candidateZones.length > 0 ? candidateZones : merged.subZones;
+        const effectiveRubros = candidateRubros.length > 0 ? candidateRubros : merged.rubros;
 
-        const effectiveZones = candidateZones.length > 0 ? candidateZones : GRANULAR_SUBZONES;
-        const effectiveRubros = candidateRubros.length > 0 ? candidateRubros : RUBROS_CATALOG;
+        // Priorizar lugares personalizados y rubros de mayor ticket
+        const sortedZones = [...effectiveZones].sort((a, b) => (b.isCustom ? 1 : 0) - (a.isCustom ? 1 : 0));
+        const sortedRubros = [...effectiveRubros].sort((a, b) => {
+            if ((b.isCustom ? 1 : 0) !== (a.isCustom ? 1 : 0)) return (b.isCustom ? 1 : 0) - (a.isCustom ? 1 : 0);
+            return (b.priority || 5) - (a.priority || 5);
+        });
 
-        // 1. Buscar primera combinación virgen (priorizando rubros de mayor ticket / prioridad)
-        const sortedRubros = [...effectiveRubros].sort((a, b) => (b.priority || 5) - (a.priority || 5));
+        const pending = [];
+        let totalPossible = effectiveZones.length * effectiveRubros.length;
+        let totalVirgin = 0;
 
         for (const rubro of sortedRubros) {
-            for (const zone of effectiveZones) {
-                const key = `${zone.id}::${rubro.id}`;
-                if (!scannedMap.has(key)) {
-                    const searchQuery = `${rubro.query} en ${zone.name.replace(/\(.*\)/, '').trim()}`;
-                    const encodedQuery = encodeURIComponent(rubro.query);
-                    return {
-                        success: true,
-                        isNewTarget: true,
-                        zone: {
-                            id: zone.id,
-                            name: zone.name,
-                            city: zone.city,
-                            center: { lat: zone.lat, lng: zone.lng },
-                            zoom: zone.zoom
-                        },
-                        rubro: {
-                            id: rubro.id,
-                            label: rubro.label,
-                            query: rubro.query,
-                            targetSolution: rubro.targetSolution,
-                            priority: rubro.priority || 8
-                        },
-                        searchQuery,
-                        googleMapsUrl: `https://www.google.com/maps/search/${encodedQuery}/@${zone.lat},${zone.lng},${zone.zoom}z`,
-                        reason: `Zona virgen de alta conversión NatoH Systems: nunca se escaneó "${rubro.label}" en ${zone.name}.`,
-                        totalScannedCount: scannedRecords.length,
-                        totalPossibleCombinations: GRANULAR_SUBZONES.length * RUBROS_CATALOG.length
-                    };
+            for (const zone of sortedZones) {
+                const key = `${zone.id.toLowerCase()}::${rubro.id.toLowerCase()}`;
+                if (!scannedMap.has(key) && !excludeSet.has(key)) {
+                    totalVirgin++;
+                    if (pending.length < limit) {
+                        const searchQuery = `${rubro.query} en ${zone.name.replace(/\(.*\)/, '').trim()}`;
+                        pending.push({
+                            key,
+                            isNewTarget: true,
+                            zone: {
+                                id: zone.id,
+                                name: zone.name,
+                                city: zone.city,
+                                isCustom: Boolean(zone.isCustom),
+                                center: { lat: zone.lat ?? null, lng: zone.lng ?? null },
+                                zoom: zone.zoom || 15
+                            },
+                            rubro: {
+                                id: rubro.id,
+                                label: rubro.label,
+                                query: rubro.query,
+                                targetSolution: rubro.targetSolution,
+                                isCustom: Boolean(rubro.isCustom),
+                                priority: rubro.priority || 8
+                            },
+                            searchQuery,
+                            googleMapsUrl: buildGoogleMapsUrl(zone, rubro)
+                        });
+                    }
                 }
             }
         }
 
-        // 2. Si todas fueron escaneadas, devolver la más antigua dentro del filtro
-        let oldestCombo = null;
-        let oldestDate = new Date();
+        return {
+            success: true,
+            pending,
+            totalVirgin,
+            totalScannedCount: scannedRecords.length,
+            totalPossibleCombinations: totalPossible
+        };
+    }
 
-        for (const rubro of effectiveRubros) {
-            for (const zone of effectiveZones) {
-                const rec = scannedMap.get(`${zone.id}::${rubro.id}`);
-                if (rec && new Date(rec.lastScannedAt) <= oldestDate) {
-                    oldestDate = new Date(rec.lastScannedAt);
-                    oldestCombo = { zone, rubro, rec };
-                }
-            }
+    /**
+     * Calcula la próxima combinación (Sub-zona + Rubro) que NO haya sido escaneada aún,
+     * respetando la configuración del CRM y evitando repeticiones.
+     */
+    async getNextRecommendedTarget(preferredCity = null, preferredRubro = null, excludeKeys = []) {
+        const result = await this.getPendingTargets({
+            preferredCity,
+            preferredRubro,
+            excludeKeys,
+            limit: 10
+        });
+
+        if (result.pending.length > 0) {
+            const first = result.pending[0];
+            return {
+                success: true,
+                isNewTarget: true,
+                allExhausted: false,
+                zone: first.zone,
+                rubro: first.rubro,
+                searchQuery: first.searchQuery,
+                googleMapsUrl: first.googleMapsUrl,
+                reason: first.zone.isCustom || first.rubro.isCustom
+                    ? `Objetivo personalizado configurado en CRM: "${first.rubro.label}" en ${first.zone.name} (nunca escaneado).`
+                    : `Zona virgen sin repetir: nunca se escaneó "${first.rubro.label}" en ${first.zone.name}.`,
+                totalScannedCount: result.totalScannedCount,
+                totalPossibleCombinations: result.totalPossibleCombinations,
+                remainingVirginCount: result.totalVirgin,
+                upcomingTargets: result.pending.slice(1, 6)
+            };
         }
 
-        const fallbackZone = oldestCombo?.zone || effectiveZones[0];
-        const fallbackRubro = oldestCombo?.rubro || effectiveRubros[0];
-        const searchQuery = `${fallbackRubro.query} en ${fallbackZone.name.replace(/\(.*\)/, '').trim()}`;
-        const encodedQuery = encodeURIComponent(fallbackRubro.query);
+        // Si TODAS las combinaciones del filtro fueron escaneadas, devolver aviso claro (y la más antigua solo como referencia)
+        const merged = await this.getMergedCatalog();
+        const scannedRecords = await ScannedZone.find({}).sort({ lastScannedAt: 1, scannedAt: 1 }).lean();
+        const fallbackZone = merged.subZones[0];
+        const fallbackRubro = merged.rubros[0];
 
         return {
             success: true,
             isNewTarget: false,
+            allExhausted: true,
             zone: {
                 id: fallbackZone.id,
                 name: fallbackZone.name,
                 city: fallbackZone.city,
-                center: { lat: fallbackZone.lat, lng: fallbackZone.lng },
-                zoom: fallbackZone.zoom
+                center: { lat: fallbackZone.lat ?? null, lng: fallbackZone.lng ?? null },
+                zoom: fallbackZone.zoom || 15
             },
             rubro: {
                 id: fallbackRubro.id,
@@ -297,11 +597,13 @@ class GeoGridScanner {
                 targetSolution: fallbackRubro.targetSolution,
                 priority: fallbackRubro.priority || 8
             },
-            searchQuery,
-            googleMapsUrl: `https://www.google.com/maps/search/${encodedQuery}/@${fallbackZone.lat},${fallbackZone.lng},${fallbackZone.zoom}z`,
-            reason: `Re-escaneo de ciclo: esta combinación fue la más antigua en memoria.`,
+            searchQuery: `${fallbackRubro.query} en ${fallbackZone.name.replace(/\(.*\)/, '').trim()}`,
+            googleMapsUrl: buildGoogleMapsUrl(fallbackZone, fallbackRubro),
+            reason: `¡Completaste el 100% de las zonas habilitadas para este filtro! Agregá nuevos lugares/rubros desde el CRM o liberá una zona antigua.`,
             totalScannedCount: scannedRecords.length,
-            totalPossibleCombinations: GRANULAR_SUBZONES.length * RUBROS_CATALOG.length
+            totalPossibleCombinations: result.totalPossibleCombinations,
+            remainingVirginCount: 0,
+            upcomingTargets: []
         };
     }
 
@@ -311,42 +613,66 @@ class GeoGridScanner {
     async recordZoneScan({
         zoneId,
         zoneName,
-        city = 'caba',
+        location,
+        city,
         keyword,
         keywordLabel = '',
-        center = { lat: null, lng: null },
-        zoom = 15,
+        searchQuery = '',
+        googleMapsUrl = '',
+        center,
+        zoom,
+        scrapeDirection = 'bottom-up',
         totalLeadsFound = 0,
         validLeadsIngested = 0,
         discardedLeads = 0,
+        duplicatesSkipped = 0,
         status = 'completed',
+        source = 'extension',
         notes = ''
     }) {
-        if (!zoneId || !keyword) {
-            throw new Error('zoneId y keyword son obligatorios para registrar zona escaneada');
-        }
+        const resolved = await this.resolveZoneAndRubro({
+            zoneId,
+            zoneName,
+            location,
+            keyword,
+            keywordLabel,
+            searchQuery
+        });
 
-        const normZoneId = String(zoneId).toLowerCase().trim();
-        const normKeyword = String(keyword).toLowerCase().trim();
+        const finalCenter = (center && typeof center.lat === 'number' && typeof center.lng === 'number')
+            ? { lat: center.lat, lng: center.lng }
+            : resolved.center;
 
+        const finalUrl = googleMapsUrl || buildGoogleMapsUrl(
+            { id: resolved.zoneId, name: resolved.zoneName, lat: finalCenter.lat, lng: finalCenter.lng, zoom: zoom || resolved.zoom },
+            { id: resolved.keyword, label: resolved.keywordLabel, query: resolved.matchedRubro?.query || resolved.keywordLabel }
+        );
+
+        const now = new Date();
         const updated = await ScannedZone.findOneAndUpdate(
-            { zoneId: normZoneId, keyword: normKeyword },
+            { zoneId: resolved.zoneId, keyword: resolved.keyword },
             {
                 $set: {
-                    zoneName: zoneName || normZoneId,
-                    city,
-                    keywordLabel: keywordLabel || normKeyword,
-                    center,
-                    zoom,
+                    zoneName: zoneName || resolved.zoneName,
+                    city: city || resolved.city || 'custom',
+                    keywordLabel: keywordLabel || resolved.keywordLabel,
+                    searchQuery: searchQuery || resolved.searchQuery,
+                    googleMapsUrl: finalUrl,
+                    center: finalCenter,
+                    zoom: zoom || resolved.zoom || 15,
+                    scrapeDirection: scrapeDirection === 'top-down' ? 'top-down' : 'bottom-up',
                     status,
-                    lastScannedAt: new Date(),
+                    source,
+                    scannedAt: now,
+                    lastScannedAt: now,
                     ...(notes ? { notes } : {})
                 },
                 $inc: {
                     scanCount: 1,
                     totalLeadsFound: Number(totalLeadsFound) || 0,
                     validLeadsIngested: Number(validLeadsIngested) || 0,
-                    discardedLeads: Number(discardedLeads) || 0
+                    discardedLeads: Number(discardedLeads) || 0,
+                    duplicatesSkipped: Number(duplicatesSkipped) || 0
                 }
             },
             { upsert: true, new: true }
@@ -358,16 +684,27 @@ class GeoGridScanner {
         };
     }
 
+    async deleteScannedZone(id) {
+        const deleted = await ScannedZone.findByIdAndDelete(id);
+        return {
+            success: Boolean(deleted),
+            deletedId: id
+        };
+    }
+
     /**
      * Obtiene el historial completo de zonas escaneadas y estadísticas de cobertura
      */
-    async getScannedHistory(limit = 50) {
+    async getScannedHistory(limit = 200) {
+        const merged = await this.getMergedCatalog();
         const records = await ScannedZone.find({})
-            .sort({ lastScannedAt: -1 })
+            .sort({ lastScannedAt: -1, scannedAt: -1, updatedAt: -1 })
             .limit(limit)
             .lean();
 
-        const totalPossible = GRANULAR_SUBZONES.length * RUBROS_CATALOG.length;
+        const enabledZonesCount = merged.subZones.filter(z => z.enabled).length || merged.subZones.length;
+        const enabledRubrosCount = merged.rubros.filter(r => r.enabled).length || merged.rubros.length;
+        const totalPossible = Math.max(1, enabledZonesCount * enabledRubrosCount);
         const totalScanned = await ScannedZone.countDocuments({});
 
         return {
@@ -383,5 +720,6 @@ class GeoGridScanner {
 const scannerInstance = new GeoGridScanner();
 scannerInstance.GRANULAR_SUBZONES = GRANULAR_SUBZONES;
 scannerInstance.RUBROS_CATALOG = RUBROS_CATALOG;
+scannerInstance.normalizeSlug = normalizeSlug;
 
 module.exports = scannerInstance;

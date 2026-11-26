@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Nexte Agente 1 — GMaps Leads Scraper",
-  "description": "Scrapea Google Maps con memoria de zonas GPS (Agente 1) y envía leads al CRM Nexte",
-  "version": "2.0.0",
+  "name": "NatoH Systems — GMaps Leads Scraper Pro",
+  "description": "Scraper Google Maps con memoria anti-repetición sincronizada al CRM, raspado Abajo→Arriba sin saltos y HUD interactivo",
+  "version": "3.0.0",
   "permissions": [
     "activeTab",
     "storage",
@@ -13,6 +13,7 @@
     "https://*.google.com/maps/*",
     "https://*.google.com.ar/maps/*",
     "http://localhost:3001/*",
+    "http://localhost:8484/*",
     "http://*/*",
     "https://*/*"
   ],
@@ -32,7 +33,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "GMaps Scraper"
+    "default_title": "NatoH Systems — GMaps Scraper Pro"
   },
   "icons": {
     "16": "icons/icon16.svg",
