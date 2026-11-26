@@ -184,6 +184,14 @@ Este archivo documenta errores encontrados y sus soluciones para NO repetirlos.
 
 ---
 
+## ERR-22: `HTTP 500` en el Scraper al enviar un negocio a `POST /ingest` (2026-11-26)
+**Síntoma:** La extensión de Chrome muestra `HTTP 500` (y reintenta 3 veces) al raspar ciertos negocios de Google Maps.
+**Root Cause:** Cuando un negocio de Google Maps no tiene teléfono cargado (`phone: ""`), el chequeo de duplicados en `POST /ingest` (`if (cleanSuffix.length >= 8) ... else if (effectivePhone)`) no se ejecutaba porque `effectivePhone` era un string vacío `""`. Si ese mismo negocio sin teléfono ya había sido scrapeado antes (quedando guardado como `discarded`), `Lead.create()` chocaba contra el índice único compuesto `name_1_phone_1` de MongoDB (`E11000 duplicate key error collection: gmaps-leads-scraper.leads index: name_1_phone_1 dup key: { name: "...", phone: "" }`), lanzando una excepción no controlada que devolvía `HTTP 500`.
+**Solución:** Chequear siempre `{ name: leadData.name, phone: effectivePhone }` antes de crear el documento en `POST /ingest` y capturar `createErr.code === 11000` en `Lead.create()` para tratarlo como `duplicates++` con respuesta `200 OK`.
+**Estado:** ✅ FIXED
+
+---
+
 ## ERR-01: `outside_business_hours` cuando estamos en horario (2026-02-05)
 **Síntoma:** Bot 1 muestra `⚠️ Rate limit alcanzado: outside_business_hours` a las 08:18 Argentina.
 **Root Cause:** `rateLimiter.js` funciones `getNextBusinessHour()` y `getSmartDelay()` usaban `new Date().getHours()` que retorna hora UTC del servidor, NO hora Argentina.

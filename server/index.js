@@ -457,17 +457,26 @@ app.post('/ingest', async (req, res) => {
       const effectivePhone = phoneCheck.valid ? phoneCheck.formatted : rawPhone;
       const cleanSuffix = effectivePhone.replace(/\D/g, '').slice(-8);
 
-      // Verificar duplicados por teléfono formateado o sufijo
+      // Verificar duplicados por teléfono formateado, sufijo o índice compuesto (name + phone)
       let exists = null;
       if (cleanSuffix && cleanSuffix.length >= 8) {
         exists = await Lead.findOne({
           $or: [
             { phone: effectivePhone },
-            { phone: new RegExp(cleanSuffix + '$') }
+            { phone: new RegExp(cleanSuffix + '$') },
+            ...(leadData.name ? [{ name: leadData.name, phone: effectivePhone }] : [])
           ]
         });
       } else if (effectivePhone) {
-        exists = await Lead.findOne({ phone: effectivePhone });
+        exists = await Lead.findOne({
+          $or: [
+            { phone: effectivePhone },
+            ...(leadData.name ? [{ name: leadData.name, phone: effectivePhone }] : [])
+          ]
+        });
+      } else if (leadData.name) {
+        // Negocios sin teléfono (phone: ""): chequear por name + phone para no chocar con el índice único name_1_phone_1
+        exists = await Lead.findOne({ name: leadData.name, phone: effectivePhone });
       }
 
       if (exists) {
@@ -487,24 +496,33 @@ app.post('/ingest', async (req, res) => {
         externalPlatform: leadData.externalPlatform || extClass?.externalPlatform || ''
       });
 
-      const newLead = await Lead.create({
-        ...leadData,
-        phone: effectivePhone,
-        phoneValidated: phoneCheck.valid,
-        status: leadStatus,
-        isQualified,
-        qualificationReason,
-        source: leadData.source || 'extension',
-        hasWebsite: hasWeb,
-        instagramUrl: leadData.instagramUrl || extClass?.instagramUrl || '',
-        facebookUrl: leadData.facebookUrl || extClass?.facebookUrl || '',
-        externalPlatform: leadData.externalPlatform || extClass?.externalPlatform || '',
-        leadScore: initialScore.leadScore,
-        priorityTier: initialScore.priorityTier,
-        scoreBreakdown: initialScore.scoreBreakdown,
-        scannedZoneId: leadData.zoneId || '',
-        scannedZoneName: leadData.zoneName || leadData.location || ''
-      });
+      let newLead = null;
+      try {
+        newLead = await Lead.create({
+          ...leadData,
+          phone: effectivePhone,
+          phoneValidated: phoneCheck.valid,
+          status: leadStatus,
+          isQualified,
+          qualificationReason,
+          source: leadData.source || 'extension',
+          hasWebsite: hasWeb,
+          instagramUrl: leadData.instagramUrl || extClass?.instagramUrl || '',
+          facebookUrl: leadData.facebookUrl || extClass?.facebookUrl || '',
+          externalPlatform: leadData.externalPlatform || extClass?.externalPlatform || '',
+          leadScore: initialScore.leadScore,
+          priorityTier: initialScore.priorityTier,
+          scoreBreakdown: initialScore.scoreBreakdown,
+          scannedZoneId: leadData.zoneId || '',
+          scannedZoneName: leadData.zoneName || leadData.location || ''
+        });
+      } catch (createErr) {
+        if (createErr && createErr.code === 11000) {
+          duplicates++;
+          continue;
+        }
+        throw createErr;
+      }
 
       if (!isQualified) {
         discarded++;

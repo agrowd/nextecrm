@@ -1,6 +1,20 @@
 # 🔄 WORK CYCLE LOG
 
-## Current Session: 2026-11-17 (14:15 Argentina)
+## Current Session: 2026-11-26 (09:33 Argentina)
+- **Objective:** Diagnosticar y solucionar el error `HTTP 500` que mostraba el scraper de Chrome (`POST /ingest`) al intentar enviar determinados negocios de Google Maps.
+- **Status:** ✅ COMPLETED, SYNCHRONIZED & DEPLOYED TO VPS
+- **Git Info:** master
+
+### 69. Fix de `HTTP 500` en `POST /ingest` por Duplicados sin Teléfono (`E11000 duplicate key error: name_1_phone_1`)
+- **Causa Raíz Detectada en Logs de Producción (`nexte-backend-error.log`):**
+  1. Cuando el scraper encontraba un negocio en Google Maps **sin número de teléfono** (`phone: ""`), como `"ZETTA BEBIDAS - Mayorista Y Minorista de Bebidas"` o `"Distribuidora Mayorista JM"`, el endpoint `POST /ingest` en `server/index.js` solo chequeaba duplicados si `cleanSuffix.length >= 8` o `if (effectivePhone)`.
+  2. Al ser `effectivePhone === ""`, `exists` quedaba en `null` (saltándose el chequeo de duplicados) e intentaba hacer `await Lead.create({ name, phone: "" })`.
+  3. Como ese negocio sin teléfono ya había sido scrapeado y guardado antes como `discarded`, MongoDB arrojaba `MongoServerError: E11000 duplicate key error collection: gmaps-leads-scraper.leads index: name_1_phone_1 dup key: { name: "...", phone: "" }`, devolviendo `HTTP 500` a la extensión de Chrome (la cual además reintentaba 3 veces antes de seguir).
+- **Solución Realizada (`server/index.js`):**
+  1. Se amplió la búsqueda de `exists` en `POST /ingest` para incluir `{ name: leadData.name, phone: effectivePhone }` (especialmente cuando `effectivePhone` es `""`).
+  2. Se envolvió `await Lead.create(...)` en un `try / catch` específico para `createErr.code === 11000`, contabilizándolo limpiamente como `duplicates++` y respondiendo `HTTP 200 OK` en lugar de `HTTP 500`.
+
+## Previous Session: 2026-11-17 (14:15 Argentina)
 - **Objective:** Transformar el sitio web `https://natohsystems.com` (`/srv/natohsystems`) y toda la secuencia de mensajes de WhatsApp (`aiTextGenerator.js`, `painAnalyzer.js`, `closerCopilot.js`, `server/index.js`) al **idioma real del dueño de negocio (cero tecnicismos)**, incorporando el servicio mensual del **Agente IA #1 (Respondedor 24/7 en WhatsApp y Web - $115.000/mes)** y el **Doble Agente IA (Respondedor + Gestor automático) con el Sistema CRM, Agenda de Turnos o Gestor de Pedidos Incluido ($175.000/mes)**, junto con las opciones de pago único (Web $250.000 y Sistema $350.000) (`D-48`).
 - **Status:** ✅ COMPLETED, SYNCHRONIZED & DEPLOYED TO VPS
 - **Git Info:** master
