@@ -337,28 +337,53 @@
     return '';
   }
 
+  function normalizeTitleCompare(s = '') {
+    return String(s || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  }
+
+  function titlesMatch(a = '', b = '') {
+    const na = normalizeTitleCompare(a);
+    const nb = normalizeTitleCompare(b);
+    if (!na || !nb) return false;
+    return na === nb || na.includes(nb) || nb.includes(na);
+  }
+
   async function getUpdatedTitleText(prevTitle, expectedLabel, timeout = 8000) {
     const t0 = Date.now();
-    const normExpected = (expectedLabel || '').toLowerCase().trim();
-    const normPrev = (prevTitle || '').toLowerCase().trim();
+    const normExpected = normalizeTitleCompare(expectedLabel);
+    const normPrev = normalizeTitleCompare(prevTitle);
 
     while (Date.now() - t0 < timeout) {
       const cur = readCurrentTitleText();
       if (cur) {
-        const normCur = cur.toLowerCase().trim();
-        if (normExpected && (normCur === normExpected || normCur.includes(normExpected) || normExpected.includes(normCur))) {
+        const normCur = normalizeTitleCompare(cur);
+        // 1. Si coincide con el negocio que acabamos de cliquear -> ¡abrió bien!
+        if (normExpected && titlesMatch(normCur, normExpected)) {
           return cur;
         }
-        if (!normPrev || normCur !== normPrev) {
+        // 2. Si cambió respecto al título anterior (y no es un header genérico de resultados) -> ¡abrió bien!
+        if (normPrev && normCur !== normPrev && !/^resultados$|^results$/i.test(normCur)) {
           return cur;
         }
-        if (Date.now() - t0 > 3800) return cur;
+        // 3. Si no había panel abierto antes y ya apareció un título válido
+        if (!normPrev && !/^resultados$|^results$/i.test(normCur)) {
+          return cur;
+        }
       }
       await delay(180);
     }
-    const fallback = readCurrentTitleText();
-    if (fallback) return fallback;
-    throw new Error('Título de ficha no cargado');
+
+    // Si expiró el timeout y sigue mostrando exactamente la tarjeta anterior, NO aceptar panel viejo: lanzar error para reintentar
+    const lastCur = readCurrentTitleText();
+    if (lastCur && normExpected && titlesMatch(lastCur, normExpected)) {
+      return lastCur;
+    }
+    throw new Error(`La tarjeta "${expectedLabel || 'desconocida'}" no se abrió (el panel seguía en "${lastCur || 'vacío'}")`);
   }
 
   /* ───── Scroll inteligente recolectando PlaceKeys únicos hasta el fondo ───── */
@@ -658,21 +683,44 @@
     return lead;
   }
 
-  async function openAndExtract(target, anchor, kw, loc, zoneMeta = {}, tries = 2) {
+  function clickCardReliably(anchor, attempt = 0) {
+    try {
+      anchor.focus({ preventScroll: true });
+    } catch {}
+    if (attempt === 0) {
+      anchor.click();
+      return;
+    }
+    // En reintentos, disparar eventos de puntero completos sobre el enlace y su tarjeta contenedora
+    const targetEl = attempt === 1 ? anchor : (anchor.closest('[role="article"]') || anchor);
+    ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(evType => {
+      try {
+        targetEl.dispatchEvent(new MouseEvent(evType, { bubbles: true, cancelable: true, view: window }));
+      } catch {}
+    });
+  }
+
+  async function openAndExtract(target, anchor, kw, loc, zoneMeta = {}, tries = 3) {
     for (let at = 0; at < tries; at++) {
-      if (checkStop()) return null;
+      if (checkStop()) return { status: 'stopped', lead: null };
       try {
         const prevTitle = readCurrentTitleText();
         const expectedLabel = target.label || getCardLabelFromAnchor(anchor);
 
-        anchor.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        // Centrar la tarjeta en el medio del feed para que nunca quede tapada por la barra de búsqueda o el HUD
+        anchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
         await rwait();
-        paintCardBadge(anchor, 'active', '⚡ Raspando...');
-        anchor.click();
+        paintCardBadge(anchor, 'active', at === 0 ? '⚡ Abriendo...' : `🔁 Reintento ${at + 1}...`);
+        clickCardReliably(anchor, at);
 
-        await waitForSel('[role="main"]', 14000);
-        await getUpdatedTitleText(prevTitle, expectedLabel, 7500);
+        await waitForSel('[role="main"]', 12000);
+        const openedTitle = await getUpdatedTitleText(prevTitle, expectedLabel, 6500);
         await delay(420);
+
+        // Doble seguridad anti-panel viejo: si el título sigue igual al anterior y NO coincide con lo cliqueado, reintentar
+        if (prevTitle && expectedLabel && titlesMatch(openedTitle, prevTitle) && !titlesMatch(expectedLabel, prevTitle)) {
+          throw new Error(`Panel desactualizado: seguía abierto "${prevTitle}"`);
+        }
 
         const lead = await extractFromCurrentMainPanel(target, kw, loc, zoneMeta);
 
@@ -680,26 +728,31 @@
           sessionStats.discarded++;
           paintCardBadge(anchor, 'discarded', '🚫 Cerrado');
           log(`🚫 Cerrado permanentemente: ${lead.name}`, 'warn');
-          return null;
+          return { status: 'closed', lead: null };
         }
 
         const fp = `${lead.name}|${lead.phone}|${lead.address}`.toLowerCase().trim();
         if (sentLeadFingerprints.has(fp)) {
           sessionStats.duplicates++;
           paintCardBadge(anchor, 'crm', '🔄 Duplicado');
-          return null;
+          return { status: 'duplicate', lead: null };
         }
         sentLeadFingerprints.add(fp);
 
         lastExtractedName = lead.name.substring(0, 30);
-        return lead;
+        return { status: 'ok', lead };
       } catch (e) {
-        log(`⚠️ Reintento ${at + 1}/${tries} en "${target.label || 'tarjeta'}": ${e.message}`, 'warn');
-        if (at === tries - 1) return null;
-        await delay(rand(700, 1100));
+        log(`⚠️ Intento ${at + 1}/${tries} sin abrir "${target.label || 'tarjeta'}": ${e.message}`, 'warn');
+        if (at === tries - 1) {
+          sessionStats.errors++;
+          paintCardBadge(anchor, 'error', '⚠️ No abrió');
+          updateHud();
+          return { status: 'open_failed', lead: null };
+        }
+        await delay(rand(700, 1200));
       }
     }
-    return null;
+    return { status: 'open_failed', lead: null };
   }
 
   async function sendLeadToBackend(lead, anchor) {
@@ -934,12 +987,14 @@
         continue;
       }
 
-      const lead = await openAndExtract(target, liveAnchor, kw, loc, zoneMeta);
-      sessionProcessedKeys.add(target.key);
+      const extractRes = await openAndExtract(target, liveAnchor, kw, loc, zoneMeta);
+      if (extractRes?.status !== 'open_failed') {
+        sessionProcessedKeys.add(target.key);
+      }
 
-      if (lead) {
-        if (lead.address && sampleAddresses.length < 15) sampleAddresses.push(lead.address);
-        await sendLeadToBackend(lead, liveAnchor);
+      if (extractRes?.lead) {
+        if (extractRes.lead.address && sampleAddresses.length < 15) sampleAddresses.push(extractRes.lead.address);
+        await sendLeadToBackend(extractRes.lead, liveAnchor);
       }
 
       // Checkpoint cada 6 tarjetas para que nunca se pierda la zona aunque se cierre el navegador

@@ -208,6 +208,14 @@ Este archivo documenta errores encontrados y sus soluciones para NO repetirlos.
 
 ---
 
+## ERR-25: Tarjeta que no abre marcada falsamente como "Duplicado" + falsos positivos por nombre en `check-places` (2026-11-27)
+**Síntoma:** Si al hacer clic sobre una tarjeta de Google Maps la ficha no abría (ej. tapada por la barra superior con `block: 'nearest'`), `getUpdatedTitleText` devolvía el título del negocio anterior tras 3.8s, extraía la ficha previa y la marcaba como `🔄 Duplicado` sin haber abierto nunca el negocio nuevo. Además, `check-places` comparaba solo por `name`, pudiendo saltar sucursales o negocios homónimos en otras provincias.
+**Root Cause:** Fallback silencioso `if (Date.now() - t0 > 3800) return cur;` en `getUpdatedTitleText`, uso de `block: 'nearest'`, y match por `name` en `POST /api/scraper/check-places`.
+**Solución:** 1) Eliminar el fallback silencioso en `getUpdatedTitleText` y lanzar error si el panel sigue en `prevTitle` para reintentar 3 veces con `block: 'center'` y eventos completos de mouse; si falla, marcar `⚠️ No abrió` (nunca `Duplicado`). 2) En `POST /api/scraper/check-places`, verificar exclusivamente por `placeKey` / CID exacto (`0x...:0x...`) o `mapsUrl` exacto.
+**Estado:** ✅ FIXED
+
+---
+
 ## ERR-01: `outside_business_hours` cuando estamos en horario (2026-02-05)
 **Síntoma:** Bot 1 muestra `⚠️ Rate limit alcanzado: outside_business_hours` a las 08:18 Argentina.
 **Root Cause:** `rateLimiter.js` funciones `getNextBusinessHour()` y `getSmartDelay()` usaban `new Date().getHours()` que retorna hora UTC del servidor, NO hora Argentina.

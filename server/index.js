@@ -3555,7 +3555,7 @@ app.post('/api/scraper/check-zone', async (req, res) => {
   }
 });
 
-// POST /api/scraper/check-places - Pre-chequeo por lote de negocios visibles en Maps para saltar los ya guardados en CRM sin hacer clic
+// POST /api/scraper/check-places - Pre-chequeo exacto por PlaceKey / CID / URL de Maps (evita falsos duplicados por nombre en distintas provincias)
 app.post('/api/scraper/check-places', async (req, res) => {
   try {
     const places = Array.isArray(req.body?.places) ? req.body.places.slice(0, 250) : [];
@@ -3564,37 +3564,47 @@ app.post('/api/scraper/check-places', async (req, res) => {
     }
 
     const cleanUrls = [];
-    const cleanNames = [];
     const cleanPlaceKeys = [];
+    const cidList = [];
+
     for (const p of places) {
-      if (p.mapsUrl) cleanUrls.push(String(p.mapsUrl).split(/[?#]/)[0]);
-      if (p.name && String(p.name).trim().length >= 2) cleanNames.push(String(p.name).trim());
-      if (p.key && String(p.key).trim().length >= 4) cleanPlaceKeys.push(String(p.key).trim());
+      const u = p.mapsUrl ? String(p.mapsUrl).split(/[?#]/)[0] : '';
+      const k = p.key ? String(p.key).trim() : '';
+      if (u && u.includes('/maps/place/')) cleanUrls.push(u);
+      if (k && k.length >= 6) cleanPlaceKeys.push(k);
+      if (k && /^0x[0-9a-f]+:0x[0-9a-f]+$/i.test(k)) cidList.push(k);
     }
 
     const orClauses = [];
     if (cleanPlaceKeys.length > 0) orClauses.push({ placeKey: { $in: cleanPlaceKeys } });
     if (cleanUrls.length > 0) orClauses.push({ mapsUrl: { $in: cleanUrls } });
-    if (cleanNames.length > 0) orClauses.push({ name: { $in: cleanNames } });
+    // Para leads históricos sin `placeKey`, buscar su CID único exacto dentro de `mapsUrl`
+    if (cidList.length > 0) {
+      const escapedCids = cidList.slice(0, 120).map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      orClauses.push({ mapsUrl: { $regex: escapedCids.join('|'), $options: 'i' } });
+    }
 
     if (orClauses.length === 0) {
       return res.json({ success: true, existingKeys: [], matchedCount: 0 });
     }
 
     const existingDocs = await Lead.find({ $or: orClauses })
-      .select('name mapsUrl placeKey status')
+      .select('mapsUrl placeKey')
       .lean();
 
-    const existingKeySet = new Set(existingDocs.map(d => String(d.placeKey || '').trim()).filter(Boolean));
+    const existingKeySet = new Set(existingDocs.map(d => String(d.placeKey || '').toLowerCase().trim()).filter(Boolean));
     const existingUrlSet = new Set(existingDocs.map(d => String(d.mapsUrl || '').split(/[?#]/)[0]).filter(Boolean));
-    const existingNameSet = new Set(existingDocs.map(d => String(d.name || '').toLowerCase().trim()).filter(Boolean));
+    const existingCidSet = new Set();
+    for (const d of existingDocs) {
+      const m = String(d.mapsUrl || '').match(/!1s(0x[0-9a-f]+:0x[0-9a-f]+)/i);
+      if (m && m[1]) existingCidSet.add(m[1].toLowerCase());
+    }
 
     const existingKeys = [];
     for (const p of places) {
-      const k = p.key ? String(p.key).trim() : '';
+      const k = p.key ? String(p.key).toLowerCase().trim() : '';
       const u = p.mapsUrl ? String(p.mapsUrl).split(/[?#]/)[0] : '';
-      const n = p.name ? String(p.name).toLowerCase().trim() : '';
-      if ((k && existingKeySet.has(k)) || (u && existingUrlSet.has(u)) || (n && existingNameSet.has(n))) {
+      if ((k && (existingKeySet.has(k) || existingCidSet.has(k))) || (u && existingUrlSet.has(u))) {
         existingKeys.push(p.key);
       }
     }
